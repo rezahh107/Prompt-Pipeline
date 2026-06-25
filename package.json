@@ -1,0 +1,32 @@
+{
+  "name": "prompt-pipeline",
+  "version": "0.1.0",
+  "description": "Prompt Engineering as Code pipeline for versioned prompt artifacts.",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=20.20.0"
+  },
+  "scripts": {
+    "peac:generate": "tsx scripts/peac-generate.ts",
+    "peac:validate": "tsx scripts/peac-validate.ts",
+    "peac:sync": "tsx scripts/peac-sync.ts",
+    "peac:eval": "tsx scripts/peac-eval.ts",
+    "typecheck": "tsc --noEmit",
+    "ci": "pnpm typecheck && pnpm peac:validate && pnpm peac:sync -- --check"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "js-yaml": "^4.1.0",
+    "nunjucks": "^3.2.4"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "@types/nunjucks": "^3.2.6",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

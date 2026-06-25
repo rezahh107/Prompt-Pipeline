@@ -1,0 +1,19 @@
+contract_version: "1.0"
+domain: prompt_audit
+version: "2026.3"
+
+fields:
+  required:
+    - name: prompt_to_audit
+      type: string
+      ask_if_missing: "Provide the prompt to audit."
+  optional:
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: target_task
+      type: string
+      default: "not specified"
+  inferred:
+    - name: risk_level
+      default: medium

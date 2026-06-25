@@ -1,0 +1,4 @@
+domain: general
+version: "2026.3"
+trigger: manual
+llm_checks: []

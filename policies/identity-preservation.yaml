@@ -1,0 +1,25 @@
+policy_id: identity_preservation
+version: "2026.3"
+scope: global
+overridable: false
+source_ref: kb/04-templates/image.md
+peac_rule_id: image.identity.preservation
+source_hash: 3bdc1b77ee1d5bb3
+last_synced: "2026-06-25"
+
+description: Preserve identity and physical integrity when editing images with people.
+
+applies_when:
+  - "domain == 'image' && subject_count > 0 && has_source_photo == true"
+
+rules:
+  - "Preserve exact count of people."
+  - "Preserve faces, identity, age impression, skin tones, and hairstyles."
+  - "Preserve clothing, posture, body proportions, and hand positions."
+  - "Preserve documents held by subjects when requested."
+
+forbidden:
+  - "Changing number of people"
+  - "Changing apparent age"
+  - "Replacing faces"
+  - "Removing or redesigning important documents"

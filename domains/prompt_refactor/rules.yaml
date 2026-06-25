@@ -1,0 +1,11 @@
+domain: prompt_refactor
+version: "2026.3"
+
+rules:
+  - id: prompt_refactor.full_structure
+    peac_rule_id: refactor.full_structure
+    source_ref: kb/04-templates/general.md
+    source_hash: 3545a32daccea118
+    last_synced: "2026-06-25"
+    priority: high
+    rule: "Use full prompt architecture unless the user requests a lite prompt."

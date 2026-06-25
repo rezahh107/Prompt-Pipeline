@@ -1,0 +1,34 @@
+{% if has_source_photo %}
+Edit the uploaded source photo into a premium realistic {{ style_description | default('Persian academic award portrait') }}.
+
+{% if subject_count > 0 %}
+Preserve exactly all {% if subject_count > 1 %}main people{% else %}main person{% endif %} visible in the source photo.
+Keep: same count, identities, faces, age impression, skin tones, hairstyles, clothing, body proportions, posture, hands, and natural relative positions.
+{% endif %}
+
+{% if has_document %}
+Preserve the {{ document_type | default('document') }} in the subject's hand: prominent, natural, and as sharp as the source allows. Do not redesign or replace it.
+{% endif %}
+
+Change only: background, lighting, color grading, and overall presentation style.
+{% else %}
+Create a professional {{ style_description | default('image') }}.
+{% endif %}
+
+New background: {{ background_description | default('softly blurred modern academic office') }}.
+- {{ color_palette.primary | default('warm cream') }} walls
+- subtle {{ color_palette.secondary | default('navy') }} accents
+- restrained {{ color_palette.accent | default('gold') }} details
+- calm formal educational mood
+
+Composition: vertical {{ aspect_ratio | default('4:5') }}.
+{% if needs_overlay %}
+Leave the top {{ safe_area_percent | default(25) }}% completely clean and empty for later deterministic overlay.
+Keep all faces{% if has_document %} and the {{ document_type | default('document') }}{% endif %} below that area.
+{% endif %}
+
+Style: photorealistic, natural skin tones, soft warm professional lighting, subtle depth of field, dignified, publication-ready.
+
+{% if needs_overlay %}
+Do not generate any text, logo, QR code, ranking, score, certificate text, or typographic element.
+{% endif %}

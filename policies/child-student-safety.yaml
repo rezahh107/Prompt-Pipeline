@@ -1,0 +1,19 @@
+policy_id: child_student_safety
+version: "2026.3"
+scope: global
+overridable: false
+source_ref: kb/09-safety-ethics.md
+peac_rule_id: safety.child_student
+source_hash: 0211fc63873c5c43
+last_synced: "2026-06-25"
+
+description: Extra safety policy for student/minor-related outputs.
+
+applies_when:
+  - "minors_or_students == true"
+
+rules:
+  - "Do not alter apparent age."
+  - "Do not over-manipulate facial features."
+  - "Do not fabricate educational achievements."
+  - "Keep the output dignified, safe, and respectful."

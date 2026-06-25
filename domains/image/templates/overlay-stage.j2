@@ -1,0 +1,35 @@
+Overlay Configuration for: {{ prompt_id | default('image.overlay') }}
+
+Canvas:
+  source_image: {{ source_image_path | default('[SOURCE_IMAGE_PATH]') }}
+  aspect_ratio: {{ aspect_ratio | default('4:5') }}
+  safe_area_top: {{ safe_area_percent | default(25) }}%
+
+{% if logo_required %}
+Logo:
+  file: {{ logo_file_path | default('[LOGO_FILE_PATH]') }}
+  position: top-center
+  area: safe_area
+  preserve_original: true
+{% endif %}
+
+{% if persian_text_required %}
+Typography:
+  direction: RTL
+  font_family: "Vazirmatn"
+  title:
+    text: "{{ student_name | default('[STUDENT_NAME_FROM_TRUSTED_SOURCE]') }}"
+    font_weight: ExtraBold
+    color: "{{ color_palette.secondary | default('#1a2744') }}"
+    align: center
+  subtitle:
+    text: "{{ subtitle | default('[SUBTITLE_FROM_TRUSTED_SOURCE]') }}"
+    font_weight: Medium
+    color: "{{ color_palette.secondary | default('#1a2744') }}"
+    align: center
+{% endif %}
+
+Output:
+  format: PNG
+  quality: 95
+  dpi: 300

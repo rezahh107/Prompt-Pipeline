@@ -1,0 +1,12 @@
+domain: general
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+  - id: template_renders_non_empty
+    type: output_check
+    check: "len(rendered_prompt) > 100"
+    severity: error

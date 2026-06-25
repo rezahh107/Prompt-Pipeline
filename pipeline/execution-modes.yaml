@@ -1,0 +1,24 @@
+modes:
+  interactive:
+    on_missing_input: ask_user
+    on_routing_failed: ask_user_then_fallback
+    on_validation_warning: warn_and_continue
+    on_validation_error: ask_user
+
+  batch:
+    on_missing_input: fail_with_missing_inputs
+    on_routing_failed: fail_with_error
+    on_validation_warning: log_and_continue
+    on_validation_error: fail_fast
+
+  ci:
+    on_missing_input: fail_fast
+    on_routing_failed: fail_fast
+    on_validation_warning: fail_fast
+    on_validation_error: fail_fast
+
+  agent:
+    on_missing_input: ask_or_default_by_policy
+    on_routing_failed: fallback_by_risk_level
+    on_validation_warning: log_and_continue
+    on_validation_error: ask_or_fail_by_risk

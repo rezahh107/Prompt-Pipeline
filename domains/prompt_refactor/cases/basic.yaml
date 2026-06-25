@@ -1,0 +1,20 @@
+case_id: prompt_refactor.basic.v1
+description: Refactor a vague prompt into a reusable one.
+domain: prompt_refactor
+subtype: default
+version: "2026.3"
+
+inputs:
+  original_prompt: "یه پرامپت بده که گزارش رو بررسی کنه."
+  target_model: GPT
+
+expected:
+  domain: prompt_refactor
+  subtype: default
+  risk_level: medium
+  requires_human_review: false
+  policies_applied: []
+  templates_used:
+    - refactor.j2
+  validation:
+    should_pass: true

@@ -1,0 +1,22 @@
+contract_version: "1.0"
+domain: general
+version: "2026.3"
+
+fields:
+  required:
+    - name: task
+      type: string
+      ask_if_missing: "What should the prompt accomplish?"
+  optional:
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: output_language
+      type: string
+      default: "English prompt, Persian explanation"
+    - name: output_format
+      type: string
+      default: "structured sections"
+  inferred:
+    - name: risk_level
+      default: low

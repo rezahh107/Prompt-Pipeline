@@ -1,0 +1,25 @@
+domain: image
+version: "2026.3"
+
+subtypes:
+  - id: identity_preserving_edit
+    description: Edit a source photo while preserving people.
+    triggers:
+      - "subject_count > 0 && has_source_photo == true"
+    templates:
+      primary: stage1-image-model.j2
+      overlay: overlay-stage.j2
+
+  - id: image_generation
+    description: Create an image from scratch.
+    triggers:
+      - "has_source_photo == false"
+    templates:
+      primary: stage1-image-model.j2
+
+risk_overrides:
+  - condition: "minors_or_students == true && needs_overlay == true"
+    risk: high
+    note: "Student/minor image with exact text or logo overlay."
+  - condition: "subject_count == 0"
+    risk: low

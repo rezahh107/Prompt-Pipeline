@@ -1,0 +1,12 @@
+domain: prompt_audit
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+  - id: taxonomy_present
+    type: output_check
+    check: "rendered_prompt contains 'confirmed_issue'"
+    severity: warning

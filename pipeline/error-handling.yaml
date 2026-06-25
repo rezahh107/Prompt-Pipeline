@@ -1,0 +1,31 @@
+routing_failed:
+  low_risk:
+    action: fallback_to_general
+    notify: "Domain was not resolved; falling back to general only because risk is low."
+  medium_risk:
+    action: ask_user_or_fail
+    notify: "Domain is ambiguous and requires confirmation."
+  high_risk:
+    action: fail_closed
+    notify: "Domain is ambiguous and high-risk; stopping."
+
+missing_required_input:
+  interactive: ask_user
+  batch: fail_with_missing_inputs
+  ci: fail_fast
+  agent: ask_or_default_by_policy
+
+validation_failed:
+  warning:
+    action: warn_and_continue
+    log_to: outputs/warnings.log
+  error:
+    action: fail_fast
+    reason: "An incomplete prompt is worse than no prompt."
+
+template_render_error:
+  action: fail_fast
+
+llm_eval_unavailable:
+  action: skip_level2
+  note: "Static checks are sufficient for deterministic CI."

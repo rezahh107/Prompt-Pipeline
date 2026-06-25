@@ -1,0 +1,21 @@
+case_id: general.basic.v1
+description: General prompt generation case.
+domain: general
+subtype: default
+version: "2026.3"
+
+inputs:
+  task: "Create a prompt for summarizing a technical report."
+  target_model: GPT
+  output_language: "English prompt, Persian explanation"
+
+expected:
+  domain: general
+  subtype: default
+  risk_level: low
+  requires_human_review: false
+  policies_applied: []
+  templates_used:
+    - general.j2
+  validation:
+    should_pass: true

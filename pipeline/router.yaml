@@ -1,0 +1,64 @@
+routing_strategy:
+  primary: keyword_match
+  fallback: not_implemented
+  tiebreak: depends_on_execution_mode
+
+risk_assessment:
+  factors:
+    - domain
+    - subject_identity
+    - minors_or_students
+    - external_files
+    - tool_actions
+    - irreversible_actions
+    - exact_factual_claims
+    - legal_medical_financial
+
+domains:
+  general:
+    enabled: true
+    is_fallback: true
+    max_risk_level: low
+    keywords:
+      - prompt
+      - پرامپت
+      - تحلیل
+      - تصمیم
+      - راهنما
+    confidence_threshold: 0.5
+
+  prompt_audit:
+    enabled: true
+    keywords:
+      - audit
+      - review prompt
+      - ممیزی پرامپت
+      - بررسی پرامپت
+      - ارزیابی پرامپت
+    confidence_threshold: 0.75
+
+  prompt_refactor:
+    enabled: true
+    keywords:
+      - improve prompt
+      - refactor prompt
+      - بازنویسی پرامپت
+      - اصلاح پرامپت
+      - بهتر کردن پرامپت
+    confidence_threshold: 0.75
+
+  image:
+    enabled: true
+    keywords:
+      - عکس
+      - تصویر
+      - پرتره
+      - ویرایش عکس
+      - image
+      - photo
+      - portrait
+    patterns:
+      - "پرامپت.*تصویر"
+      - "ویرایش.*عکس"
+      - "عکس.*پرامپت"
+    confidence_threshold: 0.8

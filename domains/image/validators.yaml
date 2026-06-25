@@ -1,0 +1,53 @@
+domain: image
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+
+  - id: overlay_policy_enforced
+    type: rule_presence
+    required_policy_id: overlay_exact_text
+    applies_when: "needs_overlay == true"
+    severity: error
+    message: "overlay_exact_text policy must be applied when overlay is needed."
+
+  - id: identity_policy_enforced
+    type: rule_presence
+    required_policy_id: identity_preservation
+    applies_when: "subject_count > 0 && has_source_photo == true"
+    severity: error
+
+  - id: child_student_policy_enforced
+    type: rule_presence
+    required_policy_id: child_student_safety
+    applies_when: "minors_or_students == true"
+    severity: error
+
+  - id: no_text_instruction_in_stage1
+    type: forbidden_instruction
+    forbidden_patterns:
+      - "write the Persian text into the image"
+      - "generate the logo"
+      - "add the student name as text"
+      - "write rank"
+    applies_when: "needs_overlay == true"
+    severity: error
+
+  - id: safe_area_defined
+    type: field_check
+    check: "safe_area_percent > 0"
+    applies_when: "needs_overlay == true"
+    severity: error
+
+  - id: template_renders_non_empty
+    type: output_check
+    check: "len(rendered_prompt) > 100"
+    severity: error
+
+  - id: reasonable_prompt_length
+    type: output_check
+    check: "len(rendered_prompt) >= 200 && len(rendered_prompt) <= 3000"
+    severity: warning

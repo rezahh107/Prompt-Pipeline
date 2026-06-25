@@ -1,0 +1,19 @@
+contract_version: "1.0"
+domain: prompt_refactor
+version: "2026.3"
+
+fields:
+  required:
+    - name: original_prompt
+      type: string
+      ask_if_missing: "Provide the original prompt to refactor."
+  optional:
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: desired_style
+      type: string
+      default: "precise, structured, reusable"
+  inferred:
+    - name: risk_level
+      default: medium

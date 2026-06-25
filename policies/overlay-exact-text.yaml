@@ -1,0 +1,25 @@
+policy_id: overlay_exact_text
+version: "2026.3"
+scope: global
+overridable: false
+source_ref: kb/04-templates/image.md
+peac_rule_id: image.overlay.exact_text
+source_hash: 943b0ec351cdd164
+last_synced: "2026-06-25"
+
+description: Exact Persian text, official logos, QR codes, and formal identifiers require deterministic overlay.
+
+applies_when:
+  - "needs_overlay == true || logo_required == true || persian_text_required == true"
+
+rules:
+  - "Do not ask the image model to generate exact Persian text."
+  - "Do not ask the image model to reproduce official logos."
+  - "Reserve a safe area for deterministic overlay."
+  - "Use an overlay tool for text, logos, QR codes, and formal identifiers."
+
+forbidden_instructions:
+  - "write the Persian text into the image"
+  - "generate the logo"
+  - "add the student name as text"
+  - "write rank number"

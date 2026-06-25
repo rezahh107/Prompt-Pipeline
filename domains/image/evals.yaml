@@ -1,0 +1,13 @@
+domain: image
+version: "2026.3"
+trigger: on_template_or_rule_change
+
+llm_checks:
+  - id: identity_preservation_instruction_present
+    metric: "prompt clearly instructs preservation of all people"
+    threshold: 0.9
+  - id: overlay_separation_clear
+    metric: "stage1 prompt does not attempt exact text/logo generation"
+    threshold: 0.95
+
+promptfoo_ref: tests/promptfoo/image-domain.yaml

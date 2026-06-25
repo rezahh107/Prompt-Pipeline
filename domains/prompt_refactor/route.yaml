@@ -1,0 +1,8 @@
+domain: prompt_refactor
+version: "2026.3"
+
+subtypes:
+  - id: default
+    description: Improve and standardize an existing prompt.
+    templates:
+      primary: refactor.j2
