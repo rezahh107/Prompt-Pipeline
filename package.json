@@ -18,7 +18,7 @@
     "peac:domaintest": "tsx scripts/peac-domain-self-test.ts",
     "peac:smoke": "pnpm peac:generate -- --case domains/image/cases/academic-portrait.yaml --mode batch",
     "typecheck": "tsc --noEmit",
-    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:validate && pnpm peac:sync -- --check && pnpm peac:smoke"
+    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:validate && pnpm peac:eval && pnpm peac:sync -- --check && pnpm peac:smoke"
   },
   "dependencies": {
     "ajv": "^8.17.1",
