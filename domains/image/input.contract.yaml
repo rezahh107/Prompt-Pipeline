@@ -57,6 +57,18 @@ fields:
     - name: minors_or_students
       type: boolean
       default: false
+    - name: depth_of_field_strong
+      type: boolean
+      default: false
+    - name: document_visible
+      type: boolean
+      default: false
+    - name: realistic_style
+      type: boolean
+      default: false
+    - name: heavy_beautify
+      type: boolean
+      default: false
 
   inferred:
     - name: needs_overlay
@@ -71,7 +83,7 @@ fields:
   forbidden_combinations:
     - fields: [depth_of_field_strong, document_visible]
       reason: "Strong depth of field conflicts with document readability."
-      action: warn
+      severity: warning
     - fields: [realistic_style, heavy_beautify]
       reason: "Heavy beautification conflicts with identity preservation."
-      action: warn
+      severity: error

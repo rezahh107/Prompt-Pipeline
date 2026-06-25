@@ -22,8 +22,16 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Typecheck
         run: pnpm typecheck
+      - name: PEaC self tests
+        run: pnpm peac:selftest
       - name: Static validation
-        run: pnpm peac:validate
+        run: pnpm peac:validate > peac-validate.log 2>&1
+      - name: Upload validation log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: peac-validation-log
+          path: peac-validate.log
       - name: Rule drift check
         run: pnpm peac:sync -- --check
       - name: Smoke generate artifact

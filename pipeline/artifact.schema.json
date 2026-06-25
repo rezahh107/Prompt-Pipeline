@@ -13,6 +13,8 @@
     "validation",
     "risk_level",
     "requires_human_review",
+    "runtime",
+    "hashes",
     "rendered_prompt"
   ],
   "properties": {
@@ -65,6 +67,31 @@
     "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
     "requires_human_review": { "type": "boolean" },
     "review_reason": { "type": ["string", "null"] },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_commit_sha", "node_version", "package_manager", "pipeline_version"],
+      "properties": {
+        "git_commit_sha": { "type": ["string", "null"] },
+        "node_version": { "type": "string" },
+        "package_manager": { "type": ["string", "null"] },
+        "pipeline_version": { "type": ["string", "null"] }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_hash", "contract_hash", "route_hash", "template_hash", "validators_hash", "policies_hash", "rendered_prompt_hash"],
+      "properties": {
+        "config_hash": { "type": "string" },
+        "contract_hash": { "type": "string" },
+        "route_hash": { "type": "string" },
+        "template_hash": { "type": "string" },
+        "validators_hash": { "type": "string" },
+        "policies_hash": { "type": "string" },
+        "rendered_prompt_hash": { "type": "string" }
+      }
+    },
     "rendered_prompt": { "type": "string" }
   }
 }
