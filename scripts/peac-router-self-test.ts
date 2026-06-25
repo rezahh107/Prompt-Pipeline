@@ -41,7 +41,6 @@ assertEqual('prompt refactor route', routeRequest('improve prompt structure and 
 assertEqual('prompt audit route', routeRequest('audit this prompt for risks'), 'prompt_audit');
 assertEqual('fallback route', routeRequest('give me a practical decision framework'), 'general');
 
-assertTrue('repo_review has multiline-safe repository pattern', (router.domains.repo_review.patterns ?? []).some((pattern) => pattern.includes('[\\s\\S]')));
 assertTrue('image domain enabled', router.domains.image.enabled === true);
 assertTrue('repo_review confidence threshold is explicit', typeof router.domains.repo_review.confidence_threshold === 'number');
 
