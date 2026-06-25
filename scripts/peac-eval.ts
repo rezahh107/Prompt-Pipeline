@@ -7,6 +7,7 @@ import { generateArtifact, loadConfig } from '../src/peac.js';
 interface RubricCheck {
   id: string;
   domain?: string;
+  subtype?: string;
   required_substrings?: string[];
   forbidden_substrings?: string[];
 }
@@ -45,6 +46,7 @@ if (rubrics.length === 0) {
 }
 
 const failures: string[] = [];
+let checksRun = 0;
 for (const caseFile of walkCases(config.domains_path)) {
   let artifact;
   try {
@@ -56,6 +58,8 @@ for (const caseFile of walkCases(config.domains_path)) {
   for (const rubric of rubrics) {
     for (const check of rubric.checks ?? []) {
       if (check.domain && check.domain !== artifact.domain) continue;
+      if (check.subtype && check.subtype !== artifact.subtype) continue;
+      checksRun += 1;
       for (const needle of check.required_substrings ?? []) {
         if (!artifact.rendered_prompt.includes(needle)) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} missing ${needle}`);
       }
@@ -72,4 +76,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`PEaC rubric evaluation passed with ${rubrics.length} rubric file(s).`);
+console.log(`PEaC rubric evaluation passed with ${rubrics.length} rubric file(s) and ${checksRun} check application(s).`);
