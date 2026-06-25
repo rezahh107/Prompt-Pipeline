@@ -2,22 +2,29 @@ rubric_id: image.stage1.v1
 version: "2026.3"
 
 checks:
-  - id: image_stage1_core_sections
+  - id: image_stage1_priority_and_boundaries
     domain: image
+    subtype: identity_preserving_edit
     required_substrings:
-      - "[ROLE]"
-      - "[MISSION]"
-
-  - id: image_identity_boundaries
-    domain: image
-    required_substrings:
+      - "Priority order:"
       - "Protected:"
       - "Editable:"
 
-  - id: image_overlay_guardrail
+  - id: image_stage1_overlay_guardrail
     domain: image
+    subtype: identity_preserving_edit
     required_substrings:
       - "Do not generate any text"
     forbidden_substrings:
       - "write the Persian text into the image"
       - "generate the logo"
+
+  - id: image_qa_sections
+    domain: image
+    subtype: image_qa
+    required_substrings:
+      - "[IDENTITY QA]"
+      - "[DOCUMENT QA]"
+      - "[SAFE AREA QA]"
+      - "[OVERLAY QA]"
+      - "[VERDICT]"
