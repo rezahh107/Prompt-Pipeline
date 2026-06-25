@@ -1,0 +1,23 @@
+rubric_id: image.stage1.v1
+version: "2026.3"
+
+checks:
+  - id: image_stage1_core_sections
+    domain: image
+    required_substrings:
+      - "[ROLE]"
+      - "[MISSION]"
+
+  - id: image_identity_boundaries
+    domain: image
+    required_substrings:
+      - "Protected:"
+      - "Editable:"
+
+  - id: image_overlay_guardrail
+    domain: image
+    required_substrings:
+      - "Do not generate any text"
+    forbidden_substrings:
+      - "write the Persian text into the image"
+      - "generate the logo"
