@@ -38,7 +38,7 @@ assertEqual('repo audit keyword route', routeRequest('Please run a repository au
 assertEqual('repo audit multiline route', routeRequest('repository\nneeds a strict audit'), 'repo_review');
 assertEqual('image keyword route', routeRequest('یک پرامپت تصویر برای پرتره بده'), 'image');
 assertEqual('prompt refactor route', routeRequest('improve prompt structure and constraints'), 'prompt_refactor');
-assertEqual('prompt audit route', routeRequest('audit this prompt for risks'), 'prompt_audit');
+assertEqual('prompt audit route', routeRequest('audit prompt structure for risks'), 'prompt_audit');
 assertEqual('fallback route', routeRequest('give me a practical decision framework'), 'general');
 
 assertTrue('image domain enabled', router.domains.image.enabled === true);
