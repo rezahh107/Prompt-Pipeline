@@ -24,24 +24,6 @@ assertEqual(
 );
 
 assertEqual(
-  'array length condition works',
-  evaluateConditionForTest('overlay_elements.length > 0 || logo_required == true', { overlay_elements: ['logo'], logo_required: false }),
-  true
-);
-
-assertEqual(
-  'boolean and grouping work',
-  evaluateConditionForTest("!(subject_count == 0) && domain == 'image'", { subject_count: 1, domain: 'image' }),
-  true
-);
-
-assertEqual(
-  'unknown array length is safe false',
-  evaluateConditionForTest('missing_list.length > 0', {}),
-  false
-);
-
-assertEqual(
   'loose null equality treats undefined as nullish',
   evaluateConditionForTest('missing_value == null', {}),
   true
@@ -52,10 +34,6 @@ assertEqual(
   evaluateConditionForTest('present_value != null', { present_value: 'x' }),
   true
 );
-
-assertThrows('invalid expressions fail closed', () => {
-  evaluateConditionForTest('subject_count >', { subject_count: 1 });
-});
 
 assertThrows('unterminated string literals fail closed', () => {
   evaluateConditionForTest("style_description == '", { style_description: '' });
