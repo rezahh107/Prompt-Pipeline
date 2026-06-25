@@ -1,0 +1,27 @@
+domain: repo_review
+version: "2026.3"
+
+subtypes:
+  - id: repository_audit
+    description: Review a repository or source archive and produce an evidence-based critique prompt.
+    triggers:
+      - "review_scope == 'repository'"
+    templates:
+      primary: repository-audit.j2
+  - id: pr_critique
+    description: Review a pull request or model-produced changes and produce a staged critique prompt.
+    triggers:
+      - "review_scope == 'pull_request'"
+    templates:
+      primary: pr-critique.j2
+
+risk_overrides:
+  - condition: "domain == 'repo_review' && external_files == true"
+    risk: medium
+    note: "Repository reviews usually depend on external code, archives, or PR diffs."
+  - condition: "domain == 'repo_review' && irreversible_actions == true"
+    risk: high
+    note: "Repository operations that change remote state require human review."
+  - condition: "domain == 'repo_review'"
+    risk: medium
+    note: "Repository review can affect code, release, and security decisions."
