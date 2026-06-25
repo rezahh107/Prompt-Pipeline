@@ -4,7 +4,8 @@ scope: global
 overridable: false
 source_ref: kb/04-templates/image.md
 peac_rule_id: image.identity.preservation
-source_hash: null
+source_hash: 3bdc1b77ee1d5bb3
+last_synced: "2026-06-25"
 
 description: Preserve identity and physical integrity when editing images with people.
 

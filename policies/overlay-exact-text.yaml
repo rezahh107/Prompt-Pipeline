@@ -4,7 +4,8 @@ scope: global
 overridable: false
 source_ref: kb/04-templates/image.md
 peac_rule_id: image.overlay.exact_text
-source_hash: null
+source_hash: 943b0ec351cdd164
+last_synced: "2026-06-25"
 
 description: Exact Persian text, official logos, QR codes, and formal identifiers require deterministic overlay.
 

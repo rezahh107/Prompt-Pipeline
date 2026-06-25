@@ -27,7 +27,6 @@ interface CaseFile {
   subtype?: string;
   version?: string;
   inputs: Dict;
-  expected?: { risk_level?: RiskLevel; requires_human_review?: boolean; validation?: { should_pass?: boolean } };
 }
 
 interface RoutingResult {
@@ -35,7 +34,6 @@ interface RoutingResult {
   subtype: string | null;
   confidence: number;
   method: string;
-  risk_level: RiskLevel;
 }
 
 interface ValidationResult {
@@ -79,14 +77,14 @@ export function parseArgs(argv: string[]): Record<string, string | boolean> {
     if (raw.includes('=')) {
       const [key, ...rest] = raw.split('=');
       out[key] = rest.join('=');
+      continue;
+    }
+    const next = argv[i + 1];
+    if (next && !next.startsWith('--')) {
+      out[raw] = next;
+      i += 1;
     } else {
-      const next = argv[i + 1];
-      if (next && !next.startsWith('--')) {
-        out[raw] = next;
-        i += 1;
-      } else {
-        out[raw] = true;
-      }
+      out[raw] = true;
     }
   }
   return out;
@@ -101,27 +99,28 @@ export function writeYamlFile(path: string, value: unknown): void {
   writeFileSync(path, yaml.dump(value, { lineWidth: 100, noRefs: true }));
 }
 
-function stableString(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value);
-}
-
 function evalCondition(expr: string | undefined, inputs: Dict): boolean {
   if (!expr || expr.trim() === '') return true;
-  const helper = (name: string): unknown => inputs[name];
+  const keys = Object.keys(inputs).filter((key) => /^[A-Za-z_$][\w$]*$/.test(key));
+  const values = keys.map((key) => inputs[key]);
   try {
-    const fn = new Function('value', `return Boolean(${expr.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (token) => {
-      if (['true', 'false', 'null', 'undefined'].includes(token)) return token;
-      return `value('${token}')`;
-    })});`);
-    return Boolean(fn(helper));
+    const fn = new Function(...keys, `return Boolean(${expr});`);
+    return Boolean(fn(...values));
   } catch {
     return false;
   }
 }
 
+function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dict): boolean {
+  const containsMatch = expr.match(/^rendered_prompt\s+contains\s+['"](.+)['"]$/);
+  if (containsMatch) return renderedPrompt.includes(containsMatch[1]);
+  const jsExpr = expr.replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
+  return evalCondition(jsExpr, { ...inputs, rendered_prompt: renderedPrompt });
+}
+
 function getRequiredFields(contract: Dict): string[] {
   const fields = contract.fields as { required?: Array<{ name: string }> } | undefined;
-  return fields?.required?.map((f) => f.name) ?? [];
+  return fields?.required?.map((field) => field.name) ?? [];
 }
 
 function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; defaulted: string[] } {
@@ -173,7 +172,7 @@ function selectSubtype(route: Dict, inputs: Dict, requested?: string): string {
 
 function selectTemplate(route: Dict, subtype: string): string {
   const subtypes = (route.subtypes as Array<{ id: string; templates?: { primary?: string } }> | undefined) ?? [];
-  return subtypes.find((s) => s.id === subtype)?.templates?.primary ?? `${subtype}.j2`;
+  return subtypes.find((item) => item.id === subtype)?.templates?.primary ?? `${subtype}.j2`;
 }
 
 function routeRequest(request: string, config: PEaCConfig): RoutingResult {
@@ -181,32 +180,31 @@ function routeRequest(request: string, config: PEaCConfig): RoutingResult {
   const normalized = request.toLowerCase();
   for (const [domain, domainConfig] of Object.entries(router.domains)) {
     if (domainConfig.enabled === false || domain === 'general') continue;
-    const keywordMatch = (domainConfig.keywords ?? []).some((kw) => normalized.includes(kw.toLowerCase()));
+    const keywordMatch = (domainConfig.keywords ?? []).some((keyword) => normalized.includes(keyword.toLowerCase()));
     const patternMatch = (domainConfig.patterns ?? []).some((pattern) => new RegExp(pattern, 'i').test(request));
     if (keywordMatch || patternMatch) {
-      return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match', risk_level: 'medium' };
+      return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match' };
     }
   }
-  return { domain: 'general', subtype: 'default', confidence: 0.5, method: 'fallback_general_low_risk', risk_level: 'low' };
+  return { domain: 'general', subtype: 'default', confidence: 0.5, method: 'fallback_general_low_risk' };
 }
 
 function loadPolicies(config: PEaCConfig, inputs: Dict): Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> {
-  const dir = config.policies_path;
-  if (!existsSync(dir)) return [];
+  if (!existsSync(config.policies_path)) return [];
   const result: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> = [];
-  for (const file of readdirSync(dir).filter((f) => f.endsWith('.yaml'))) {
-    const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(dir, file));
-    const applies = (policy.applies_when ?? ['true']).some((condition) => evalCondition(condition, inputs));
-    if (applies) {
-      result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: (policy.applies_when ?? ['true']).join(' OR ') });
+  for (const file of readdirSync(config.policies_path).filter((item) => item.endsWith('.yaml'))) {
+    const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(config.policies_path, file));
+    const conditions = policy.applies_when ?? ['true'];
+    if (conditions.some((condition) => evalCondition(condition, inputs))) {
+      result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: conditions.join(' OR ') });
     }
   }
   return result;
 }
 
 function renderTemplate(templatePath: string, inputs: Dict): string {
-  const env = new nunjucks.Environment(undefined, { autoescape: false, throwOnUndefined: false, trimBlocks: false });
-  return env.renderString(readFileSync(templatePath, 'utf8'), inputs).trim() + '\n';
+  const env = new nunjucks.Environment(undefined, { autoescape: false, throwOnUndefined: false });
+  return `${env.renderString(readFileSync(templatePath, 'utf8'), inputs).trim()}\n`;
 }
 
 function runStaticValidation(renderedPrompt: string, validatorsPath: string, contract: Dict, inputs: Dict, policiesApplied: string[]): ValidationResult {
@@ -220,11 +218,13 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
       validation.warnings.push(message);
     }
   };
+
   for (const check of validators.static_checks ?? []) {
     const id = String(check.id ?? 'unnamed_check');
     validation.checks_run.push(id);
     if (!evalCondition(check.applies_when as string | undefined, { ...inputs, rendered_prompt: renderedPrompt })) continue;
     const severity = String(check.severity ?? 'warning');
+
     if (check.type === 'contract_check') {
       const missing = getRequiredFields(contract).filter((name) => inputs[name] === undefined || inputs[name] === null || inputs[name] === '');
       if (missing.length > 0) add(severity, `Missing required fields: ${missing.join(', ')}`);
@@ -238,12 +238,11 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
         if (renderedPrompt.toLowerCase().includes(pattern.toLowerCase())) add(severity, `Forbidden instruction found: ${pattern}`);
       }
     }
-    if (check.type === 'field_check') {
-      if (!evalCondition(check.check as string | undefined, inputs)) add(severity, String(check.message ?? `Field check failed: ${id}`));
+    if (check.type === 'field_check' && !evalCondition(check.check as string | undefined, inputs)) {
+      add(severity, String(check.message ?? `Field check failed: ${id}`));
     }
-    if (check.type === 'output_check') {
-      const expression = String(check.check ?? '').replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
-      if (!evalCondition(expression, { ...inputs, rendered_prompt: renderedPrompt })) add(severity, String(check.message ?? `Output check failed: ${id}`));
+    if (check.type === 'output_check' && !checkOutputExpression(String(check.check ?? ''), renderedPrompt, inputs)) {
+      add(severity, String(check.message ?? `Output check failed: ${id}`));
     }
   }
   return validation;
@@ -254,9 +253,7 @@ function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): v
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
   const validate = ajv.compile(schema);
-  if (!validate(artifact)) {
-    throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
-  }
+  if (!validate(artifact)) throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
 }
 
 export function loadConfig(): PEaCConfig {
@@ -275,7 +272,7 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
 
   if (caseFile) {
     caseData = readYamlFile<CaseFile>(caseFile);
-    routing = { domain: caseData.domain, subtype: caseData.subtype ?? null, confidence: 1, method: 'case_file', risk_level: 'medium' };
+    routing = { domain: caseData.domain, subtype: caseData.subtype ?? null, confidence: 1, method: 'case_file' };
     providedInputs = { ...caseData.inputs };
   } else {
     routing = routeRequest(userRequest, config);
@@ -297,11 +294,11 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   inputs.risk_level = assessRisk(routing.domain, inputs);
   const riskLevel = inputs.risk_level as RiskLevel;
 
-  const primaryTemplate = selectTemplate(route, subtype);
-  const templatePath = join(config.domains_path, routing.domain, 'templates', primaryTemplate);
+  const templateName = selectTemplate(route, subtype);
+  const templatePath = join(config.domains_path, routing.domain, 'templates', templateName);
   const policies = loadPolicies(config, inputs);
   const renderedPrompt = renderTemplate(templatePath, inputs);
-  const validation = runStaticValidation(renderedPrompt, validatorsPath, contract, inputs, policies.map((p) => p.id));
+  const validation = runStaticValidation(renderedPrompt, validatorsPath, contract, inputs, policies.map((policy) => policy.id));
 
   const artifact: PromptArtifact = {
     prompt_id: `${routing.domain}.${subtype}.v1`,
@@ -317,7 +314,7 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
       template_used: templatePath,
       template_version: String(caseData?.version ?? '2026.3'),
       inputs_provided: Object.keys(providedInputs).filter((key) => key !== 'domain'),
-      inputs_inferred: withInferences.inferred.concat(['risk_level']).sort(),
+      inputs_inferred: [...withInferences.inferred, 'risk_level'].sort(),
       inputs_defaulted: withDefaults.defaulted.sort()
     },
     policies_applied: policies,
@@ -347,7 +344,7 @@ function walkFiles(dir: string): string[] {
 
 export function validateAllCases(): { total: number; passed: number; failed: number; failures: string[] } {
   const config = loadConfig();
-  const caseFiles = walkFiles(config.domains_path).filter((file) => file.includes(`${join('', 'cases')}`) && file.endsWith('.yaml'));
+  const caseFiles = walkFiles(config.domains_path).filter((file) => file.replaceAll('\\', '/').includes('/cases/') && file.endsWith('.yaml'));
   const failures: string[] = [];
   for (const file of caseFiles) {
     try {
@@ -366,9 +363,7 @@ export function extractRuleBlocks(kbRoot: string): Map<string, string> {
   for (const file of walkFiles(kbRoot).filter((path) => path.endsWith('.md'))) {
     const content = readFileSync(file, 'utf8');
     let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) {
-      blocks.set(match[1], match[2].trim());
-    }
+    while ((match = pattern.exec(content)) !== null) blocks.set(match[1], match[2].trim());
   }
   return blocks;
 }
@@ -386,6 +381,7 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
   ];
   const drifted: string[] = [];
   const updated: string[] = [];
+
   for (const file of yamlFiles) {
     const data = readYamlFile<Dict>(file);
     const entries = Array.isArray(data.rules) ? (data.rules as Dict[]) : [data];

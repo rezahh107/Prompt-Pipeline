@@ -5,7 +5,7 @@ rules:
   - id: general.prompt_structure
     peac_rule_id: general.prompt_structure
     source_ref: kb/01-core-principles.md
-    source_hash: null
-    last_synced: null
+    source_hash: e9c363d29238c658
+    last_synced: "2026-06-25"
     priority: high
     rule: "Use role, mission, context, inputs, constraints, output format, quality bar, and self-check."

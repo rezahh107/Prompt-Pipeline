@@ -4,7 +4,8 @@ scope: global
 overridable: false
 source_ref: kb/09-safety-ethics.md
 peac_rule_id: safety.no_fabrication
-source_hash: null
+source_hash: a6a7d92d53f99bda
+last_synced: "2026-06-25"
 
 description: Prevent fabricated official facts, unsafe disclosure, or misleading outputs.
 
