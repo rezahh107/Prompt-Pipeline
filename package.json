@@ -4,6 +4,7 @@
   "description": "Prompt Engineering as Code pipeline for versioned prompt artifacts.",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@10.13.1",
   "engines": {
     "node": ">=20.20.0"
   },
