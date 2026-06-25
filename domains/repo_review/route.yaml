@@ -16,12 +16,12 @@ subtypes:
       primary: pr-critique.j2
 
 risk_overrides:
-  - condition: "domain == 'repo_review' && external_files == true"
-    risk: medium
-    note: "Repository reviews usually depend on external code, archives, or PR diffs."
   - condition: "domain == 'repo_review' && irreversible_actions == true"
     risk: high
     note: "Repository operations that change remote state require human review."
+  - condition: "domain == 'repo_review' && external_files == true"
+    risk: medium
+    note: "Repository reviews usually depend on external code, archives, or PR diffs."
   - condition: "domain == 'repo_review'"
     risk: medium
     note: "Repository review can affect code, release, and security decisions."
