@@ -7,6 +7,11 @@ static_checks:
     check: all_required_fields_filled
     severity: error
 
+  - id: forbidden_combinations_clear
+    type: forbidden_combination
+    check: all_forbidden_combinations_clear
+    severity: warning
+
   - id: overlay_policy_enforced
     type: rule_presence
     required_policy_id: overlay_exact_text

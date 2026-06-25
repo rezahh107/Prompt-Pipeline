@@ -68,10 +68,24 @@ interface PromptArtifact {
   rendered_prompt: string;
 }
 
+interface ContractField {
+  name: string;
+  default?: unknown;
+  required_if?: string;
+}
+
+interface ContractFields {
+  required?: ContractField[];
+  optional?: ContractField[];
+  inferred?: Array<ContractField & { logic?: string }>;
+  forbidden_combinations?: Array<{ fields: string[]; reason?: string; action?: string }>;
+}
+
 let cachedArtifactSchemaPath: string | null = null;
 let cachedAjv: Ajv | null = null;
 let cachedArtifactValidator: ValidateFunction | null = null;
 
+const EXECUTION_MODES: ExecutionMode[] = ['interactive', 'batch', 'ci', 'agent'];
 const JS_RESERVED = new Set([
   'true', 'false', 'null', 'undefined', 'return', 'if', 'else', 'new', 'Boolean',
   'Array', 'Object', 'String', 'Number', 'Math', 'length'
@@ -115,6 +129,12 @@ export function writeYamlFile(path: string, value: unknown): void {
   writeFileSync(path, yaml.dump(value, { lineWidth: 100, noRefs: true }));
 }
 
+function parseExecutionMode(value: unknown, fallback: ExecutionMode): ExecutionMode {
+  const candidate = String(value ?? fallback);
+  if (EXECUTION_MODES.includes(candidate as ExecutionMode)) return candidate as ExecutionMode;
+  throw new Error(`Invalid execution mode: ${candidate}. Expected one of: ${EXECUTION_MODES.join(', ')}`);
+}
+
 function identifiersIn(expr: string): string[] {
   const ids = new Set<string>();
   for (const match of expr.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
@@ -146,16 +166,66 @@ function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dic
   return evalCondition(jsExpr, { ...inputs, rendered_prompt: renderedPrompt });
 }
 
-function getRequiredFields(contract: Dict): string[] {
-  const fields = contract.fields as { required?: Array<{ name: string }> } | undefined;
-  return fields?.required?.map((field) => field.name) ?? [];
+function contractFields(contract: Dict): ContractFields {
+  return (contract.fields as ContractFields | undefined) ?? {};
+}
+
+function valueIsMissing(value: unknown): boolean {
+  return value === undefined || value === null || value === '';
+}
+
+function getMissingRequiredFields(contract: Dict, inputs: Dict): string[] {
+  const fields = contractFields(contract);
+  const missing = new Set<string>();
+
+  for (const field of fields.required ?? []) {
+    if (valueIsMissing(inputs[field.name])) missing.add(field.name);
+  }
+
+  for (const field of fields.optional ?? []) {
+    if (field.required_if && evalCondition(field.required_if, inputs) && valueIsMissing(inputs[field.name])) {
+      missing.add(field.name);
+    }
+  }
+
+  return [...missing].sort();
+}
+
+function enforceMissingInputs(missing: string[], mode: ExecutionMode): void {
+  if (missing.length === 0) return;
+  const list = missing.join(', ');
+  if (mode === 'interactive') {
+    throw new Error(`Missing required input(s): ${list}. Interactive questioning is not implemented in the CLI yet; provide a case file or explicit inputs.`);
+  }
+  if (mode === 'agent') {
+    throw new Error(`Missing required input(s): ${list}. Agent mode may default only optional fields; required inputs must be supplied.`);
+  }
+  throw new Error(`Missing required input(s): ${list}`);
+}
+
+function inputIsActive(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length > 0;
+  return Boolean(value);
+}
+
+function getForbiddenCombinationViolations(contract: Dict, inputs: Dict): string[] {
+  const fields = contractFields(contract);
+  const violations: string[] = [];
+  for (const combo of fields.forbidden_combinations ?? []) {
+    if (combo.fields.length === 0) continue;
+    const active = combo.fields.every((fieldName) => inputIsActive(inputs[fieldName]));
+    if (active) {
+      const reason = combo.reason ? ` — ${combo.reason}` : '';
+      violations.push(`${combo.fields.join(' + ')}${reason}`);
+    }
+  }
+  return violations;
 }
 
 function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; defaulted: string[] } {
   const copy = { ...inputs };
   const defaulted: string[] = [];
-  const fields = contract.fields as { optional?: Array<{ name: string; default?: unknown }> } | undefined;
-  for (const field of fields?.optional ?? []) {
+  for (const field of contractFields(contract).optional ?? []) {
     if (copy[field.name] === undefined && Object.prototype.hasOwnProperty.call(field, 'default')) {
       copy[field.name] = field.default;
       defaulted.push(field.name);
@@ -167,8 +237,7 @@ function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; de
 function applyInferences(contract: Dict, inputs: Dict): { inputs: Dict; inferred: string[] } {
   const copy = { ...inputs };
   const inferred: string[] = [];
-  const fields = contract.fields as { inferred?: Array<{ name: string; logic?: string; default?: unknown }> } | undefined;
-  for (const field of fields?.inferred ?? []) {
+  for (const field of contractFields(contract).inferred ?? []) {
     if (field.name === 'risk_level') continue;
     if (copy[field.name] !== undefined) continue;
     if (field.logic) {
@@ -267,7 +336,7 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
     const severity = String(check.severity ?? 'warning');
 
     if (check.type === 'contract_check') {
-      const missing = getRequiredFields(contract).filter((name) => inputs[name] === undefined || inputs[name] === null || inputs[name] === '');
+      const missing = getMissingRequiredFields(contract, inputs);
       if (missing.length > 0) add(severity, `Missing required fields: ${missing.join(', ')}`);
     }
     if (check.type === 'rule_presence') {
@@ -284,6 +353,11 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
     }
     if (check.type === 'output_check' && !checkOutputExpression(String(check.check ?? ''), renderedPrompt, inputs)) {
       add(severity, String(check.message ?? `Output check failed: ${id}`));
+    }
+    if (check.type === 'forbidden_combination') {
+      for (const violation of getForbiddenCombinationViolations(contract, inputs)) {
+        add(severity, `Forbidden input combination: ${violation}`);
+      }
     }
   }
   return validation;
@@ -313,7 +387,7 @@ export function loadConfig(): PEaCConfig {
 
 export function generateArtifact(args: Record<string, string | boolean>): { artifact: PromptArtifact; outputPath: string } {
   const config = loadConfig();
-  const mode = String(args.mode ?? config.default_execution_mode) as ExecutionMode;
+  const mode = parseExecutionMode(args.mode, config.default_execution_mode);
   const caseFile = typeof args.case === 'string' ? args.case : null;
   const userRequest = typeof args.request === 'string' ? args.request : '';
 
@@ -340,6 +414,8 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   const withDefaults = applyOptionalDefaults(contract, providedInputs);
   const withInferences = applyInferences(contract, withDefaults.inputs);
   const inputs = withInferences.inputs;
+  enforceMissingInputs(getMissingRequiredFields(contract, inputs), mode);
+
   const subtype = selectSubtype(route, inputs, routing.subtype ?? undefined);
   inputs.subtype = subtype;
   inputs.risk_level = assessRisk(route, inputs);
