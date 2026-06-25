@@ -1,17 +1,35 @@
 {% if has_source_photo %}
+Stage 1 image model task:
 Edit the uploaded source photo into a premium realistic {{ style_description | default('Persian academic award portrait') }}.
 
 {% if subject_count > 0 %}
-Preserve exactly all {% if subject_count > 1 %}main people{% else %}main person{% endif %} visible in the source photo.
-Keep: same count, identities, faces, age impression, skin tones, hairstyles, clothing, body proportions, posture, hands, and natural relative positions.
+Priority order:
+1. Preserve all visible people and their identities.
+2. Preserve faces and natural appearance.
+{% if has_document %}3. Preserve the {{ document_type | default('document') }}.
+4. Change only the presentation layer.
+5. Reserve overlay-safe space if needed.
+{% else %}3. Change only the presentation layer.
+4. Reserve overlay-safe space if needed.
+{% endif %}
+
+Protected:
+- Same people count and identities.
+- Faces, age impression, skin tones, hairstyles, clothing, body proportions, posture, hands, and natural relative positions.
+{% if has_document %}- The {{ document_type | default('document') }}: prominent, natural, rectangular, and as sharp as the source allows.{% endif %}
+
+Editable:
+- Background.
+- Lighting.
+- Color grading.
+- Framing, only if it keeps heads, shoulders, hands{% if has_document %}, and the {{ document_type | default('document') }}{% endif %} visible.
 {% endif %}
 
 {% if has_document %}
-Preserve the {{ document_type | default('document') }} in the subject's hand: prominent, natural, and as sharp as the source allows. Do not redesign or replace it.
+Keep the {{ document_type | default('document') }} in the subject's hand. Do not redesign or replace it.
 {% endif %}
-
-Change only: background, lighting, color grading, and overall presentation style.
 {% else %}
+Stage 1 image model task:
 Create a professional {{ style_description | default('image') }}.
 {% endif %}
 
