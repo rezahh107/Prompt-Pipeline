@@ -138,7 +138,10 @@ function evalCondition(expr: string | undefined, inputs: Dict): boolean {
 
 function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dict): boolean {
   const containsMatch = expr.match(/^rendered_prompt\s+contains\s+['"](.+)['"]$/);
-  if (containsMatch) return renderedPrompt.includes(containsMatch[1]);
+  if (containsMatch) {
+    const needle = containsMatch[1];
+    return typeof needle === 'string' && renderedPrompt.includes(needle);
+  }
   const jsExpr = expr.replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
   return evalCondition(jsExpr, { ...inputs, rendered_prompt: renderedPrompt });
 }
@@ -294,8 +297,13 @@ function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): v
     cachedArtifactValidator = cachedAjv.compile(schema);
     cachedArtifactSchemaPath = config.artifact.schema;
   }
-  if (!cachedArtifactValidator(artifact)) {
-    throw new Error(`Artifact schema validation failed: ${cachedAjv.errorsText(cachedArtifactValidator.errors)}`);
+
+  const ajv = cachedAjv;
+  const validate = cachedArtifactValidator;
+  if (!ajv || !validate) throw new Error('Artifact schema validator was not initialized.');
+
+  if (!validate(artifact)) {
+    throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
   }
 }
 
@@ -406,7 +414,10 @@ export function extractRuleBlocks(kbRoot: string): Map<string, string> {
   for (const file of walkFiles(kbRoot).filter((path) => path.endsWith('.md'))) {
     const content = readFileSync(file, 'utf8');
     for (const match of content.matchAll(pattern)) {
-      blocks.set(match[1], match[2].trim());
+      const ruleId = match[1];
+      const ruleBody = match[2];
+      if (!ruleId || !ruleBody) continue;
+      blocks.set(ruleId, ruleBody.trim());
     }
   }
   return blocks;
