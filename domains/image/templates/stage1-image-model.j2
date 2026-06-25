@@ -2,7 +2,7 @@
 Stage 1 image model task:
 Edit the uploaded source photo into a premium realistic {{ style_description | default('Persian academic award portrait') }}.
 
-{% if subject_count > 0 %}
+{% if (subject_count | default(0)) > 0 %}
 Priority order:
 1. Preserve all visible people and their identities.
 2. Preserve faces and natural appearance.
@@ -16,17 +16,13 @@ Priority order:
 Protected:
 - Same people count and identities.
 - Faces, age impression, skin tones, hairstyles, clothing, body proportions, posture, hands, and natural relative positions.
-{% if has_document %}- The {{ document_type | default('document') }}: prominent, natural, rectangular, and as sharp as the source allows.{% endif %}
+{% if has_document %}- The {{ document_type | default('document') }} in the subject's hand: prominent, natural, rectangular, as sharp as the source allows, and not redesigned or replaced.{% endif %}
 
 Editable:
 - Background.
 - Lighting.
 - Color grading.
 - Framing, only if it keeps heads, shoulders, hands{% if has_document %}, and the {{ document_type | default('document') }}{% endif %} visible.
-{% endif %}
-
-{% if has_document %}
-Keep the {{ document_type | default('document') }} in the subject's hand. Do not redesign or replace it.
 {% endif %}
 {% else %}
 Stage 1 image model task:
