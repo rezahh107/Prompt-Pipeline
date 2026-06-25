@@ -11,6 +11,8 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 export type Dict = Record<string, unknown>;
 
 export interface PEaCConfig {
+  name?: string;
+  version?: string;
   kb_path: string;
   policies_path: string;
   domains_path: string;
@@ -20,6 +22,16 @@ export interface PEaCConfig {
   artifact: { schema: string; output_dir: string; format: string };
 }
 
+interface CaseExpected {
+  risk_level?: RiskLevel;
+  requires_human_review?: boolean;
+  validation?: {
+    should_pass?: boolean;
+    expected_errors?: string[];
+    expected_warnings?: string[];
+  };
+}
+
 interface CaseFile {
   case_id: string;
   description?: string;
@@ -27,6 +39,7 @@ interface CaseFile {
   subtype?: string;
   version?: string;
   inputs: Dict;
+  expected?: CaseExpected;
 }
 
 interface RoutingResult {
@@ -65,6 +78,21 @@ interface PromptArtifact {
   risk_level: RiskLevel;
   requires_human_review: boolean;
   review_reason: string | null;
+  runtime: {
+    git_commit_sha: string | null;
+    node_version: string;
+    package_manager: string | null;
+    pipeline_version: string | null;
+  };
+  hashes: {
+    config_hash: string;
+    contract_hash: string;
+    route_hash: string;
+    template_hash: string;
+    validators_hash: string;
+    policies_hash: string;
+    rendered_prompt_hash: string;
+  };
   rendered_prompt: string;
 }
 
@@ -78,7 +106,14 @@ interface ContractFields {
   required?: ContractField[];
   optional?: ContractField[];
   inferred?: Array<ContractField & { logic?: string }>;
-  forbidden_combinations?: Array<{ fields: string[]; reason?: string; action?: string }>;
+  forbidden_combinations?: Array<{ fields: string[]; reason?: string; action?: string; severity?: string }>;
+}
+
+type ExprValue = string | number | boolean | null | undefined | unknown[];
+type TokenType = 'identifier' | 'string' | 'number' | 'boolean' | 'null' | 'operator' | 'paren' | 'dot' | 'eof';
+interface Token {
+  type: TokenType;
+  value: string;
 }
 
 let cachedArtifactSchemaPath: string | null = null;
@@ -86,10 +121,6 @@ let cachedAjv: Ajv | null = null;
 let cachedArtifactValidator: ValidateFunction | null = null;
 
 const EXECUTION_MODES: ExecutionMode[] = ['interactive', 'batch', 'ci', 'agent'];
-const JS_RESERVED = new Set([
-  'true', 'false', 'null', 'undefined', 'return', 'if', 'else', 'new', 'Boolean',
-  'Array', 'Object', 'String', 'Number', 'Math', 'length'
-]);
 
 export function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
@@ -135,25 +166,264 @@ function parseExecutionMode(value: unknown, fallback: ExecutionMode): ExecutionM
   throw new Error(`Invalid execution mode: ${candidate}. Expected one of: ${EXECUTION_MODES.join(', ')}`);
 }
 
-function identifiersIn(expr: string): string[] {
-  const ids = new Set<string>();
-  for (const match of expr.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
-    const id = match[0];
-    if (!JS_RESERVED.has(id)) ids.add(id);
+function tokenizeExpression(expr: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  const push = (type: TokenType, value: string) => tokens.push({ type, value });
+  const isIdentifierStart = (char: string) => /[A-Za-z_$]/.test(char);
+  const isIdentifierPart = (char: string) => /[A-Za-z0-9_$]/.test(char);
+
+  while (i < expr.length) {
+    const char = expr[i];
+    if (/\s/.test(char)) {
+      i += 1;
+      continue;
+    }
+
+    if (char === '(' || char === ')') {
+      push('paren', char);
+      i += 1;
+      continue;
+    }
+
+    if (char === '.') {
+      push('dot', char);
+      i += 1;
+      continue;
+    }
+
+    if (char === '\'' || char === '"' || char === '`') {
+      const quote = char;
+      let value = '';
+      i += 1;
+      while (i < expr.length) {
+        const current = expr[i];
+        if (current === '\\') {
+          const next = expr[i + 1];
+          if (next === undefined) throw new Error(`Unterminated escape in expression: ${expr}`);
+          value += next;
+          i += 2;
+          continue;
+        }
+        if (current === quote) {
+          i += 1;
+          push('string', value);
+          value = '';
+          break;
+        }
+        value += current;
+        i += 1;
+      }
+      if (value !== '') throw new Error(`Unterminated string literal in expression: ${expr}`);
+      continue;
+    }
+
+    if (/[0-9]/.test(char)) {
+      let value = char;
+      i += 1;
+      while (i < expr.length && /[0-9.]/.test(expr[i])) {
+        value += expr[i];
+        i += 1;
+      }
+      if (!/^\d+(?:\.\d+)?$/.test(value)) throw new Error(`Invalid number literal in expression: ${value}`);
+      push('number', value);
+      continue;
+    }
+
+    const three = expr.slice(i, i + 3);
+    const two = expr.slice(i, i + 2);
+    if (three === '===' || three === '!==') {
+      push('operator', three);
+      i += 3;
+      continue;
+    }
+    if (['>=', '<=', '==', '!=', '&&', '||'].includes(two)) {
+      push('operator', two);
+      i += 2;
+      continue;
+    }
+    if (['>', '<', '!'].includes(char)) {
+      push('operator', char);
+      i += 1;
+      continue;
+    }
+
+    if (isIdentifierStart(char)) {
+      let value = char;
+      i += 1;
+      while (i < expr.length && isIdentifierPart(expr[i])) {
+        value += expr[i];
+        i += 1;
+      }
+      if (value === 'true' || value === 'false') push('boolean', value);
+      else if (value === 'null') push('null', value);
+      else push('identifier', value);
+      continue;
+    }
+
+    throw new Error(`Unsupported token "${char}" in expression: ${expr}`);
   }
-  return [...ids];
+
+  push('eof', '');
+  return tokens;
+}
+
+class ExpressionParser {
+  private position = 0;
+
+  constructor(private readonly tokens: Token[], private readonly inputs: Dict) {}
+
+  parse(): boolean {
+    const value = this.parseOr();
+    this.expect('eof');
+    return Boolean(value);
+  }
+
+  private current(): Token {
+    return this.tokens[this.position] ?? { type: 'eof', value: '' };
+  }
+
+  private consume(): Token {
+    const token = this.current();
+    this.position += 1;
+    return token;
+  }
+
+  private match(type: TokenType, value?: string): boolean {
+    const token = this.current();
+    if (token.type !== type) return false;
+    if (value !== undefined && token.value !== value) return false;
+    this.position += 1;
+    return true;
+  }
+
+  private expect(type: TokenType, value?: string): Token {
+    const token = this.current();
+    if (!this.match(type, value)) {
+      const expected = value ? `${type}:${value}` : type;
+      throw new Error(`Expected ${expected}, got ${token.type}:${token.value}`);
+    }
+    return token;
+  }
+
+  private parseOr(): ExprValue {
+    let left = this.parseAnd();
+    while (this.match('operator', '||')) {
+      const right = this.parseAnd();
+      left = Boolean(left) || Boolean(right);
+    }
+    return left;
+  }
+
+  private parseAnd(): ExprValue {
+    let left = this.parseEquality();
+    while (this.match('operator', '&&')) {
+      const right = this.parseEquality();
+      left = Boolean(left) && Boolean(right);
+    }
+    return left;
+  }
+
+  private parseEquality(): ExprValue {
+    let left = this.parseComparison();
+    while (true) {
+      if (this.match('operator', '==') || this.match('operator', '===')) {
+        const right = this.parseComparison();
+        left = left === right;
+        continue;
+      }
+      if (this.match('operator', '!=') || this.match('operator', '!==')) {
+        const right = this.parseComparison();
+        left = left !== right;
+        continue;
+      }
+      return left;
+    }
+  }
+
+  private parseComparison(): ExprValue {
+    let left = this.parseUnary();
+    while (true) {
+      if (this.match('operator', '>')) {
+        const right = this.parseUnary();
+        left = Number(left) > Number(right);
+        continue;
+      }
+      if (this.match('operator', '>=')) {
+        const right = this.parseUnary();
+        left = Number(left) >= Number(right);
+        continue;
+      }
+      if (this.match('operator', '<')) {
+        const right = this.parseUnary();
+        left = Number(left) < Number(right);
+        continue;
+      }
+      if (this.match('operator', '<=')) {
+        const right = this.parseUnary();
+        left = Number(left) <= Number(right);
+        continue;
+      }
+      return left;
+    }
+  }
+
+  private parseUnary(): ExprValue {
+    if (this.match('operator', '!')) return !Boolean(this.parseUnary());
+    return this.parsePrimary();
+  }
+
+  private parsePrimary(): ExprValue {
+    const token = this.current();
+    if (this.match('paren', '(')) {
+      const value = this.parseOr();
+      this.expect('paren', ')');
+      return value;
+    }
+    if (token.type === 'string') {
+      this.consume();
+      return token.value;
+    }
+    if (token.type === 'number') {
+      this.consume();
+      return Number(token.value);
+    }
+    if (token.type === 'boolean') {
+      this.consume();
+      return token.value === 'true';
+    }
+    if (token.type === 'null') {
+      this.consume();
+      return null;
+    }
+    if (token.type === 'identifier') {
+      this.consume();
+      let value: ExprValue = this.inputs[token.value] as ExprValue;
+      while (this.match('dot')) {
+        const property = this.expect('identifier').value;
+        if (property !== 'length') throw new Error(`Unsupported property access .${property}`);
+        if (Array.isArray(value) || typeof value === 'string') value = value.length;
+        else if (value === undefined || value === null) value = 0;
+        else throw new Error(`Property .length is supported only for arrays and strings`);
+      }
+      return value;
+    }
+    throw new Error(`Unexpected token ${token.type}:${token.value}`);
+  }
 }
 
 function evalCondition(expr: string | undefined, inputs: Dict): boolean {
   if (!expr || expr.trim() === '') return true;
-  const keys = identifiersIn(expr);
-  const values = keys.map((key) => inputs[key]);
   try {
-    const fn = new Function(...keys, `return Boolean(${expr});`);
-    return Boolean(fn(...values));
+    return new ExpressionParser(tokenizeExpression(expr), inputs).parse();
   } catch (error) {
     throw new Error(`Failed to evaluate condition "${expr}": ${(error as Error).message}`);
   }
+}
+
+export function evaluateConditionForTest(expr: string, inputs: Dict): boolean {
+  return evalCondition(expr, inputs);
 }
 
 function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dict): boolean {
@@ -171,7 +441,7 @@ function contractFields(contract: Dict): ContractFields {
 }
 
 function valueIsMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === '';
+  return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 }
 
 function getMissingRequiredFields(contract: Dict, inputs: Dict): string[] {
@@ -205,18 +475,25 @@ function enforceMissingInputs(missing: string[], mode: ExecutionMode): void {
 
 function inputIsActive(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') return value.trim().length > 0;
   return Boolean(value);
 }
 
-function getForbiddenCombinationViolations(contract: Dict, inputs: Dict): string[] {
+function severityForCombination(combo: { action?: string; severity?: string }): string {
+  if (combo.severity) return combo.severity;
+  if (combo.action === 'error' || combo.action === 'fail' || combo.action === 'fail_fast') return 'error';
+  return 'warning';
+}
+
+function getForbiddenCombinationViolations(contract: Dict, inputs: Dict): Array<{ message: string; severity: string }> {
   const fields = contractFields(contract);
-  const violations: string[] = [];
+  const violations: Array<{ message: string; severity: string }> = [];
   for (const combo of fields.forbidden_combinations ?? []) {
     if (combo.fields.length === 0) continue;
     const active = combo.fields.every((fieldName) => inputIsActive(inputs[fieldName]));
     if (active) {
       const reason = combo.reason ? ` — ${combo.reason}` : '';
-      violations.push(`${combo.fields.join(' + ')}${reason}`);
+      violations.push({ message: `${combo.fields.join(' + ')}${reason}`, severity: severityForCombination(combo) });
     }
   }
   return violations;
@@ -356,11 +633,44 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
     }
     if (check.type === 'forbidden_combination') {
       for (const violation of getForbiddenCombinationViolations(contract, inputs)) {
-        add(severity, `Forbidden input combination: ${violation}`);
+        add(violation.severity || severity, `Forbidden input combination: ${violation.message}`);
       }
     }
   }
   return validation;
+}
+
+function hashText(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+function hashFile(path: string): string {
+  return hashText(readFileSync(path, 'utf8'));
+}
+
+function hashJson(value: unknown): string {
+  return hashText(JSON.stringify(value, Object.keys(value as object).sort()));
+}
+
+function readPackageManager(): string | null {
+  try {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as { packageManager?: string };
+    return packageJson.packageManager ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function buildArtifactHashes(paths: { contractPath: string; routePath: string; templatePath: string; validatorsPath: string }, policies: unknown[], renderedPrompt: string): PromptArtifact['hashes'] {
+  return {
+    config_hash: hashFile('peac.config.yaml'),
+    contract_hash: hashFile(paths.contractPath),
+    route_hash: hashFile(paths.routePath),
+    template_hash: hashFile(paths.templatePath),
+    validators_hash: hashFile(paths.validatorsPath),
+    policies_hash: hashJson(policies),
+    rendered_prompt_hash: hashText(renderedPrompt)
+  };
 }
 
 function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): void {
@@ -449,6 +759,13 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
     risk_level: riskLevel,
     requires_human_review: riskLevel === 'high',
     review_reason: riskLevel === 'high' ? 'High-risk prompt artifact requires human review before use.' : null,
+    runtime: {
+      git_commit_sha: process.env.GITHUB_SHA ?? null,
+      node_version: process.version,
+      package_manager: readPackageManager(),
+      pipeline_version: config.version ?? null
+    },
+    hashes: buildArtifactHashes({ contractPath, routePath, templatePath, validatorsPath }, policies, renderedPrompt),
     rendered_prompt: renderedPrompt
   };
 
@@ -469,18 +786,57 @@ function walkFiles(dir: string): string[] {
   return result;
 }
 
+function includesAll(haystack: string[], needles: string[] | undefined): boolean {
+  if (!needles || needles.length === 0) return true;
+  const joined = haystack.join('\n');
+  return needles.every((needle) => joined.includes(needle));
+}
+
 export function validateAllCases(): { total: number; passed: number; failed: number; failures: string[] } {
   const config = loadConfig();
   const caseFiles = walkFiles(config.domains_path).filter((file) => file.replaceAll('\\', '/').includes('/cases/') && file.endsWith('.yaml'));
   const failures: string[] = [];
+
   for (const file of caseFiles) {
+    const caseData = readRequiredYamlFile<CaseFile>(file);
+    const shouldPass = caseData.expected?.validation?.should_pass ?? true;
+    const expectedErrors = caseData.expected?.validation?.expected_errors;
+    const expectedWarnings = caseData.expected?.validation?.expected_warnings;
+
     try {
       const { artifact } = generateArtifact({ case: file, mode: 'ci' });
-      if (!artifact.validation.passed) failures.push(`${file}: ${artifact.validation.errors.join('; ')}`);
+      if (shouldPass && !artifact.validation.passed) {
+        failures.push(`${file}: expected pass, got validation errors: ${artifact.validation.errors.join('; ')}`);
+        continue;
+      }
+      if (!shouldPass && artifact.validation.passed) {
+        failures.push(`${file}: expected failure, but validation passed`);
+        continue;
+      }
+      if (caseData.expected?.risk_level && artifact.risk_level !== caseData.expected.risk_level) {
+        failures.push(`${file}: expected risk ${caseData.expected.risk_level}, got ${artifact.risk_level}`);
+      }
+      if (caseData.expected?.requires_human_review !== undefined && artifact.requires_human_review !== caseData.expected.requires_human_review) {
+        failures.push(`${file}: expected requires_human_review=${caseData.expected.requires_human_review}, got ${artifact.requires_human_review}`);
+      }
+      if (!includesAll(artifact.validation.errors, expectedErrors)) {
+        failures.push(`${file}: expected validation errors not found: ${(expectedErrors ?? []).join('; ')}`);
+      }
+      if (!includesAll(artifact.validation.warnings, expectedWarnings)) {
+        failures.push(`${file}: expected validation warnings not found: ${(expectedWarnings ?? []).join('; ')}`);
+      }
     } catch (error) {
-      failures.push(`${file}: ${(error as Error).message}`);
+      const message = (error as Error).message;
+      if (shouldPass) {
+        failures.push(`${file}: expected pass, got error: ${message}`);
+        continue;
+      }
+      if (!includesAll([message], expectedErrors)) {
+        failures.push(`${file}: expected failure, but error did not match expected_errors. Got: ${message}`);
+      }
     }
   }
+
   return { total: caseFiles.length, passed: caseFiles.length - failures.length, failed: failures.length, failures };
 }
 
@@ -503,15 +859,17 @@ export function hashRuleBlock(content: string): string {
   return createHash('sha256').update(content.trim()).digest('hex').slice(0, 16);
 }
 
-export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated: string[] } {
+export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated: string[]; missing: string[]; orphaned: string[] } {
   const config = loadConfig();
   const blocks = extractRuleBlocks(config.kb_path);
+  const referencedRuleIds = new Set<string>();
   const yamlFiles = [
     ...walkFiles(config.policies_path).filter((file) => file.endsWith('.yaml')),
     ...walkFiles(config.domains_path).filter((file) => file.endsWith('rules.yaml'))
   ];
   const drifted: string[] = [];
   const updated: string[] = [];
+  const missing: string[] = [];
 
   for (const file of yamlFiles) {
     const data = readYamlFile<Dict>(file);
@@ -520,7 +878,12 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
     let changed = false;
     for (const entry of entries) {
       const ruleId = entry.peac_rule_id as string | undefined;
-      if (!ruleId || !blocks.has(ruleId)) continue;
+      if (!ruleId) continue;
+      referencedRuleIds.add(ruleId);
+      if (!blocks.has(ruleId)) {
+        missing.push(`${file}#${ruleId}`);
+        continue;
+      }
       const hash = hashRuleBlock(blocks.get(ruleId)!);
       if (entry.source_hash !== hash) {
         drifted.push(`${file}#${ruleId}`);
@@ -536,5 +899,7 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
       updated.push(file);
     }
   }
-  return { drifted, updated };
+
+  const orphaned = [...blocks.keys()].filter((ruleId) => !referencedRuleIds.has(ruleId)).sort();
+  return { drifted, updated, missing, orphaned };
 }
