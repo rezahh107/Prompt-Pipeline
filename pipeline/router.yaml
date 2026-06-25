@@ -30,8 +30,9 @@ domains:
   prompt_audit:
     enabled: true
     keywords:
-      - audit
+      - audit prompt
       - review prompt
+      - prompt audit
       - ممیزی پرامپت
       - بررسی پرامپت
       - ارزیابی پرامپت
