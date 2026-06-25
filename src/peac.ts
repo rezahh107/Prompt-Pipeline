@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import yaml from 'js-yaml';
 import nunjucks from 'nunjucks';
-import Ajv from 'ajv';
+import Ajv, { type ValidateFunction } from 'ajv';
 import addFormats from 'ajv-formats';
 
 export type ExecutionMode = 'interactive' | 'batch' | 'ci' | 'agent';
@@ -68,6 +68,15 @@ interface PromptArtifact {
   rendered_prompt: string;
 }
 
+let cachedArtifactSchemaPath: string | null = null;
+let cachedAjv: Ajv | null = null;
+let cachedArtifactValidator: ValidateFunction | null = null;
+
+const JS_RESERVED = new Set([
+  'true', 'false', 'null', 'undefined', 'return', 'if', 'else', 'new', 'Boolean',
+  'Array', 'Object', 'String', 'Number', 'Math', 'length'
+]);
+
 export function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
   for (let i = 0; i < argv.length; i += 1) {
@@ -90,8 +99,15 @@ export function parseArgs(argv: string[]): Record<string, string | boolean> {
   return out;
 }
 
-export function readYamlFile<T>(path: string): T {
-  return yaml.load(readFileSync(path, 'utf8')) as T;
+export function readYamlFile<T>(path: string): T | null {
+  const loaded = yaml.load(readFileSync(path, 'utf8')) as T | null | undefined;
+  return loaded ?? null;
+}
+
+function readRequiredYamlFile<T>(path: string): T {
+  const loaded = readYamlFile<T>(path);
+  if (!loaded) throw new Error(`Required YAML file is empty or invalid: ${path}`);
+  return loaded;
 }
 
 export function writeYamlFile(path: string, value: unknown): void {
@@ -99,15 +115,24 @@ export function writeYamlFile(path: string, value: unknown): void {
   writeFileSync(path, yaml.dump(value, { lineWidth: 100, noRefs: true }));
 }
 
+function identifiersIn(expr: string): string[] {
+  const ids = new Set<string>();
+  for (const match of expr.matchAll(/\b[A-Za-z_$][\w$]*\b/g)) {
+    const id = match[0];
+    if (!JS_RESERVED.has(id)) ids.add(id);
+  }
+  return [...ids];
+}
+
 function evalCondition(expr: string | undefined, inputs: Dict): boolean {
   if (!expr || expr.trim() === '') return true;
-  const keys = Object.keys(inputs).filter((key) => /^[A-Za-z_$][\w$]*$/.test(key));
+  const keys = identifiersIn(expr);
   const values = keys.map((key) => inputs[key]);
   try {
     const fn = new Function(...keys, `return Boolean(${expr});`);
     return Boolean(fn(...values));
-  } catch {
-    return false;
+  } catch (error) {
+    throw new Error(`Failed to evaluate condition "${expr}": ${(error as Error).message}`);
   }
 }
 
@@ -128,7 +153,7 @@ function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; de
   const defaulted: string[] = [];
   const fields = contract.fields as { optional?: Array<{ name: string; default?: unknown }> } | undefined;
   for (const field of fields?.optional ?? []) {
-    if (copy[field.name] === undefined && field.default !== undefined) {
+    if (copy[field.name] === undefined && Object.prototype.hasOwnProperty.call(field, 'default')) {
       copy[field.name] = field.default;
       defaulted.push(field.name);
     }
@@ -136,26 +161,38 @@ function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; de
   return { inputs: copy, defaulted };
 }
 
-function applyInferences(inputs: Dict): { inputs: Dict; inferred: string[] } {
+function applyInferences(contract: Dict, inputs: Dict): { inputs: Dict; inferred: string[] } {
   const copy = { ...inputs };
   const inferred: string[] = [];
-  const overlayElements = Array.isArray(copy.overlay_elements) ? copy.overlay_elements : [];
-  if (copy.needs_overlay === undefined) {
-    copy.needs_overlay = overlayElements.length > 0 || copy.persian_text_required === true || copy.logo_required === true;
-    inferred.push('needs_overlay');
-  }
-  if (copy.subject_identity === undefined) {
-    copy.subject_identity = Number(copy.subject_count ?? 0) > 0 && copy.has_source_photo === true;
-    inferred.push('subject_identity');
+  const fields = contract.fields as { inferred?: Array<{ name: string; logic?: string; default?: unknown }> } | undefined;
+  for (const field of fields?.inferred ?? []) {
+    if (field.name === 'risk_level') continue;
+    if (copy[field.name] !== undefined) continue;
+    if (field.logic) {
+      copy[field.name] = evalCondition(field.logic, copy);
+      inferred.push(field.name);
+      continue;
+    }
+    if (Object.prototype.hasOwnProperty.call(field, 'default')) {
+      copy[field.name] = field.default;
+      inferred.push(field.name);
+    }
   }
   return { inputs: copy, inferred };
 }
 
-function assessRisk(domain: string, inputs: Dict): RiskLevel {
+function assessRisk(route: Dict, inputs: Dict): RiskLevel {
+  const overrides = route.risk_overrides as Array<{ condition: string; risk: RiskLevel }> | undefined;
+  for (const override of overrides ?? []) {
+    if (evalCondition(override.condition, inputs)) return override.risk;
+  }
+
+  const domain = String(inputs.domain ?? '');
   if (inputs.legal_medical_financial === true) return 'high';
   if (domain === 'agents' && inputs.tool_actions === true) return 'high';
   if (domain === 'image' && inputs.minors_or_students === true && inputs.needs_overlay === true) return 'high';
   if (domain === 'image' && inputs.subject_identity === true && inputs.exact_factual_claims === true) return 'high';
+  if (domain === 'image' && inputs.subject_identity === true) return 'medium';
   if (domain === 'image' && Number(inputs.subject_count ?? 0) > 0) return 'medium';
   if (inputs.exact_factual_claims === true || inputs.official_information === true) return 'medium';
   return 'low';
@@ -176,7 +213,7 @@ function selectTemplate(route: Dict, subtype: string): string {
 }
 
 function routeRequest(request: string, config: PEaCConfig): RoutingResult {
-  const router = readYamlFile<{ domains: Record<string, { enabled?: boolean; keywords?: string[]; patterns?: string[]; confidence_threshold?: number }> }>(join(config.pipeline_path, 'router.yaml'));
+  const router = readYamlFile<{ domains: Record<string, { enabled?: boolean; keywords?: string[]; patterns?: string[]; confidence_threshold?: number }> }>(join(config.pipeline_path, 'router.yaml')) ?? { domains: {} };
   const normalized = request.toLowerCase();
   for (const [domain, domainConfig] of Object.entries(router.domains)) {
     if (domainConfig.enabled === false || domain === 'general') continue;
@@ -194,6 +231,7 @@ function loadPolicies(config: PEaCConfig, inputs: Dict): Array<{ id: string; sou
   const result: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> = [];
   for (const file of readdirSync(config.policies_path).filter((item) => item.endsWith('.yaml'))) {
     const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(config.policies_path, file));
+    if (!policy?.policy_id || !policy.source_ref) continue;
     const conditions = policy.applies_when ?? ['true'];
     if (conditions.some((condition) => evalCondition(condition, inputs))) {
       result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: conditions.join(' OR ') });
@@ -209,7 +247,7 @@ function renderTemplate(templatePath: string, inputs: Dict): string {
 
 function runStaticValidation(renderedPrompt: string, validatorsPath: string, contract: Dict, inputs: Dict, policiesApplied: string[]): ValidationResult {
   const validation: ValidationResult = { passed: true, warnings: [], errors: [], checks_run: [] };
-  const validators = readYamlFile<{ static_checks?: Array<Dict> }>(validatorsPath);
+  const validators = readYamlFile<{ static_checks?: Array<Dict> }>(validatorsPath) ?? {};
   const add = (severity: string, message: string) => {
     if (severity === 'error') {
       validation.errors.push(message);
@@ -249,15 +287,20 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
 }
 
 function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): void {
-  const schema = JSON.parse(readFileSync(config.artifact.schema, 'utf8')) as object;
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  addFormats(ajv);
-  const validate = ajv.compile(schema);
-  if (!validate(artifact)) throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
+  if (!cachedAjv || !cachedArtifactValidator || cachedArtifactSchemaPath !== config.artifact.schema) {
+    const schema = JSON.parse(readFileSync(config.artifact.schema, 'utf8')) as object;
+    cachedAjv = new Ajv({ allErrors: true, strict: false });
+    addFormats(cachedAjv);
+    cachedArtifactValidator = cachedAjv.compile(schema);
+    cachedArtifactSchemaPath = config.artifact.schema;
+  }
+  if (!cachedArtifactValidator(artifact)) {
+    throw new Error(`Artifact schema validation failed: ${cachedAjv.errorsText(cachedArtifactValidator.errors)}`);
+  }
 }
 
 export function loadConfig(): PEaCConfig {
-  return readYamlFile<PEaCConfig>('peac.config.yaml');
+  return readRequiredYamlFile<PEaCConfig>('peac.config.yaml');
 }
 
 export function generateArtifact(args: Record<string, string | boolean>): { artifact: PromptArtifact; outputPath: string } {
@@ -271,7 +314,7 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   let providedInputs: Dict;
 
   if (caseFile) {
-    caseData = readYamlFile<CaseFile>(caseFile);
+    caseData = readRequiredYamlFile<CaseFile>(caseFile);
     routing = { domain: caseData.domain, subtype: caseData.subtype ?? null, confidence: 1, method: 'case_file' };
     providedInputs = { ...caseData.inputs };
   } else {
@@ -283,15 +326,15 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   const contractPath = join(config.domains_path, routing.domain, 'input.contract.yaml');
   const routePath = join(config.domains_path, routing.domain, 'route.yaml');
   const validatorsPath = join(config.domains_path, routing.domain, 'validators.yaml');
-  const contract = readYamlFile<Dict>(contractPath);
-  const route = readYamlFile<Dict>(routePath);
+  const contract = readRequiredYamlFile<Dict>(contractPath);
+  const route = readRequiredYamlFile<Dict>(routePath);
 
   const withDefaults = applyOptionalDefaults(contract, providedInputs);
-  const withInferences = applyInferences(withDefaults.inputs);
+  const withInferences = applyInferences(contract, withDefaults.inputs);
   const inputs = withInferences.inputs;
   const subtype = selectSubtype(route, inputs, routing.subtype ?? undefined);
   inputs.subtype = subtype;
-  inputs.risk_level = assessRisk(routing.domain, inputs);
+  inputs.risk_level = assessRisk(route, inputs);
   const riskLevel = inputs.risk_level as RiskLevel;
 
   const templateName = selectTemplate(route, subtype);
@@ -314,7 +357,7 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
       template_used: templatePath,
       template_version: String(caseData?.version ?? '2026.3'),
       inputs_provided: Object.keys(providedInputs).filter((key) => key !== 'domain'),
-      inputs_inferred: [...withInferences.inferred, 'risk_level'].sort(),
+      inputs_inferred: [...new Set([...withInferences.inferred, 'risk_level'])].sort(),
       inputs_defaulted: withDefaults.defaulted.sort()
     },
     policies_applied: policies,
@@ -362,8 +405,9 @@ export function extractRuleBlocks(kbRoot: string): Map<string, string> {
   const pattern = /<!--\s*peac-rule-id:\s*([^\s]+)\s*-->([\s\S]*?)<!--\s*\/peac-rule-id\s*-->/g;
   for (const file of walkFiles(kbRoot).filter((path) => path.endsWith('.md'))) {
     const content = readFileSync(file, 'utf8');
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) blocks.set(match[1], match[2].trim());
+    for (const match of content.matchAll(pattern)) {
+      blocks.set(match[1], match[2].trim());
+    }
   }
   return blocks;
 }
@@ -384,6 +428,7 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
 
   for (const file of yamlFiles) {
     const data = readYamlFile<Dict>(file);
+    if (!data || typeof data !== 'object') continue;
     const entries = Array.isArray(data.rules) ? (data.rules as Dict[]) : [data];
     let changed = false;
     for (const entry of entries) {
