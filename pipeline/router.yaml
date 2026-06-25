@@ -47,6 +47,25 @@ domains:
       - بهتر کردن پرامپت
     confidence_threshold: 0.75
 
+  repo_review:
+    enabled: true
+    keywords:
+      - repository audit
+      - repository critique
+      - repository analysis
+      - source audit
+      - source critique
+      - بررسی ریپو
+      - بررسی مخزن
+      - ممیزی سورس
+      - بررسی سورس
+    patterns:
+      - "repository.*audit"
+      - "source.*audit"
+      - "بررسی.*ریپو"
+      - "بررسی.*مخزن"
+    confidence_threshold: 0.8
+
   image:
     enabled: true
     keywords:
