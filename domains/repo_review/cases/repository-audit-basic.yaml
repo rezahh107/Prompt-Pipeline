@@ -1,0 +1,25 @@
+case_id: repo_review.repository_audit.basic.v1
+description: Basic repository audit prompt generation case.
+domain: repo_review
+subtype: repository_audit
+version: "2026.3"
+
+inputs:
+  review_subject: "https://github.com/example/project"
+  review_scope: repository
+  objective: "Audit the repository and produce prioritized hardening recommendations."
+  project_context: "Local-first PEaC prompt pipeline."
+  output_language: Persian
+  evidence_level: strict
+  include_patch_guidance: true
+  include_prompt_for_next_agent: true
+  external_files: true
+
+expected:
+  domain: repo_review
+  subtype: repository_audit
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []
