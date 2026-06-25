@@ -1,0 +1,12 @@
+domain: general
+version: "2026.3"
+
+subtypes:
+  - id: default
+    description: General-purpose prompt generation.
+    templates:
+      primary: general.j2
+
+risk_overrides:
+  - condition: "exact_factual_claims == true"
+    risk: medium

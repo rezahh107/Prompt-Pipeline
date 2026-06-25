@@ -1,0 +1,35 @@
+domain: image
+version: "2026.3"
+
+rules:
+  - id: image.overlay.exact_text
+    peac_rule_id: image.overlay.exact_text
+    source_ref: kb/04-templates/image.md#overlay
+    source_hash: null
+    last_synced: null
+    priority: critical
+    rule: "Exact Persian text, typography, official logos, QR codes, and formal identifiers must be handled by deterministic overlay when fidelity matters."
+
+  - id: image.identity.preservation
+    peac_rule_id: image.identity.preservation
+    source_ref: kb/04-templates/image.md#protected-vs-editable
+    source_hash: null
+    last_synced: null
+    priority: critical
+    rule: "People visible in a source photo must be preserved: count, faces, identity, age impression, skin tone, clothing, posture, and hands."
+
+  - id: image.safe_area
+    peac_rule_id: image.safe_area
+    source_ref: kb/04-templates/image.md#safe-area
+    source_hash: null
+    last_synced: null
+    priority: high
+    rule: "When overlay is needed, reserve a clean safe area, default top 25%."
+
+  - id: image.child_safety
+    peac_rule_id: safety.child_student
+    source_ref: kb/09-safety-ethics.md#children-students
+    source_hash: null
+    last_synced: null
+    priority: critical
+    rule: "For students or minors, do not alter apparent age, over-manipulate facial features, or fabricate educational achievements."

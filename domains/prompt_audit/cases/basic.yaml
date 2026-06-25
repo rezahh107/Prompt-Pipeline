@@ -1,0 +1,21 @@
+case_id: prompt_audit.basic.v1
+description: Audit a vague prompt.
+domain: prompt_audit
+subtype: default
+version: "2026.3"
+
+inputs:
+  prompt_to_audit: "این را بهتر کن."
+  target_model: GPT
+  target_task: "Improve user-provided text"
+
+expected:
+  domain: prompt_audit
+  subtype: default
+  risk_level: medium
+  requires_human_review: false
+  policies_applied: []
+  templates_used:
+    - audit.j2
+  validation:
+    should_pass: true

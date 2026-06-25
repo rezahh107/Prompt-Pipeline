@@ -1,0 +1,412 @@
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import yaml from 'js-yaml';
+import nunjucks from 'nunjucks';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+
+export type ExecutionMode = 'interactive' | 'batch' | 'ci' | 'agent';
+export type RiskLevel = 'low' | 'medium' | 'high';
+export type Dict = Record<string, unknown>;
+
+export interface PEaCConfig {
+  kb_path: string;
+  policies_path: string;
+  domains_path: string;
+  pipeline_path: string;
+  outputs_path: string;
+  default_execution_mode: ExecutionMode;
+  artifact: { schema: string; output_dir: string; format: string };
+}
+
+interface CaseFile {
+  case_id: string;
+  description?: string;
+  domain: string;
+  subtype?: string;
+  version?: string;
+  inputs: Dict;
+  expected?: { risk_level?: RiskLevel; requires_human_review?: boolean; validation?: { should_pass?: boolean } };
+}
+
+interface RoutingResult {
+  domain: string;
+  subtype: string | null;
+  confidence: number;
+  method: string;
+  risk_level: RiskLevel;
+}
+
+interface ValidationResult {
+  passed: boolean;
+  warnings: string[];
+  errors: string[];
+  checks_run: string[];
+}
+
+interface PromptArtifact {
+  prompt_id: string;
+  generated_at: string;
+  domain: string;
+  subtype: string | null;
+  execution_mode: ExecutionMode;
+  provenance: {
+    user_request: string;
+    case_file: string | null;
+    routing_method: string;
+    routing_confidence: number;
+    template_used: string;
+    template_version: string;
+    inputs_provided: string[];
+    inputs_inferred: string[];
+    inputs_defaulted: string[];
+  };
+  policies_applied: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }>;
+  validation: ValidationResult;
+  risk_level: RiskLevel;
+  requires_human_review: boolean;
+  review_reason: string | null;
+  rendered_prompt: string;
+}
+
+export function parseArgs(argv: string[]): Record<string, string | boolean> {
+  const out: Record<string, string | boolean> = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (!arg.startsWith('--')) continue;
+    const raw = arg.slice(2);
+    if (raw.includes('=')) {
+      const [key, ...rest] = raw.split('=');
+      out[key] = rest.join('=');
+    } else {
+      const next = argv[i + 1];
+      if (next && !next.startsWith('--')) {
+        out[raw] = next;
+        i += 1;
+      } else {
+        out[raw] = true;
+      }
+    }
+  }
+  return out;
+}
+
+export function readYamlFile<T>(path: string): T {
+  return yaml.load(readFileSync(path, 'utf8')) as T;
+}
+
+export function writeYamlFile(path: string, value: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, yaml.dump(value, { lineWidth: 100, noRefs: true }));
+}
+
+function stableString(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function evalCondition(expr: string | undefined, inputs: Dict): boolean {
+  if (!expr || expr.trim() === '') return true;
+  const helper = (name: string): unknown => inputs[name];
+  try {
+    const fn = new Function('value', `return Boolean(${expr.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g, (token) => {
+      if (['true', 'false', 'null', 'undefined'].includes(token)) return token;
+      return `value('${token}')`;
+    })});`);
+    return Boolean(fn(helper));
+  } catch {
+    return false;
+  }
+}
+
+function getRequiredFields(contract: Dict): string[] {
+  const fields = contract.fields as { required?: Array<{ name: string }> } | undefined;
+  return fields?.required?.map((f) => f.name) ?? [];
+}
+
+function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; defaulted: string[] } {
+  const copy = { ...inputs };
+  const defaulted: string[] = [];
+  const fields = contract.fields as { optional?: Array<{ name: string; default?: unknown }> } | undefined;
+  for (const field of fields?.optional ?? []) {
+    if (copy[field.name] === undefined && field.default !== undefined) {
+      copy[field.name] = field.default;
+      defaulted.push(field.name);
+    }
+  }
+  return { inputs: copy, defaulted };
+}
+
+function applyInferences(inputs: Dict): { inputs: Dict; inferred: string[] } {
+  const copy = { ...inputs };
+  const inferred: string[] = [];
+  const overlayElements = Array.isArray(copy.overlay_elements) ? copy.overlay_elements : [];
+  if (copy.needs_overlay === undefined) {
+    copy.needs_overlay = overlayElements.length > 0 || copy.persian_text_required === true || copy.logo_required === true;
+    inferred.push('needs_overlay');
+  }
+  if (copy.subject_identity === undefined) {
+    copy.subject_identity = Number(copy.subject_count ?? 0) > 0 && copy.has_source_photo === true;
+    inferred.push('subject_identity');
+  }
+  return { inputs: copy, inferred };
+}
+
+function assessRisk(domain: string, inputs: Dict): RiskLevel {
+  if (inputs.legal_medical_financial === true) return 'high';
+  if (domain === 'agents' && inputs.tool_actions === true) return 'high';
+  if (domain === 'image' && inputs.minors_or_students === true && inputs.needs_overlay === true) return 'high';
+  if (domain === 'image' && inputs.subject_identity === true && inputs.exact_factual_claims === true) return 'high';
+  if (domain === 'image' && Number(inputs.subject_count ?? 0) > 0) return 'medium';
+  if (inputs.exact_factual_claims === true || inputs.official_information === true) return 'medium';
+  return 'low';
+}
+
+function selectSubtype(route: Dict, inputs: Dict, requested?: string): string {
+  if (requested) return requested;
+  const subtypes = (route.subtypes as Array<{ id: string; triggers?: string[] }> | undefined) ?? [];
+  for (const subtype of subtypes) {
+    if ((subtype.triggers ?? []).every((condition) => evalCondition(condition, inputs))) return subtype.id;
+  }
+  return subtypes[0]?.id ?? 'default';
+}
+
+function selectTemplate(route: Dict, subtype: string): string {
+  const subtypes = (route.subtypes as Array<{ id: string; templates?: { primary?: string } }> | undefined) ?? [];
+  return subtypes.find((s) => s.id === subtype)?.templates?.primary ?? `${subtype}.j2`;
+}
+
+function routeRequest(request: string, config: PEaCConfig): RoutingResult {
+  const router = readYamlFile<{ domains: Record<string, { enabled?: boolean; keywords?: string[]; patterns?: string[]; confidence_threshold?: number }> }>(join(config.pipeline_path, 'router.yaml'));
+  const normalized = request.toLowerCase();
+  for (const [domain, domainConfig] of Object.entries(router.domains)) {
+    if (domainConfig.enabled === false || domain === 'general') continue;
+    const keywordMatch = (domainConfig.keywords ?? []).some((kw) => normalized.includes(kw.toLowerCase()));
+    const patternMatch = (domainConfig.patterns ?? []).some((pattern) => new RegExp(pattern, 'i').test(request));
+    if (keywordMatch || patternMatch) {
+      return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match', risk_level: 'medium' };
+    }
+  }
+  return { domain: 'general', subtype: 'default', confidence: 0.5, method: 'fallback_general_low_risk', risk_level: 'low' };
+}
+
+function loadPolicies(config: PEaCConfig, inputs: Dict): Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> {
+  const dir = config.policies_path;
+  if (!existsSync(dir)) return [];
+  const result: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> = [];
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.yaml'))) {
+    const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(dir, file));
+    const applies = (policy.applies_when ?? ['true']).some((condition) => evalCondition(condition, inputs));
+    if (applies) {
+      result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: (policy.applies_when ?? ['true']).join(' OR ') });
+    }
+  }
+  return result;
+}
+
+function renderTemplate(templatePath: string, inputs: Dict): string {
+  const env = new nunjucks.Environment(undefined, { autoescape: false, throwOnUndefined: false, trimBlocks: false });
+  return env.renderString(readFileSync(templatePath, 'utf8'), inputs).trim() + '\n';
+}
+
+function runStaticValidation(renderedPrompt: string, validatorsPath: string, contract: Dict, inputs: Dict, policiesApplied: string[]): ValidationResult {
+  const validation: ValidationResult = { passed: true, warnings: [], errors: [], checks_run: [] };
+  const validators = readYamlFile<{ static_checks?: Array<Dict> }>(validatorsPath);
+  const add = (severity: string, message: string) => {
+    if (severity === 'error') {
+      validation.errors.push(message);
+      validation.passed = false;
+    } else {
+      validation.warnings.push(message);
+    }
+  };
+  for (const check of validators.static_checks ?? []) {
+    const id = String(check.id ?? 'unnamed_check');
+    validation.checks_run.push(id);
+    if (!evalCondition(check.applies_when as string | undefined, { ...inputs, rendered_prompt: renderedPrompt })) continue;
+    const severity = String(check.severity ?? 'warning');
+    if (check.type === 'contract_check') {
+      const missing = getRequiredFields(contract).filter((name) => inputs[name] === undefined || inputs[name] === null || inputs[name] === '');
+      if (missing.length > 0) add(severity, `Missing required fields: ${missing.join(', ')}`);
+    }
+    if (check.type === 'rule_presence') {
+      const required = String(check.required_policy_id ?? '');
+      if (required && !policiesApplied.includes(required)) add(severity, String(check.message ?? `Required policy not applied: ${required}`));
+    }
+    if (check.type === 'forbidden_instruction') {
+      for (const pattern of (check.forbidden_patterns as string[] | undefined) ?? []) {
+        if (renderedPrompt.toLowerCase().includes(pattern.toLowerCase())) add(severity, `Forbidden instruction found: ${pattern}`);
+      }
+    }
+    if (check.type === 'field_check') {
+      if (!evalCondition(check.check as string | undefined, inputs)) add(severity, String(check.message ?? `Field check failed: ${id}`));
+    }
+    if (check.type === 'output_check') {
+      const expression = String(check.check ?? '').replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
+      if (!evalCondition(expression, { ...inputs, rendered_prompt: renderedPrompt })) add(severity, String(check.message ?? `Output check failed: ${id}`));
+    }
+  }
+  return validation;
+}
+
+function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): void {
+  const schema = JSON.parse(readFileSync(config.artifact.schema, 'utf8')) as object;
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  addFormats(ajv);
+  const validate = ajv.compile(schema);
+  if (!validate(artifact)) {
+    throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
+  }
+}
+
+export function loadConfig(): PEaCConfig {
+  return readYamlFile<PEaCConfig>('peac.config.yaml');
+}
+
+export function generateArtifact(args: Record<string, string | boolean>): { artifact: PromptArtifact; outputPath: string } {
+  const config = loadConfig();
+  const mode = String(args.mode ?? config.default_execution_mode) as ExecutionMode;
+  const caseFile = typeof args.case === 'string' ? args.case : null;
+  const userRequest = typeof args.request === 'string' ? args.request : '';
+
+  let routing: RoutingResult;
+  let caseData: CaseFile | null = null;
+  let providedInputs: Dict;
+
+  if (caseFile) {
+    caseData = readYamlFile<CaseFile>(caseFile);
+    routing = { domain: caseData.domain, subtype: caseData.subtype ?? null, confidence: 1, method: 'case_file', risk_level: 'medium' };
+    providedInputs = { ...caseData.inputs };
+  } else {
+    routing = routeRequest(userRequest, config);
+    providedInputs = { task: userRequest };
+  }
+
+  providedInputs.domain = routing.domain;
+  const contractPath = join(config.domains_path, routing.domain, 'input.contract.yaml');
+  const routePath = join(config.domains_path, routing.domain, 'route.yaml');
+  const validatorsPath = join(config.domains_path, routing.domain, 'validators.yaml');
+  const contract = readYamlFile<Dict>(contractPath);
+  const route = readYamlFile<Dict>(routePath);
+
+  const withDefaults = applyOptionalDefaults(contract, providedInputs);
+  const withInferences = applyInferences(withDefaults.inputs);
+  const inputs = withInferences.inputs;
+  const subtype = selectSubtype(route, inputs, routing.subtype ?? undefined);
+  inputs.subtype = subtype;
+  inputs.risk_level = assessRisk(routing.domain, inputs);
+  const riskLevel = inputs.risk_level as RiskLevel;
+
+  const primaryTemplate = selectTemplate(route, subtype);
+  const templatePath = join(config.domains_path, routing.domain, 'templates', primaryTemplate);
+  const policies = loadPolicies(config, inputs);
+  const renderedPrompt = renderTemplate(templatePath, inputs);
+  const validation = runStaticValidation(renderedPrompt, validatorsPath, contract, inputs, policies.map((p) => p.id));
+
+  const artifact: PromptArtifact = {
+    prompt_id: `${routing.domain}.${subtype}.v1`,
+    generated_at: new Date().toISOString(),
+    domain: routing.domain,
+    subtype,
+    execution_mode: mode,
+    provenance: {
+      user_request: userRequest || caseData?.description || '',
+      case_file: caseFile,
+      routing_method: routing.method,
+      routing_confidence: routing.confidence,
+      template_used: templatePath,
+      template_version: String(caseData?.version ?? '2026.3'),
+      inputs_provided: Object.keys(providedInputs).filter((key) => key !== 'domain'),
+      inputs_inferred: withInferences.inferred.concat(['risk_level']).sort(),
+      inputs_defaulted: withDefaults.defaulted.sort()
+    },
+    policies_applied: policies,
+    validation,
+    risk_level: riskLevel,
+    requires_human_review: riskLevel === 'high',
+    review_reason: riskLevel === 'high' ? 'High-risk prompt artifact requires human review before use.' : null,
+    rendered_prompt: renderedPrompt
+  };
+
+  validateArtifactSchema(config, artifact);
+  const outputPath = join(config.outputs_path, `${artifact.prompt_id.replaceAll('.', '-')}-${Date.now()}.yaml`);
+  writeYamlFile(outputPath, artifact);
+  return { artifact, outputPath };
+}
+
+function walkFiles(dir: string): string[] {
+  const result: string[] = [];
+  if (!existsSync(dir)) return result;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) result.push(...walkFiles(path));
+    if (entry.isFile()) result.push(path);
+  }
+  return result;
+}
+
+export function validateAllCases(): { total: number; passed: number; failed: number; failures: string[] } {
+  const config = loadConfig();
+  const caseFiles = walkFiles(config.domains_path).filter((file) => file.includes(`${join('', 'cases')}`) && file.endsWith('.yaml'));
+  const failures: string[] = [];
+  for (const file of caseFiles) {
+    try {
+      const { artifact } = generateArtifact({ case: file, mode: 'ci' });
+      if (!artifact.validation.passed) failures.push(`${file}: ${artifact.validation.errors.join('; ')}`);
+    } catch (error) {
+      failures.push(`${file}: ${(error as Error).message}`);
+    }
+  }
+  return { total: caseFiles.length, passed: caseFiles.length - failures.length, failed: failures.length, failures };
+}
+
+export function extractRuleBlocks(kbRoot: string): Map<string, string> {
+  const blocks = new Map<string, string>();
+  const pattern = /<!--\s*peac-rule-id:\s*([^\s]+)\s*-->([\s\S]*?)<!--\s*\/peac-rule-id\s*-->/g;
+  for (const file of walkFiles(kbRoot).filter((path) => path.endsWith('.md'))) {
+    const content = readFileSync(file, 'utf8');
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) !== null) {
+      blocks.set(match[1], match[2].trim());
+    }
+  }
+  return blocks;
+}
+
+export function hashRuleBlock(content: string): string {
+  return createHash('sha256').update(content.trim()).digest('hex').slice(0, 16);
+}
+
+export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated: string[] } {
+  const config = loadConfig();
+  const blocks = extractRuleBlocks(config.kb_path);
+  const yamlFiles = [
+    ...walkFiles(config.policies_path).filter((file) => file.endsWith('.yaml')),
+    ...walkFiles(config.domains_path).filter((file) => file.endsWith('rules.yaml'))
+  ];
+  const drifted: string[] = [];
+  const updated: string[] = [];
+  for (const file of yamlFiles) {
+    const data = readYamlFile<Dict>(file);
+    const entries = Array.isArray(data.rules) ? (data.rules as Dict[]) : [data];
+    let changed = false;
+    for (const entry of entries) {
+      const ruleId = entry.peac_rule_id as string | undefined;
+      if (!ruleId || !blocks.has(ruleId)) continue;
+      const hash = hashRuleBlock(blocks.get(ruleId)!);
+      if (entry.source_hash !== hash) {
+        drifted.push(`${file}#${ruleId}`);
+        if (!checkOnly) {
+          entry.source_hash = hash;
+          entry.last_synced = new Date().toISOString().slice(0, 10);
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      writeYamlFile(file, data);
+      updated.push(file);
+    }
+  }
+  return { drifted, updated };
+}

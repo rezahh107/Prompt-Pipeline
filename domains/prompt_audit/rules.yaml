@@ -1,0 +1,11 @@
+domain: prompt_audit
+version: "2026.3"
+
+rules:
+  - id: prompt_audit.finding_taxonomy
+    peac_rule_id: audit.finding_taxonomy
+    source_ref: kb/07-evaluation-rubrics.md
+    source_hash: null
+    last_synced: null
+    priority: high
+    rule: "Classify findings as confirmed_issue, probable_issue, potential_risk, or strength."

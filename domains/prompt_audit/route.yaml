@@ -1,0 +1,8 @@
+domain: prompt_audit
+version: "2026.3"
+
+subtypes:
+  - id: default
+    description: Audit an existing prompt.
+    templates:
+      primary: audit.j2

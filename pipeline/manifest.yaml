@@ -1,0 +1,25 @@
+pipeline:
+  name: peac-prompt-generator
+  version: "2026.3"
+
+stages:
+  - id: normalize
+    description: Normalize user request or case input.
+  - id: route
+    description: Resolve domain and subtype.
+  - id: load_contract
+    description: Load the selected domain input contract.
+  - id: complete_inputs
+    description: Apply provided, defaulted, and inferred inputs.
+  - id: load_policies
+    description: Load global non-overridable policies.
+  - id: load_rules
+    description: Load domain-specific rules.
+  - id: select_template
+    description: Select the template declared by the subtype route.
+  - id: render
+    description: Render the prompt with Nunjucks.
+  - id: validate_static
+    description: Run deterministic static checks without LLM calls.
+  - id: emit_artifact
+    description: Emit a versioned YAML artifact with provenance.

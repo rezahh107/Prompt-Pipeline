@@ -1,0 +1,77 @@
+contract_version: "1.0"
+domain: image
+version: "2026.3"
+
+fields:
+  required:
+    - name: image_type
+      type: string
+      enum: [portrait, group, product, landscape, document]
+      ask_if_missing: "What type of image is needed?"
+    - name: subject_count
+      type: integer
+      minimum: 0
+      ask_if_missing: "How many people are in the image? Use 0 if none."
+    - name: has_source_photo
+      type: boolean
+      ask_if_missing: "Is there a source photo to edit?"
+
+  optional:
+    - name: style_description
+      type: string
+      default: "Persian academic award portrait"
+    - name: background_description
+      type: string
+      default: "softly blurred modern academic office"
+    - name: aspect_ratio
+      type: string
+      default: "4:5"
+      enum: ["1:1", "4:5", "16:9", "9:16", "3:4"]
+    - name: safe_area_percent
+      type: integer
+      default: 25
+      minimum: 0
+      maximum: 50
+    - name: has_document
+      type: boolean
+      default: false
+    - name: document_type
+      type: string
+      enum: [report_card, certificate, id_card, diploma]
+      required_if: "has_document == true"
+    - name: overlay_elements
+      type: array
+      default: []
+    - name: color_palette
+      type: object
+      default:
+        primary: "warm cream"
+        secondary: "navy"
+        accent: "gold"
+    - name: persian_text_required
+      type: boolean
+      default: false
+    - name: logo_required
+      type: boolean
+      default: false
+    - name: minors_or_students
+      type: boolean
+      default: false
+
+  inferred:
+    - name: needs_overlay
+      logic: "overlay_elements.length > 0 || persian_text_required == true || logo_required == true"
+      default: false
+    - name: subject_identity
+      logic: "subject_count > 0 && has_source_photo == true"
+      default: false
+    - name: risk_level
+      default: medium
+
+  forbidden_combinations:
+    - fields: [depth_of_field_strong, document_visible]
+      reason: "Strong depth of field conflicts with document readability."
+      action: warn
+    - fields: [realistic_style, heavy_beautify]
+      reason: "Heavy beautification conflicts with identity preservation."
+      action: warn

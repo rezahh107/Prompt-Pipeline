@@ -1,0 +1,47 @@
+case_id: image.academic_portrait.v1
+description: Student academic portrait image prompt with deterministic overlay separation.
+domain: image
+subtype: identity_preserving_edit
+version: "2026.3"
+
+inputs:
+  image_type: portrait
+  subject_count: 1
+  has_source_photo: true
+  has_document: true
+  document_type: report_card
+  needs_overlay: true
+  overlay_elements:
+    - logo
+    - student_name
+    - subtitle
+  aspect_ratio: "4:5"
+  safe_area_percent: 25
+  minors_or_students: true
+  persian_text_required: true
+  logo_required: true
+  exact_factual_claims: true
+  official_information: true
+  color_palette:
+    primary: "warm cream"
+    secondary: "navy"
+    accent: "gold"
+
+expected:
+  domain: image
+  subtype: identity_preserving_edit
+  risk_level: high
+  requires_human_review: true
+  policies_applied:
+    - identity_preservation
+    - overlay_exact_text
+    - child_student_safety
+    - safety_ethics
+  templates_used:
+    - stage1-image-model.j2
+    - overlay-stage.j2
+  validation:
+    should_pass: true
+    expected_warnings: []
+
+golden_output_ref: tests/golden/academic-portrait-stage1.txt

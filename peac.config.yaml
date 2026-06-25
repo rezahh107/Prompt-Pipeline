@@ -1,0 +1,21 @@
+name: prompt-pipeline
+version: "2026.3"
+description: "Prompt Engineering as Code pipeline"
+
+kb_path: ./kb
+policies_path: ./policies
+domains_path: ./domains
+pipeline_path: ./pipeline
+outputs_path: ./outputs
+template_engine: nunjucks
+
+default_execution_mode: batch
+
+artifact:
+  schema: pipeline/artifact.schema.json
+  output_dir: outputs
+  format: yaml
+
+logging:
+  level: info
+  file: outputs/peac.log

@@ -1,0 +1,17 @@
+policy_id: safety_ethics
+version: "2026.3"
+scope: global
+overridable: false
+source_ref: kb/09-safety-ethics.md
+peac_rule_id: safety.no_fabrication
+source_hash: null
+
+description: Prevent fabricated official facts, unsafe disclosure, or misleading outputs.
+
+applies_when:
+  - "exact_factual_claims == true || minors_or_students == true || official_information == true"
+
+rules:
+  - "Do not fabricate ranks, grades, scores, certificates, signatures, seals, or affiliations."
+  - "If a value is not provided by a trusted source, mark it missing instead of inventing it."
+  - "Respect privacy and avoid unnecessary disclosure of personal data."
