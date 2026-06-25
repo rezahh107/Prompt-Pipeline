@@ -6,3 +6,8 @@ subtypes:
     description: Improve and standardize an existing prompt.
     templates:
       primary: refactor.j2
+
+risk_overrides:
+  - condition: "domain == 'prompt_refactor'"
+    risk: medium
+    note: "Prompt refactors can change task behavior, safety constraints, and evidence requirements."
