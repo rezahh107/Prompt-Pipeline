@@ -26,3 +26,5 @@ jobs:
         run: pnpm peac:validate
       - name: Rule drift check
         run: pnpm peac:sync -- --check
+      - name: Smoke generate artifact
+        run: pnpm peac:smoke
