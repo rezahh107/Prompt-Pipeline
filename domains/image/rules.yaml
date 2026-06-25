@@ -26,6 +26,22 @@ rules:
     priority: high
     rule: "When overlay is needed, reserve a clean safe area, default top 25%."
 
+  - id: image.priority_order
+    peac_rule_id: image.priority_order
+    source_ref: kb/04-templates/image.md#priority-order
+    source_hash: cd98854ffad79a43
+    last_synced: "2026-06-25"
+    priority: high
+    rule: "Image prompts should declare the priority order instead of relying on a long unranked instruction list."
+
+  - id: image.protected_editable
+    peac_rule_id: image.protected_editable
+    source_ref: kb/04-templates/image.md#protected-editable
+    source_hash: 4dfecfb7d62b738d
+    last_synced: "2026-06-25"
+    priority: high
+    rule: "Image edit prompts should separate protected source-photo elements from editable presentation elements."
+
   - id: image.child_safety
     peac_rule_id: safety.child_student
     source_ref: kb/09-safety-ethics.md#children-students
