@@ -6,3 +6,8 @@ subtypes:
     description: Audit an existing prompt.
     templates:
       primary: audit.j2
+
+risk_overrides:
+  - condition: "domain == 'prompt_audit'"
+    risk: medium
+    note: "Prompt audits can surface reliability, safety, and evidence risks."
