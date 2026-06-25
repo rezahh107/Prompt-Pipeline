@@ -1,0 +1,28 @@
+domain: repo_review
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+
+  - id: evidence_rules_present
+    type: output_check
+    check: "rendered_prompt contains '[EVIDENCE AND ACCURACY RULES]'"
+    severity: error
+
+  - id: no_fake_results_rule_present
+    type: output_check
+    check: "rendered_prompt contains 'Do not fabricate test results'"
+    severity: error
+
+  - id: output_format_present
+    type: output_check
+    check: "rendered_prompt contains '[OUTPUT FORMAT]'"
+    severity: warning
+
+  - id: forbidden_combinations_clear
+    type: forbidden_combination
+    check: all_forbidden_combinations_clear
+    severity: warning
