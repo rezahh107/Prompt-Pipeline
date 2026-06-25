@@ -10,6 +10,11 @@ subtypes:
       primary: stage1-image-model.j2
       overlay: overlay-stage.j2
 
+  - id: image_qa
+    description: Review a generated or edited image against identity, document, safe-area, overlay, and publication-readiness criteria.
+    templates:
+      primary: image-qa.j2
+
   - id: image_generation
     description: Create an image from scratch.
     triggers:
