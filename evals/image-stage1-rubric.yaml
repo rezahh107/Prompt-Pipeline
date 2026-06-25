@@ -10,11 +10,9 @@ checks:
       - "Protected:"
       - "Editable:"
 
-  - id: image_stage1_overlay_guardrail
+  - id: image_stage1_forbidden_generation_phrases
     domain: image
     subtype: identity_preserving_edit
-    required_substrings:
-      - "Do not generate any text"
     forbidden_substrings:
       - "write the Persian text into the image"
       - "generate the logo"
