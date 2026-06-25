@@ -25,7 +25,9 @@ jobs:
       - name: PEaC self tests
         run: pnpm peac:selftest
       - name: Static validation
-        run: pnpm peac:validate > peac-validate.log 2>&1
+        run: |
+          set -o pipefail
+          pnpm peac:validate 2>&1 | tee peac-validate.log
       - name: Upload validation log
         if: failure()
         uses: actions/upload-artifact@v4
