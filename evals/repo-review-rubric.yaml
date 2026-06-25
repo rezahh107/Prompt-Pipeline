@@ -1,0 +1,21 @@
+rubric_id: repo_review.v1
+version: "2026.3"
+
+checks:
+  - id: repo_review_evidence_rules
+    domain: repo_review
+    required_substrings:
+      - "[EVIDENCE AND ACCURACY RULES]"
+      - "Do not fabricate test results"
+      - "If a claim cannot be verified"
+
+  - id: repo_review_output_format
+    domain: repo_review
+    required_substrings:
+      - "[OUTPUT FORMAT]"
+      - "Findings table"
+
+  - id: repo_review_safe_patch
+    domain: repo_review
+    required_substrings:
+      - "smallest safe patch"
