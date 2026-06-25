@@ -1,0 +1,55 @@
+contract_version: "1.0"
+domain: repo_review
+version: "2026.3"
+
+fields:
+  required:
+    - name: review_subject
+      type: string
+      ask_if_missing: "Provide the repository URL, PR URL, archive name, or review target."
+    - name: review_scope
+      type: string
+      enum: [repository, pull_request]
+      ask_if_missing: "Is this a repository-level review or a pull request review?"
+    - name: objective
+      type: string
+      ask_if_missing: "What should the review accomplish?"
+
+  optional:
+    - name: project_context
+      type: string
+      default: "No project-specific context provided."
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: output_language
+      type: string
+      default: "Persian"
+    - name: evidence_level
+      type: string
+      enum: [basic, strict, release_grade]
+      default: strict
+    - name: include_patch_guidance
+      type: boolean
+      default: true
+    - name: include_prompt_for_next_agent
+      type: boolean
+      default: true
+    - name: external_files
+      type: boolean
+      default: true
+    - name: irreversible_actions
+      type: boolean
+      default: false
+    - name: current_or_unstable_dependencies
+      type: boolean
+      default: true
+
+  inferred:
+    - name: risk_level
+      default: medium
+
+  forbidden_combinations:
+    - fields: [irreversible_actions, include_patch_guidance]
+      reason: "The generated prompt may propose patches, but must not authorize irreversible remote actions without explicit confirmation."
+      severity: warning
