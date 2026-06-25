@@ -169,7 +169,6 @@ function parseExecutionMode(value: unknown, fallback: ExecutionMode): ExecutionM
 function tokenizeExpression(expr: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
-
   const push = (type: TokenType, value: string) => tokens.push({ type, value });
   const isIdentifierStart = (char: string) => /[A-Za-z_$]/.test(char);
   const isIdentifierPart = (char: string) => /[A-Za-z0-9_$]/.test(char);
@@ -180,22 +179,20 @@ function tokenizeExpression(expr: string): Token[] {
       i += 1;
       continue;
     }
-
     if (char === '(' || char === ')') {
       push('paren', char);
       i += 1;
       continue;
     }
-
     if (char === '.') {
       push('dot', char);
       i += 1;
       continue;
     }
-
     if (char === '\'' || char === '"' || char === '`') {
       const quote = char;
       let value = '';
+      let closed = false;
       i += 1;
       while (i < expr.length) {
         const current = expr[i];
@@ -207,18 +204,17 @@ function tokenizeExpression(expr: string): Token[] {
           continue;
         }
         if (current === quote) {
+          closed = true;
           i += 1;
-          push('string', value);
-          value = '';
           break;
         }
         value += current;
         i += 1;
       }
-      if (value !== '') throw new Error(`Unterminated string literal in expression: ${expr}`);
+      if (!closed) throw new Error(`Unterminated string literal in expression: ${expr}`);
+      push('string', value);
       continue;
     }
-
     if (/[0-9]/.test(char)) {
       let value = char;
       i += 1;
@@ -230,7 +226,6 @@ function tokenizeExpression(expr: string): Token[] {
       push('number', value);
       continue;
     }
-
     const three = expr.slice(i, i + 3);
     const two = expr.slice(i, i + 2);
     if (three === '===' || three === '!==') {
@@ -248,7 +243,6 @@ function tokenizeExpression(expr: string): Token[] {
       i += 1;
       continue;
     }
-
     if (isIdentifierStart(char)) {
       let value = char;
       i += 1;
@@ -261,12 +255,34 @@ function tokenizeExpression(expr: string): Token[] {
       else push('identifier', value);
       continue;
     }
-
     throw new Error(`Unsupported token "${char}" in expression: ${expr}`);
   }
 
   push('eof', '');
   return tokens;
+}
+
+function isNullish(value: ExprValue): boolean {
+  return value === null || value === undefined;
+}
+
+function numericEquivalent(value: ExprValue): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function looseEqual(left: ExprValue, right: ExprValue): boolean {
+  if (isNullish(left) || isNullish(right)) return isNullish(left) && isNullish(right);
+  if (typeof left === typeof right) return left === right;
+  const leftNumber = numericEquivalent(left);
+  const rightNumber = numericEquivalent(right);
+  if (leftNumber !== null && rightNumber !== null) return leftNumber === rightNumber;
+  return false;
 }
 
 class ExpressionParser {
@@ -309,33 +325,33 @@ class ExpressionParser {
 
   private parseOr(): ExprValue {
     let left = this.parseAnd();
-    while (this.match('operator', '||')) {
-      const right = this.parseAnd();
-      left = Boolean(left) || Boolean(right);
-    }
+    while (this.match('operator', '||')) left = Boolean(left) || Boolean(this.parseAnd());
     return left;
   }
 
   private parseAnd(): ExprValue {
     let left = this.parseEquality();
-    while (this.match('operator', '&&')) {
-      const right = this.parseEquality();
-      left = Boolean(left) && Boolean(right);
-    }
+    while (this.match('operator', '&&')) left = Boolean(left) && Boolean(this.parseEquality());
     return left;
   }
 
   private parseEquality(): ExprValue {
     let left = this.parseComparison();
     while (true) {
-      if (this.match('operator', '==') || this.match('operator', '===')) {
-        const right = this.parseComparison();
-        left = left === right;
+      if (this.match('operator', '===')) {
+        left = left === this.parseComparison();
         continue;
       }
-      if (this.match('operator', '!=') || this.match('operator', '!==')) {
-        const right = this.parseComparison();
-        left = left !== right;
+      if (this.match('operator', '==')) {
+        left = looseEqual(left, this.parseComparison());
+        continue;
+      }
+      if (this.match('operator', '!==')) {
+        left = left !== this.parseComparison();
+        continue;
+      }
+      if (this.match('operator', '!=')) {
+        left = !looseEqual(left, this.parseComparison());
         continue;
       }
       return left;
@@ -346,23 +362,19 @@ class ExpressionParser {
     let left = this.parseUnary();
     while (true) {
       if (this.match('operator', '>')) {
-        const right = this.parseUnary();
-        left = Number(left) > Number(right);
+        left = Number(left) > Number(this.parseUnary());
         continue;
       }
       if (this.match('operator', '>=')) {
-        const right = this.parseUnary();
-        left = Number(left) >= Number(right);
+        left = Number(left) >= Number(this.parseUnary());
         continue;
       }
       if (this.match('operator', '<')) {
-        const right = this.parseUnary();
-        left = Number(left) < Number(right);
+        left = Number(left) < Number(this.parseUnary());
         continue;
       }
       if (this.match('operator', '<=')) {
-        const right = this.parseUnary();
-        left = Number(left) <= Number(right);
+        left = Number(left) <= Number(this.parseUnary());
         continue;
       }
       return left;
@@ -405,7 +417,7 @@ class ExpressionParser {
         if (property !== 'length') throw new Error(`Unsupported property access .${property}`);
         if (Array.isArray(value) || typeof value === 'string') value = value.length;
         else if (value === undefined || value === null) value = 0;
-        else throw new Error(`Property .length is supported only for arrays and strings`);
+        else throw new Error('Property .length is supported only for arrays and strings');
       }
       return value;
     }
@@ -428,10 +440,7 @@ export function evaluateConditionForTest(expr: string, inputs: Dict): boolean {
 
 function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dict): boolean {
   const containsMatch = expr.match(/^rendered_prompt\s+contains\s+['"](.+)['"]$/);
-  if (containsMatch) {
-    const needle = containsMatch[1];
-    return typeof needle === 'string' && renderedPrompt.includes(needle);
-  }
+  if (containsMatch) return renderedPrompt.includes(containsMatch[1] ?? '');
   const jsExpr = expr.replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
   return evalCondition(jsExpr, { ...inputs, rendered_prompt: renderedPrompt });
 }
@@ -447,29 +456,20 @@ function valueIsMissing(value: unknown): boolean {
 function getMissingRequiredFields(contract: Dict, inputs: Dict): string[] {
   const fields = contractFields(contract);
   const missing = new Set<string>();
-
   for (const field of fields.required ?? []) {
     if (valueIsMissing(inputs[field.name])) missing.add(field.name);
   }
-
   for (const field of fields.optional ?? []) {
-    if (field.required_if && evalCondition(field.required_if, inputs) && valueIsMissing(inputs[field.name])) {
-      missing.add(field.name);
-    }
+    if (field.required_if && evalCondition(field.required_if, inputs) && valueIsMissing(inputs[field.name])) missing.add(field.name);
   }
-
   return [...missing].sort();
 }
 
 function enforceMissingInputs(missing: string[], mode: ExecutionMode): void {
   if (missing.length === 0) return;
   const list = missing.join(', ');
-  if (mode === 'interactive') {
-    throw new Error(`Missing required input(s): ${list}. Interactive questioning is not implemented in the CLI yet; provide a case file or explicit inputs.`);
-  }
-  if (mode === 'agent') {
-    throw new Error(`Missing required input(s): ${list}. Agent mode may default only optional fields; required inputs must be supplied.`);
-  }
+  if (mode === 'interactive') throw new Error(`Missing required input(s): ${list}. Interactive questioning is not implemented in the CLI yet; provide a case file or explicit inputs.`);
+  if (mode === 'agent') throw new Error(`Missing required input(s): ${list}. Agent mode may default only optional fields; required inputs must be supplied.`);
   throw new Error(`Missing required input(s): ${list}`);
 }
 
@@ -490,8 +490,7 @@ function getForbiddenCombinationViolations(contract: Dict, inputs: Dict): Array<
   const violations: Array<{ message: string; severity: string }> = [];
   for (const combo of fields.forbidden_combinations ?? []) {
     if (combo.fields.length === 0) continue;
-    const active = combo.fields.every((fieldName) => inputIsActive(inputs[fieldName]));
-    if (active) {
+    if (combo.fields.every((fieldName) => inputIsActive(inputs[fieldName]))) {
       const reason = combo.reason ? ` — ${combo.reason}` : '';
       violations.push({ message: `${combo.fields.join(' + ')}${reason}`, severity: severityForCombination(combo) });
     }
@@ -515,8 +514,7 @@ function applyInferences(contract: Dict, inputs: Dict): { inputs: Dict; inferred
   const copy = { ...inputs };
   const inferred: string[] = [];
   for (const field of contractFields(contract).inferred ?? []) {
-    if (field.name === 'risk_level') continue;
-    if (copy[field.name] !== undefined) continue;
+    if (field.name === 'risk_level' || copy[field.name] !== undefined) continue;
     if (field.logic) {
       copy[field.name] = evalCondition(field.logic, copy);
       inferred.push(field.name);
@@ -532,10 +530,7 @@ function applyInferences(contract: Dict, inputs: Dict): { inputs: Dict; inferred
 
 function assessRisk(route: Dict, inputs: Dict): RiskLevel {
   const overrides = route.risk_overrides as Array<{ condition: string; risk: RiskLevel }> | undefined;
-  for (const override of overrides ?? []) {
-    if (evalCondition(override.condition, inputs)) return override.risk;
-  }
-
+  for (const override of overrides ?? []) if (evalCondition(override.condition, inputs)) return override.risk;
   const domain = String(inputs.domain ?? '');
   if (inputs.legal_medical_financial === true) return 'high';
   if (domain === 'agents' && inputs.tool_actions === true) return 'high';
@@ -550,9 +545,7 @@ function assessRisk(route: Dict, inputs: Dict): RiskLevel {
 function selectSubtype(route: Dict, inputs: Dict, requested?: string): string {
   if (requested) return requested;
   const subtypes = (route.subtypes as Array<{ id: string; triggers?: string[] }> | undefined) ?? [];
-  for (const subtype of subtypes) {
-    if ((subtype.triggers ?? []).every((condition) => evalCondition(condition, inputs))) return subtype.id;
-  }
+  for (const subtype of subtypes) if ((subtype.triggers ?? []).every((condition) => evalCondition(condition, inputs))) return subtype.id;
   return subtypes[0]?.id ?? 'default';
 }
 
@@ -568,9 +561,7 @@ function routeRequest(request: string, config: PEaCConfig): RoutingResult {
     if (domainConfig.enabled === false || domain === 'general') continue;
     const keywordMatch = (domainConfig.keywords ?? []).some((keyword) => normalized.includes(keyword.toLowerCase()));
     const patternMatch = (domainConfig.patterns ?? []).some((pattern) => new RegExp(pattern, 'i').test(request));
-    if (keywordMatch || patternMatch) {
-      return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match' };
-    }
+    if (keywordMatch || patternMatch) return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match' };
   }
   return { domain: 'general', subtype: 'default', confidence: 0.5, method: 'fallback_general_low_risk' };
 }
@@ -578,13 +569,11 @@ function routeRequest(request: string, config: PEaCConfig): RoutingResult {
 function loadPolicies(config: PEaCConfig, inputs: Dict): Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> {
   if (!existsSync(config.policies_path)) return [];
   const result: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> = [];
-  for (const file of readdirSync(config.policies_path).filter((item) => item.endsWith('.yaml'))) {
+  for (const file of readdirSync(config.policies_path).filter((item) => item.endsWith('.yaml')).sort()) {
     const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(config.policies_path, file));
     if (!policy?.policy_id || !policy.source_ref) continue;
     const conditions = policy.applies_when ?? ['true'];
-    if (conditions.some((condition) => evalCondition(condition, inputs))) {
-      result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: conditions.join(' OR ') });
-    }
+    if (conditions.some((condition) => evalCondition(condition, inputs))) result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: conditions.join(' OR ') });
   }
   return result;
 }
@@ -601,17 +590,13 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
     if (severity === 'error') {
       validation.errors.push(message);
       validation.passed = false;
-    } else {
-      validation.warnings.push(message);
-    }
+    } else validation.warnings.push(message);
   };
-
   for (const check of validators.static_checks ?? []) {
     const id = String(check.id ?? 'unnamed_check');
     validation.checks_run.push(id);
     if (!evalCondition(check.applies_when as string | undefined, { ...inputs, rendered_prompt: renderedPrompt })) continue;
     const severity = String(check.severity ?? 'warning');
-
     if (check.type === 'contract_check') {
       const missing = getMissingRequiredFields(contract, inputs);
       if (missing.length > 0) add(severity, `Missing required fields: ${missing.join(', ')}`);
@@ -621,21 +606,11 @@ function runStaticValidation(renderedPrompt: string, validatorsPath: string, con
       if (required && !policiesApplied.includes(required)) add(severity, String(check.message ?? `Required policy not applied: ${required}`));
     }
     if (check.type === 'forbidden_instruction') {
-      for (const pattern of (check.forbidden_patterns as string[] | undefined) ?? []) {
-        if (renderedPrompt.toLowerCase().includes(pattern.toLowerCase())) add(severity, `Forbidden instruction found: ${pattern}`);
-      }
+      for (const pattern of (check.forbidden_patterns as string[] | undefined) ?? []) if (renderedPrompt.toLowerCase().includes(pattern.toLowerCase())) add(severity, `Forbidden instruction found: ${pattern}`);
     }
-    if (check.type === 'field_check' && !evalCondition(check.check as string | undefined, inputs)) {
-      add(severity, String(check.message ?? `Field check failed: ${id}`));
-    }
-    if (check.type === 'output_check' && !checkOutputExpression(String(check.check ?? ''), renderedPrompt, inputs)) {
-      add(severity, String(check.message ?? `Output check failed: ${id}`));
-    }
-    if (check.type === 'forbidden_combination') {
-      for (const violation of getForbiddenCombinationViolations(contract, inputs)) {
-        add(violation.severity || severity, `Forbidden input combination: ${violation.message}`);
-      }
-    }
+    if (check.type === 'field_check' && !evalCondition(check.check as string | undefined, inputs)) add(severity, String(check.message ?? `Field check failed: ${id}`));
+    if (check.type === 'output_check' && !checkOutputExpression(String(check.check ?? ''), renderedPrompt, inputs)) add(severity, String(check.message ?? `Output check failed: ${id}`));
+    if (check.type === 'forbidden_combination') for (const violation of getForbiddenCombinationViolations(contract, inputs)) add(violation.severity || severity, `Forbidden input combination: ${violation.message}`);
   }
   return validation;
 }
@@ -648,8 +623,18 @@ function hashFile(path: string): string {
   return hashText(readFileSync(path, 'utf8'));
 }
 
+function sortJsonKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortJsonKeys);
+  if (value !== null && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) sorted[key] = sortJsonKeys((value as Record<string, unknown>)[key]);
+    return sorted;
+  }
+  return value;
+}
+
 function hashJson(value: unknown): string {
-  return hashText(JSON.stringify(value, Object.keys(value as object).sort()));
+  return hashText(JSON.stringify(sortJsonKeys(value)) ?? 'undefined');
 }
 
 function readPackageManager(): string | null {
@@ -681,14 +666,10 @@ function validateArtifactSchema(config: PEaCConfig, artifact: PromptArtifact): v
     cachedArtifactValidator = cachedAjv.compile(schema);
     cachedArtifactSchemaPath = config.artifact.schema;
   }
-
   const ajv = cachedAjv;
   const validate = cachedArtifactValidator;
   if (!ajv || !validate) throw new Error('Artifact schema validator was not initialized.');
-
-  if (!validate(artifact)) {
-    throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
-  }
+  if (!validate(artifact)) throw new Error(`Artifact schema validation failed: ${ajv.errorsText(validate.errors)}`);
 }
 
 export function loadConfig(): PEaCConfig {
@@ -700,7 +681,6 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   const mode = parseExecutionMode(args.mode, config.default_execution_mode);
   const caseFile = typeof args.case === 'string' ? args.case : null;
   const userRequest = typeof args.request === 'string' ? args.request : '';
-
   let routing: RoutingResult;
   let caseData: CaseFile | null = null;
   let providedInputs: Dict;
@@ -720,17 +700,14 @@ export function generateArtifact(args: Record<string, string | boolean>): { arti
   const validatorsPath = join(config.domains_path, routing.domain, 'validators.yaml');
   const contract = readRequiredYamlFile<Dict>(contractPath);
   const route = readRequiredYamlFile<Dict>(routePath);
-
   const withDefaults = applyOptionalDefaults(contract, providedInputs);
   const withInferences = applyInferences(contract, withDefaults.inputs);
   const inputs = withInferences.inputs;
   enforceMissingInputs(getMissingRequiredFields(contract, inputs), mode);
-
   const subtype = selectSubtype(route, inputs, routing.subtype ?? undefined);
   inputs.subtype = subtype;
   inputs.risk_level = assessRisk(route, inputs);
   const riskLevel = inputs.risk_level as RiskLevel;
-
   const templateName = selectTemplate(route, subtype);
   const templatePath = join(config.domains_path, routing.domain, 'templates', templateName);
   const policies = loadPolicies(config, inputs);
@@ -796,47 +773,25 @@ export function validateAllCases(): { total: number; passed: number; failed: num
   const config = loadConfig();
   const caseFiles = walkFiles(config.domains_path).filter((file) => file.replaceAll('\\', '/').includes('/cases/') && file.endsWith('.yaml'));
   const failures: string[] = [];
-
   for (const file of caseFiles) {
     const caseData = readRequiredYamlFile<CaseFile>(file);
     const shouldPass = caseData.expected?.validation?.should_pass ?? true;
     const expectedErrors = caseData.expected?.validation?.expected_errors;
     const expectedWarnings = caseData.expected?.validation?.expected_warnings;
-
     try {
       const { artifact } = generateArtifact({ case: file, mode: 'ci' });
-      if (shouldPass && !artifact.validation.passed) {
-        failures.push(`${file}: expected pass, got validation errors: ${artifact.validation.errors.join('; ')}`);
-        continue;
-      }
-      if (!shouldPass && artifact.validation.passed) {
-        failures.push(`${file}: expected failure, but validation passed`);
-        continue;
-      }
-      if (caseData.expected?.risk_level && artifact.risk_level !== caseData.expected.risk_level) {
-        failures.push(`${file}: expected risk ${caseData.expected.risk_level}, got ${artifact.risk_level}`);
-      }
-      if (caseData.expected?.requires_human_review !== undefined && artifact.requires_human_review !== caseData.expected.requires_human_review) {
-        failures.push(`${file}: expected requires_human_review=${caseData.expected.requires_human_review}, got ${artifact.requires_human_review}`);
-      }
-      if (!includesAll(artifact.validation.errors, expectedErrors)) {
-        failures.push(`${file}: expected validation errors not found: ${(expectedErrors ?? []).join('; ')}`);
-      }
-      if (!includesAll(artifact.validation.warnings, expectedWarnings)) {
-        failures.push(`${file}: expected validation warnings not found: ${(expectedWarnings ?? []).join('; ')}`);
-      }
+      if (shouldPass && !artifact.validation.passed) failures.push(`${file}: expected pass, got validation errors: ${artifact.validation.errors.join('; ')}`);
+      if (!shouldPass && artifact.validation.passed) failures.push(`${file}: expected failure, but validation passed`);
+      if (caseData.expected?.risk_level && artifact.risk_level !== caseData.expected.risk_level) failures.push(`${file}: expected risk ${caseData.expected.risk_level}, got ${artifact.risk_level}`);
+      if (caseData.expected?.requires_human_review !== undefined && artifact.requires_human_review !== caseData.expected.requires_human_review) failures.push(`${file}: expected requires_human_review=${caseData.expected.requires_human_review}, got ${artifact.requires_human_review}`);
+      if (!includesAll(artifact.validation.errors, expectedErrors)) failures.push(`${file}: expected validation errors not found: ${(expectedErrors ?? []).join('; ')}`);
+      if (!includesAll(artifact.validation.warnings, expectedWarnings)) failures.push(`${file}: expected validation warnings not found: ${(expectedWarnings ?? []).join('; ')}`);
     } catch (error) {
       const message = (error as Error).message;
-      if (shouldPass) {
-        failures.push(`${file}: expected pass, got error: ${message}`);
-        continue;
-      }
-      if (!includesAll([message], expectedErrors)) {
-        failures.push(`${file}: expected failure, but error did not match expected_errors. Got: ${message}`);
-      }
+      if (shouldPass) failures.push(`${file}: expected pass, got error: ${message}`);
+      else if (!includesAll([message], expectedErrors)) failures.push(`${file}: expected failure, but error did not match expected_errors. Got: ${message}`);
     }
   }
-
   return { total: caseFiles.length, passed: caseFiles.length - failures.length, failed: failures.length, failures };
 }
 
@@ -870,7 +825,6 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
   const drifted: string[] = [];
   const updated: string[] = [];
   const missing: string[] = [];
-
   for (const file of yamlFiles) {
     const data = readYamlFile<Dict>(file);
     if (!data || typeof data !== 'object') continue;
@@ -899,7 +853,6 @@ export function syncRuleHashes(checkOnly: boolean): { drifted: string[]; updated
       updated.push(file);
     }
   }
-
   const orphaned = [...blocks.keys()].filter((ruleId) => !referencedRuleIds.has(ruleId)).sort();
   return { drifted, updated, missing, orphaned };
 }
