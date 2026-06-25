@@ -11,3 +11,11 @@ Exact Persian text, specific fonts, official logos, QR codes, rankings, grades, 
 <!-- peac-rule-id: image.safe_area -->
 When deterministic overlay is required, reserve a clean safe area. Default: top 25% of the canvas, empty and free from faces, hands, and important documents.
 <!-- /peac-rule-id -->
+
+<!-- peac-rule-id: image.priority_order -->
+Image prompts should be priority-oriented, not a long unranked list. For identity-preserving academic photo edits, use this order: preserve people, preserve faces, preserve documents, change background, reserve safe area, then defer exact text and logo to overlay.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: image.protected_editable -->
+Image edit prompts should separate protected elements from editable elements. Protected: people, faces, identity, clothing, hands, posture, and important documents. Editable: background, lighting, color grading, framing, and presentation style.
+<!-- /peac-rule-id -->
