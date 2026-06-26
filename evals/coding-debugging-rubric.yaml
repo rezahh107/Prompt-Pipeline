@@ -1,0 +1,31 @@
+rubric_id: coding_debugging.v1
+version: "2026.3"
+
+checks:
+  - id: coding_common_evidence_rules
+    domain: coding_debugging
+    required_substrings:
+      - "[EVIDENCE AND ACCURACY RULES]"
+      - "Do not fabricate test results"
+      - "If a claim cannot be verified"
+
+  - id: coding_patch_and_tests
+    domain: coding_debugging
+    required_substrings:
+      - "[PATCH PROTOCOL]"
+      - "Tests to run"
+
+  - id: code_review_focus
+    domain: coding_debugging
+    subtype: code_review
+    required_substrings:
+      - "[REVIEW FOCUS]"
+      - "Findings table"
+
+  - id: debugging_protocol
+    domain: coding_debugging
+    subtype: debugging
+    required_substrings:
+      - "[DEBUGGING PROTOCOL]"
+      - "Likely root causes"
+      - "Remaining unknowns"
