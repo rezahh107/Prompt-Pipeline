@@ -8,6 +8,7 @@ inputs:
   task_kind: code_review
   stack: "TypeScript + Node.js"
   objective: "Review a small TypeScript patch for correctness, maintainability, and missing tests."
+  review_artifact: "Patch touching src/validator.ts and tests/validator.test.ts."
   code_context: "A CLI utility changed validation behavior."
   output_language: Persian
   include_patch_protocol: true
