@@ -1,0 +1,28 @@
+rubric_id: image.stage1.v1
+version: "2026.3"
+
+checks:
+  - id: image_stage1_priority_and_boundaries
+    domain: image
+    subtype: identity_preserving_edit
+    required_substrings:
+      - "Priority order:"
+      - "Protected:"
+      - "Editable:"
+
+  - id: image_stage1_forbidden_generation_phrases
+    domain: image
+    subtype: identity_preserving_edit
+    forbidden_substrings:
+      - "write the Persian text into the image"
+      - "generate the logo"
+
+  - id: image_qa_sections
+    domain: image
+    subtype: image_qa
+    required_substrings:
+      - "[IDENTITY QA]"
+      - "[DOCUMENT QA]"
+      - "[SAFE AREA QA]"
+      - "[OVERLAY QA]"
+      - "[VERDICT]"

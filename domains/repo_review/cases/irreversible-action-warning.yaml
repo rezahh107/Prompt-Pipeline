@@ -1,0 +1,23 @@
+case_id: repo_review.high_risk_action.v1
+description: Remote-state changing review requests should be high risk and carry a warning.
+domain: repo_review
+subtype: repository_audit
+version: "2026.3"
+
+inputs:
+  review_subject: "repository target"
+  review_scope: repository
+  objective: "Review a change plan that may alter remote repository state."
+  irreversible_actions: true
+  include_patch_guidance: true
+  external_files: true
+
+expected:
+  domain: repo_review
+  subtype: repository_audit
+  risk_level: high
+  requires_human_review: true
+  validation:
+    should_pass: true
+    expected_warnings:
+      - "irreversible_actions + include_patch_guidance"

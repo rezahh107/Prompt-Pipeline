@@ -24,8 +24,16 @@ jobs:
         run: pnpm typecheck
       - name: PEaC self tests
         run: pnpm peac:selftest
+      - name: PEaC router tests
+        run: pnpm peac:routertest
+      - name: PEaC domain tests
+        run: pnpm peac:domaintest
       - name: Static validation
-        run: pnpm peac:validate > peac-validate.log 2>&1
+        run: |
+          set -o pipefail
+          pnpm peac:validate 2>&1 | tee peac-validate.log
+      - name: Local rubric evaluation
+        run: pnpm peac:eval
       - name: Upload validation log
         if: failure()
         uses: actions/upload-artifact@v4

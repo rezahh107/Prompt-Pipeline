@@ -15,7 +15,7 @@ static_checks:
   - id: overlay_policy_enforced
     type: rule_presence
     required_policy_id: overlay_exact_text
-    applies_when: "needs_overlay == true"
+    applies_when: "needs_overlay == true && subtype != 'image_qa'"
     severity: error
     message: "overlay_exact_text policy must be applied when overlay is needed."
 
@@ -38,37 +38,55 @@ static_checks:
       - "generate the logo"
       - "add the student name as text"
       - "write rank"
-    applies_when: "needs_overlay == true"
+    applies_when: "needs_overlay == true && subtype != 'image_qa'"
     severity: error
 
   - id: priority_order_present
     type: output_check
     check: "rendered_prompt contains 'Priority order:'"
-    applies_when: "subject_count > 0 && has_source_photo == true"
+    applies_when: "subject_count > 0 && has_source_photo == true && subtype != 'image_qa'"
     severity: error
 
   - id: protected_boundary_present
     type: output_check
     check: "rendered_prompt contains 'Protected:'"
-    applies_when: "subject_count > 0 && has_source_photo == true"
+    applies_when: "subject_count > 0 && has_source_photo == true && subtype != 'image_qa'"
     severity: error
 
   - id: editable_boundary_present
     type: output_check
     check: "rendered_prompt contains 'Editable:'"
-    applies_when: "subject_count > 0 && has_source_photo == true"
+    applies_when: "subject_count > 0 && has_source_photo == true && subtype != 'image_qa'"
+    severity: error
+
+  - id: image_qa_identity_checklist_present
+    type: output_check
+    check: "rendered_prompt contains '[IDENTITY QA]'"
+    applies_when: "subtype == 'image_qa'"
+    severity: error
+
+  - id: image_qa_overlay_checklist_present
+    type: output_check
+    check: "rendered_prompt contains '[OVERLAY QA]'"
+    applies_when: "subtype == 'image_qa'"
+    severity: error
+
+  - id: image_qa_verdict_present
+    type: output_check
+    check: "rendered_prompt contains '[VERDICT]'"
+    applies_when: "subtype == 'image_qa'"
     severity: error
 
   - id: safe_area_defined
     type: field_check
     check: "safe_area_percent > 0"
-    applies_when: "needs_overlay == true"
+    applies_when: "needs_overlay == true && subtype != 'image_qa'"
     severity: error
 
   - id: overlay_safe_instruction_present
     type: output_check
     check: "rendered_prompt contains 'Do not generate any text, logo, QR code, ranking, score, certificate text, or typographic element.'"
-    applies_when: "needs_overlay == true"
+    applies_when: "needs_overlay == true && subtype != 'image_qa'"
     severity: error
 
   - id: template_renders_non_empty
