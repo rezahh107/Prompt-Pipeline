@@ -1,0 +1,42 @@
+contract_version: "1.0"
+domain: release_audit
+version: "2026.3"
+
+fields:
+  required:
+    - name: review_stage
+      type: string
+      enum: [readiness_review, evidence_review]
+    - name: release_target
+      type: string
+    - name: objective
+      type: string
+    - name: evidence_summary
+      type: string
+
+  optional:
+    - name: stack
+      type: string
+      default: "Unknown stack."
+    - name: ci_status
+      type: string
+      default: "No CI status provided."
+    - name: test_summary
+      type: string
+      default: "No test summary provided."
+    - name: known_blockers
+      type: string
+      default: "No known blockers provided."
+    - name: output_language
+      type: string
+      default: "Persian"
+    - name: include_next_agent_prompt
+      type: boolean
+      default: true
+    - name: external_files
+      type: boolean
+      default: true
+
+  inferred:
+    - name: risk_level
+      default: medium
