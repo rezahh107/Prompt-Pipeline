@@ -11,6 +11,10 @@ function assertIncludes(name: string, haystack: string, needle: string): void {
   if (!haystack.includes(needle)) throw new Error(`${name}: expected prompt to include ${needle}`);
 }
 
+function assertNotIncludes(name: string, haystack: string, needle: string): void {
+  if (haystack.includes(needle)) throw new Error(`${name}: expected prompt not to include ${needle}`);
+}
+
 const imageRoute = (yaml.load(readFileSync('domains/image/route.yaml', 'utf8')) ?? {}) as { subtypes?: Array<{ id: string }> };
 assertTrue('image_qa subtype exists', (imageRoute.subtypes ?? []).some((subtype) => subtype.id === 'image_qa'));
 
@@ -51,11 +55,17 @@ assertIncludes('repo prompt blocks invented results', repoArtifact.rendered_prom
 
 const codeReviewArtifact = generateArtifact({ case: 'domains/coding_debugging/cases/code-review-basic.yaml', mode: 'ci' }).artifact;
 assertIncludes('code review prompt has review focus', codeReviewArtifact.rendered_prompt, '[REVIEW FOCUS]');
+assertIncludes('code review prompt has execution boundary', codeReviewArtifact.rendered_prompt, '[EXECUTION BOUNDARY]');
 assertIncludes('code review prompt has patch protocol', codeReviewArtifact.rendered_prompt, '[PATCH PROTOCOL]');
 assertIncludes('code review prompt has tests', codeReviewArtifact.rendered_prompt, 'Tests to run');
 
+const noPatchNoTestsArtifact = generateArtifact({ case: 'domains/coding_debugging/cases/code-review-no-patch-no-tests.yaml', mode: 'ci' }).artifact;
+assertNotIncludes('optional patch protocol is omitted', noPatchNoTestsArtifact.rendered_prompt, '[PATCH PROTOCOL]');
+assertNotIncludes('optional tests section is omitted', noPatchNoTestsArtifact.rendered_prompt, 'Tests to run');
+
 const debuggingArtifact = generateArtifact({ case: 'domains/coding_debugging/cases/debugging-basic.yaml', mode: 'ci' }).artifact;
 assertIncludes('debugging prompt has protocol', debuggingArtifact.rendered_prompt, '[DEBUGGING PROTOCOL]');
+assertIncludes('debugging prompt has execution boundary', debuggingArtifact.rendered_prompt, '[EXECUTION BOUNDARY]');
 assertIncludes('debugging prompt has root causes', debuggingArtifact.rendered_prompt, 'Likely root causes');
 assertIncludes('debugging prompt has unknowns', debuggingArtifact.rendered_prompt, 'Remaining unknowns');
 
