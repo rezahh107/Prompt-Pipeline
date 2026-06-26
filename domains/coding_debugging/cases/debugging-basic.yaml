@@ -1,0 +1,27 @@
+case_id: coding_debugging.debugging.basic.v1
+description: Basic debugging prompt generation case.
+domain: coding_debugging
+subtype: debugging
+version: "2026.3"
+
+inputs:
+  task_kind: debugging
+  stack: "TypeScript + Node.js"
+  objective: "Diagnose why validation fails after a recent parser change."
+  expected_behavior: "Validation should pass for valid case files."
+  actual_behavior: "Validation fails for a valid case file."
+  error_message: "Expected eof, got operator:&&"
+  code_context: "A restricted expression parser evaluates validator conditions."
+  output_language: Persian
+  include_patch_protocol: true
+  require_tests: true
+  external_files: true
+
+expected:
+  domain: coding_debugging
+  subtype: debugging
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []

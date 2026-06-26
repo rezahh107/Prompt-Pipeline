@@ -67,6 +67,29 @@ domains:
       - "بررسی[\\s\\S]*مخزن"
     confidence_threshold: 0.8
 
+  coding_debugging:
+    enabled: true
+    keywords:
+      - code review
+      - review code
+      - debug code
+      - debugging
+      - runtime error
+      - failing test
+      - patch protocol
+      - بررسی کد
+      - دیباگ
+      - خطای کد
+      - خطای تست
+      - اصلاح کد
+    patterns:
+      - "code[\\s\\S]*review"
+      - "debug[\\s\\S]*code"
+      - "failing[\\s\\S]*test"
+      - "بررسی[\\s\\S]*کد"
+      - "خطای[\\s\\S]*کد"
+    confidence_threshold: 0.8
+
   image:
     enabled: true
     keywords:

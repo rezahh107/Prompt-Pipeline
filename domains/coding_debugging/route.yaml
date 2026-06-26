@@ -1,0 +1,28 @@
+domain: coding_debugging
+version: "2026.3"
+
+subtypes:
+  - id: code_review
+    description: Review code, patches, or implementation plans for correctness, safety, maintainability, and tests.
+    triggers:
+      - "task_kind == 'code_review'"
+    templates:
+      primary: code-review.j2
+
+  - id: debugging
+    description: Diagnose a code or runtime problem and produce a staged debugging prompt.
+    triggers:
+      - "task_kind == 'debugging'"
+    templates:
+      primary: debugging.j2
+
+risk_overrides:
+  - condition: "domain == 'coding_debugging' && irreversible_actions == true"
+    risk: high
+    note: "Code tasks that may change remote or production state require human review."
+  - condition: "domain == 'coding_debugging' && security_sensitive == true"
+    risk: high
+    note: "Security-sensitive code changes require stricter evidence and human review."
+  - condition: "domain == 'coding_debugging'"
+    risk: medium
+    note: "Code and debugging prompts can affect system behavior and require test evidence."

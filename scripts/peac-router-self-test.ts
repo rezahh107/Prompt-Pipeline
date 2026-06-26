@@ -39,9 +39,12 @@ assertEqual('repo audit multiline route', routeRequest('repository\nneeds a stri
 assertEqual('image keyword route', routeRequest('یک پرامپت تصویر برای پرتره بده'), 'image');
 assertEqual('prompt refactor route', routeRequest('improve prompt structure and constraints'), 'prompt_refactor');
 assertEqual('prompt audit route', routeRequest('audit prompt structure for risks'), 'prompt_audit');
+assertEqual('code review route', routeRequest('review code for correctness and tests'), 'coding_debugging');
+assertEqual('debugging route', routeRequest('debug code after a runtime error'), 'coding_debugging');
 assertEqual('fallback route', routeRequest('give me a practical decision framework'), 'general');
 
 assertTrue('image domain enabled', router.domains.image.enabled === true);
 assertTrue('repo_review confidence threshold is explicit', typeof router.domains.repo_review.confidence_threshold === 'number');
+assertTrue('coding_debugging confidence threshold is explicit', typeof router.domains.coding_debugging.confidence_threshold === 'number');
 
 console.log('PEaC router self tests passed.');

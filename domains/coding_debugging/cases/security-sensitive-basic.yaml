@@ -1,0 +1,24 @@
+case_id: coding_debugging.security_sensitive.basic.v1
+description: Security-sensitive code review should be high risk and require human review.
+domain: coding_debugging
+subtype: code_review
+version: "2026.3"
+
+inputs:
+  task_kind: code_review
+  stack: "TypeScript + Node.js"
+  objective: "Review an authentication patch for correctness and security-sensitive behavior."
+  review_artifact: "Patch touching auth middleware and session validation."
+  security_sensitive: true
+  security_context: "Authentication middleware, session validation, and permission checks."
+  include_patch_protocol: true
+  require_tests: true
+
+expected:
+  domain: coding_debugging
+  subtype: code_review
+  risk_level: high
+  requires_human_review: true
+  validation:
+    should_pass: true
+    expected_warnings: []
