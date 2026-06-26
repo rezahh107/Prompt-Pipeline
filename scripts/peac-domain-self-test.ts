@@ -11,10 +11,10 @@ function assertIncludes(name: string, haystack: string, needle: string): void {
   if (!haystack.includes(needle)) throw new Error(`${name}: expected prompt to include ${needle}`);
 }
 
-const imageRoute = yaml.load(readFileSync('domains/image/route.yaml', 'utf8')) as { subtypes?: Array<{ id: string }> };
+const imageRoute = (yaml.load(readFileSync('domains/image/route.yaml', 'utf8')) ?? {}) as { subtypes?: Array<{ id: string }> };
 assertTrue('image_qa subtype exists', (imageRoute.subtypes ?? []).some((subtype) => subtype.id === 'image_qa'));
 
-const repoRules = yaml.load(readFileSync('domains/repo_review/rules.yaml', 'utf8')) as { rules?: Array<{ id: string }> };
+const repoRules = (yaml.load(readFileSync('domains/repo_review/rules.yaml', 'utf8')) ?? {}) as { rules?: Array<{ id: string }> };
 for (const ruleId of [
   'repo_review.evidence_first',
   'repo_review.no_unverified_results',
