@@ -16,9 +16,13 @@ fields:
       ask_if_missing: "Provide the language, framework, runtime, or relevant technical stack."
 
   optional:
+    - name: review_artifact
+      type: string
+      required_if: "task_kind == 'code_review'"
+      ask_if_missing: "Provide the code, diff, patch, file path, PR URL, or source artifact to review."
     - name: code_context
       type: string
-      default: "No code context provided."
+      default: "No additional code context provided."
     - name: error_message
       type: string
       required_if: "task_kind == 'debugging'"
@@ -28,6 +32,10 @@ fields:
     - name: actual_behavior
       type: string
       required_if: "task_kind == 'debugging'"
+    - name: security_context
+      type: string
+      required_if: "security_sensitive == true"
+      ask_if_missing: "Describe the security-sensitive area: auth, permissions, secrets, network, sandbox, PII, supply chain, or related context."
     - name: constraints
       type: string
       default: "Preserve existing architecture unless a change is justified by evidence."
@@ -36,7 +44,7 @@ fields:
       default: "GPT"
     - name: output_language
       type: string
-      default: "Persian"
+      default: "English"
     - name: include_patch_protocol
       type: boolean
       default: true
