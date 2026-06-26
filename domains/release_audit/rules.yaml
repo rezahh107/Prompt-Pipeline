@@ -1,0 +1,23 @@
+domain: release_audit
+version: "2026.3"
+
+rules:
+  - id: release_audit.evidence_first
+    priority: critical
+    rule: "Readiness decisions must be grounded in available CI, tests, logs, reports, notes, or blocker evidence."
+
+  - id: release_audit.no_unverified_results
+    priority: critical
+    rule: "Prompts must prohibit unverified test results, command output, paths, versions, and readiness claims."
+
+  - id: release_audit.blocker_first
+    priority: high
+    rule: "Blockers and unresolved risks must be listed before any approval-like recommendation."
+
+  - id: release_audit.decision_boundary
+    priority: high
+    rule: "The prompt must distinguish review advice from an actual merge, publish, or handoff action."
+
+  - id: release_audit.next_steps
+    priority: medium
+    rule: "If readiness is incomplete, prompts should provide the smallest next evidence-gathering steps."

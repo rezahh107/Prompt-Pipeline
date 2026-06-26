@@ -1,0 +1,28 @@
+domain: release_audit
+version: "2026.3"
+
+subtypes:
+  - id: readiness_review
+    description: Review whether a change set is ready for merge, release, or handoff based on evidence.
+    triggers:
+      - "review_stage == 'readiness_review'"
+    templates:
+      primary: readiness-review.j2
+
+  - id: evidence_review
+    description: Review release evidence such as CI, test logs, changelog, version notes, and blocker lists.
+    triggers:
+      - "review_stage == 'evidence_review'"
+    templates:
+      primary: evidence-review.j2
+
+risk_overrides:
+  - condition: "domain == 'release_audit' && remote_state_action == true"
+    risk: high
+    note: "Release decisions that may change remote or production state require explicit human review."
+  - condition: "domain == 'release_audit' && security_sensitive == true"
+    risk: high
+    note: "Security-sensitive release reviews require stricter evidence."
+  - condition: "domain == 'release_audit'"
+    risk: medium
+    note: "Release readiness decisions affect quality, regression risk, and downstream users."

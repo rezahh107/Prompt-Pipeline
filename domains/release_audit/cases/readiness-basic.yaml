@@ -1,0 +1,25 @@
+case_id: release_audit.readiness.basic.v1
+description: Basic readiness review prompt generation case.
+domain: release_audit
+subtype: readiness_review
+version: "2026.3"
+
+inputs:
+  review_stage: readiness_review
+  release_target: "PR #7 coding_debugging domain"
+  objective: "Decide whether the change set is ready for handoff after review."
+  evidence_summary: "CI passed. Gemini review comments were resolved. Domain cases and rubric were added."
+  ci_status: "success"
+  test_summary: "typecheck, self tests, static validation, local rubric evaluation, rule drift, and smoke generation passed."
+  known_blockers: "No blocker reported."
+  output_language: Persian
+  include_next_agent_prompt: true
+
+expected:
+  domain: release_audit
+  subtype: readiness_review
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []

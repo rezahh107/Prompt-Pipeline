@@ -1,0 +1,25 @@
+case_id: release_audit.evidence.basic.v1
+description: Basic evidence review prompt generation case.
+domain: release_audit
+subtype: evidence_review
+version: "2026.3"
+
+inputs:
+  review_stage: evidence_review
+  release_target: "Prompt pipeline review"
+  objective: "Check whether the supplied evidence bundle is complete enough for a readiness decision."
+  evidence_summary: "Contains PR notes, CI status, review comments, and known blocker summary."
+  ci_status: "success"
+  test_summary: "All configured CI checks passed."
+  known_blockers: "Lockfile still requires local generation."
+  output_language: Persian
+  include_next_agent_prompt: true
+
+expected:
+  domain: release_audit
+  subtype: evidence_review
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []
