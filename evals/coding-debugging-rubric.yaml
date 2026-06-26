@@ -5,15 +5,10 @@ checks:
   - id: coding_common_evidence_rules
     domain: coding_debugging
     required_substrings:
+      - "[EXECUTION BOUNDARY]"
       - "[EVIDENCE AND ACCURACY RULES]"
       - "Do not fabricate test results"
       - "If a claim cannot be verified"
-
-  - id: coding_patch_and_tests
-    domain: coding_debugging
-    required_substrings:
-      - "[PATCH PROTOCOL]"
-      - "Tests to run"
 
   - id: code_review_focus
     domain: coding_debugging
@@ -21,6 +16,7 @@ checks:
     required_substrings:
       - "[REVIEW FOCUS]"
       - "Findings table"
+      - "location | evidence"
 
   - id: debugging_protocol
     domain: coding_debugging
@@ -29,3 +25,8 @@ checks:
       - "[DEBUGGING PROTOCOL]"
       - "Likely root causes"
       - "Remaining unknowns"
+
+  - id: coding_no_unrelated_rewrite
+    domain: coding_debugging
+    required_substrings:
+      - "Do not rewrite unrelated"
