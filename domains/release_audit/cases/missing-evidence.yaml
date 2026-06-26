@@ -1,0 +1,18 @@
+case_id: release_audit.missing_evidence.v1
+description: Evidence summary is required.
+domain: release_audit
+subtype: readiness_review
+version: "2026.3"
+
+inputs:
+  review_stage: readiness_review
+  release_target: "PR target"
+  objective: "Review readiness."
+
+expected:
+  domain: release_audit
+  subtype: readiness_review
+  validation:
+    should_pass: false
+    expected_errors:
+      - "Missing required input(s): evidence_summary"
