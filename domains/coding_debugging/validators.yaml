@@ -7,6 +7,11 @@ static_checks:
     check: all_required_fields_filled
     severity: error
 
+  - id: execution_boundary_present
+    type: output_check
+    check: "rendered_prompt contains '[EXECUTION BOUNDARY]'"
+    severity: error
+
   - id: evidence_rules_present
     type: output_check
     check: "rendered_prompt contains '[EVIDENCE AND ACCURACY RULES]'"
@@ -24,9 +29,27 @@ static_checks:
     applies_when: "require_tests == true"
     severity: error
 
+  - id: tests_absent_when_disabled
+    type: output_check
+    check: "rendered_prompt not contains 'Tests to run'"
+    applies_when: "require_tests == false"
+    severity: error
+
+  - id: patch_absent_when_disabled
+    type: output_check
+    check: "rendered_prompt not contains '[PATCH PROTOCOL]'"
+    applies_when: "include_patch_protocol == false"
+    severity: error
+
   - id: debugging_sections_present
     type: output_check
     check: "rendered_prompt contains '[DEBUGGING PROTOCOL]'"
+    applies_when: "subtype == 'debugging'"
+    severity: error
+
+  - id: debugging_unknowns_present
+    type: output_check
+    check: "rendered_prompt contains 'Remaining unknowns'"
     applies_when: "subtype == 'debugging'"
     severity: error
 
@@ -36,9 +59,26 @@ static_checks:
     applies_when: "subtype == 'code_review'"
     severity: error
 
+  - id: code_review_location_evidence_table_present
+    type: output_check
+    check: "rendered_prompt contains 'location | evidence'"
+    applies_when: "subtype == 'code_review'"
+    severity: error
+
+  - id: no_unrelated_rewrite_rule_present
+    type: output_check
+    check: "rendered_prompt contains 'Do not rewrite unrelated'"
+    severity: error
+
   - id: no_fake_tests_rule_present
     type: output_check
     check: "rendered_prompt contains 'Do not fabricate test results'"
+    severity: error
+
+  - id: security_context_present_when_sensitive
+    type: output_check
+    check: "rendered_prompt contains 'Security context:'"
+    applies_when: "security_sensitive == true"
     severity: error
 
   - id: forbidden_combinations_clear
