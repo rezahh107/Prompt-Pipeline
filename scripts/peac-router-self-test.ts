@@ -26,7 +26,7 @@ const router = yaml.load(readFileSync('pipeline/router.yaml', 'utf8')) as Router
 function routeRequest(request: string): string {
   const normalized = request.toLowerCase();
   for (const [domain, config] of Object.entries(router.domains)) {
-    if (config.enabled === false || domain === 'general') continue;
+    if (!config || config.enabled === false || domain === 'general') continue;
     const keywordMatch = (config.keywords ?? []).some((keyword) => normalized.includes(keyword.toLowerCase()));
     const patternMatch = (config.patterns ?? []).some((pattern) => new RegExp(pattern, 'i').test(request));
     if (keywordMatch || patternMatch) return domain;
