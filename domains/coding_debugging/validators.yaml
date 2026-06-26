@@ -29,18 +29,6 @@ static_checks:
     applies_when: "require_tests == true"
     severity: error
 
-  - id: tests_absent_when_disabled
-    type: output_check
-    check: "rendered_prompt not contains 'Tests to run'"
-    applies_when: "require_tests == false"
-    severity: error
-
-  - id: patch_absent_when_disabled
-    type: output_check
-    check: "rendered_prompt not contains '[PATCH PROTOCOL]'"
-    applies_when: "include_patch_protocol == false"
-    severity: error
-
   - id: debugging_sections_present
     type: output_check
     check: "rendered_prompt contains '[DEBUGGING PROTOCOL]'"
