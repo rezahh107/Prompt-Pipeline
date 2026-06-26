@@ -1,0 +1,24 @@
+case_id: coding_debugging.code_review.basic.v1
+description: Basic code review prompt generation case.
+domain: coding_debugging
+subtype: code_review
+version: "2026.3"
+
+inputs:
+  task_kind: code_review
+  stack: "TypeScript + Node.js"
+  objective: "Review a small TypeScript patch for correctness, maintainability, and missing tests."
+  code_context: "A CLI utility changed validation behavior."
+  output_language: Persian
+  include_patch_protocol: true
+  require_tests: true
+  external_files: true
+
+expected:
+  domain: coding_debugging
+  subtype: code_review
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []
