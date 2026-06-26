@@ -51,6 +51,7 @@ for (const caseFile of walkCases(config.domains_path)) {
   let artifact;
   try {
     artifact = generateArtifact({ case: caseFile, mode: 'ci' }).artifact;
+    if (!artifact) continue;
   } catch {
     continue;
   }
