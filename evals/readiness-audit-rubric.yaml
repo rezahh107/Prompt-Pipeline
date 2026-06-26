@@ -1,0 +1,26 @@
+rubric_id: release_audit.v1
+version: "2026.3"
+
+checks:
+  - id: common_evidence_rules
+    domain: release_audit
+    required_substrings:
+      - "[DECISION BOUNDARY]"
+      - "[EVIDENCE AND ACCURACY RULES]"
+      - "Do not fabricate test results"
+
+  - id: readiness_sections
+    domain: release_audit
+    subtype: readiness_review
+    required_substrings:
+      - "[READINESS CHECKS]"
+      - "Blockers table"
+      - "Missing evidence"
+
+  - id: evidence_sections
+    domain: release_audit
+    subtype: evidence_review
+    required_substrings:
+      - "[EVIDENCE REVIEW]"
+      - "Evidence inventory"
+      - "Missing or weak evidence"
