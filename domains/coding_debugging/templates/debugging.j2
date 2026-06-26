@@ -21,13 +21,20 @@ Error message:
 {{ error_message }}
 
 Code context:
-{{ code_context | default('No code context provided.') }}
+{{ code_context | default('No additional code context provided.') }}
+
+{% if security_sensitive | default(false) %}Security context:
+{{ security_context }}
+{% endif %}
 
 Constraints:
 {{ constraints | default('Preserve existing architecture unless a change is justified by evidence.') }}
 
 Target model or executor:
 {{ target_model | default('GPT') }}
+
+[EXECUTION BOUNDARY]
+This prompt is for diagnosis and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Do not execute, merge, publish, delete, migrate, force-push, or alter remote/production state without explicit user confirmation and passing checks.
 
 [DEBUGGING PROTOCOL]
 1. Restate the observed failure precisely.
@@ -53,7 +60,7 @@ Target model or executor:
 {% endif %}
 
 [CONSTRAINTS]
-- Output language: {{ output_language | default('Persian') }}.
+- Output language: {{ output_language | default('English') }}.
 - Keep file names, class names, function names, package names, commands, and technical identifiers in English.
 - Use severity levels: blocker, high, medium, low.
 - Do not recommend merge or release if the failure is not reproduced or guarded by tests.
@@ -61,14 +68,14 @@ Target model or executor:
 
 [OUTPUT FORMAT]
 Return:
-1. Failure summary
-2. Evidence map
-3. Likely root causes ranked by confidence
-4. Minimal reproduction or inspection plan
-5. Proposed fix plan
-6. Tests to run
-7. Remaining unknowns
-8. Copy-ready prompt for the next coding agent if a patch is needed
+- Failure summary
+- Evidence map
+- Likely root causes ranked by confidence
+- Minimal reproduction or inspection plan
+- Proposed fix plan
+{% if require_tests | default(true) %}- Tests to run
+{% endif %}- Remaining unknowns
+- Copy-ready prompt for the next coding agent if a patch is needed
 
 [QUALITY BAR]
 The debugging output is successful only if it narrows the search space and avoids unsupported certainty.
