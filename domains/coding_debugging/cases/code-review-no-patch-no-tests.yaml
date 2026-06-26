@@ -1,0 +1,22 @@
+case_id: coding_debugging.code_review.no_patch_no_tests.v1
+description: Code review prompt can omit patch protocol and test section when explicitly disabled.
+domain: coding_debugging
+subtype: code_review
+version: "2026.3"
+
+inputs:
+  task_kind: code_review
+  stack: "TypeScript + Node.js"
+  objective: "Review a design-only code change without patch planning."
+  review_artifact: "Design note for a validation module refactor."
+  include_patch_protocol: false
+  require_tests: false
+
+expected:
+  domain: coding_debugging
+  subtype: code_review
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
+    expected_warnings: []
