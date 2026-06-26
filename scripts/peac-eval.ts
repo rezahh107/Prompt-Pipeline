@@ -32,7 +32,8 @@ function loadRubrics(): RubricFile[] {
     return readdirSync('evals')
       .filter((file) => file.endsWith('.yaml'))
       .sort()
-      .map((file) => yaml.load(readFileSync(join('evals', file), 'utf8')) as RubricFile);
+      .map((file) => yaml.load(readFileSync(join('evals', file), 'utf8')) as RubricFile)
+      .filter(Boolean);
   } catch {
     return [];
   }
