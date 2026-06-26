@@ -11,14 +11,24 @@ Stack:
 Objective:
 {{ objective }}
 
-Code context:
-{{ code_context | default('No code context provided.') }}
+Review artifact:
+{{ review_artifact }}
+
+Additional code context:
+{{ code_context | default('No additional code context provided.') }}
+
+{% if security_sensitive | default(false) %}Security context:
+{{ security_context }}
+{% endif %}
 
 Constraints:
 {{ constraints | default('Preserve existing architecture unless a change is justified by evidence.') }}
 
 Target model or executor:
 {{ target_model | default('GPT') }}
+
+[EXECUTION BOUNDARY]
+This prompt is for review and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Do not execute, merge, publish, delete, migrate, force-push, or alter remote/production state without explicit user confirmation and passing checks.
 
 [REVIEW FOCUS]
 - Correctness and edge cases.
@@ -43,7 +53,7 @@ Target model or executor:
 {% endif %}
 
 [CONSTRAINTS]
-- Output language: {{ output_language | default('Persian') }}.
+- Output language: {{ output_language | default('English') }}.
 - Keep file names, class names, function names, package names, commands, and technical identifiers in English.
 - Use severity levels: blocker, high, medium, low.
 - Do not recommend merge or release if blocker findings or failing checks remain.
@@ -51,13 +61,13 @@ Target model or executor:
 
 [OUTPUT FORMAT]
 Return:
-1. Review verdict
-2. Confirmed implemented behavior
-3. Findings table: severity | location | evidence | why it matters | recommended fix
-4. Edge cases and regression risks
-5. Tests to run
-6. Minimal patch plan
-7. Copy-ready prompt for the next coding agent if a patch is needed
+- Review verdict
+- Confirmed implemented behavior
+- Findings table: severity | location | evidence | why it matters | recommended fix
+- Edge cases and regression risks
+{% if require_tests | default(true) %}- Tests to run
+{% endif %}{% if include_patch_protocol | default(true) %}- Minimal patch plan
+{% endif %}- Copy-ready prompt for the next coding agent if a patch is needed
 
 [QUALITY BAR]
 The review is successful only if every confirmed finding is evidence-based, scoped, and actionable.
