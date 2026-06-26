@@ -1,0 +1,63 @@
+contract_version: "1.0"
+domain: coding_debugging
+version: "2026.3"
+
+fields:
+  required:
+    - name: task_kind
+      type: string
+      enum: [code_review, debugging]
+      ask_if_missing: "Is this a code review task or a debugging task?"
+    - name: objective
+      type: string
+      ask_if_missing: "What should the coding/debugging prompt accomplish?"
+    - name: stack
+      type: string
+      ask_if_missing: "Provide the language, framework, runtime, or relevant technical stack."
+
+  optional:
+    - name: code_context
+      type: string
+      default: "No code context provided."
+    - name: error_message
+      type: string
+      required_if: "task_kind == 'debugging'"
+    - name: expected_behavior
+      type: string
+      required_if: "task_kind == 'debugging'"
+    - name: actual_behavior
+      type: string
+      required_if: "task_kind == 'debugging'"
+    - name: constraints
+      type: string
+      default: "Preserve existing architecture unless a change is justified by evidence."
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: output_language
+      type: string
+      default: "Persian"
+    - name: include_patch_protocol
+      type: boolean
+      default: true
+    - name: require_tests
+      type: boolean
+      default: true
+    - name: external_files
+      type: boolean
+      default: true
+    - name: security_sensitive
+      type: boolean
+      default: false
+    - name: irreversible_actions
+      type: boolean
+      default: false
+
+  inferred:
+    - name: risk_level
+      default: medium
+
+  forbidden_combinations:
+    - fields: [irreversible_actions, include_patch_protocol]
+      reason: "Patch guidance may be included, but irreversible actions must remain outside the generated prompt unless explicitly confirmed."
+      severity: warning
