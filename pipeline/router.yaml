@@ -13,8 +13,59 @@ risk_assessment:
     - irreversible_actions
     - exact_factual_claims
     - legal_medical_financial
+    - requires_current_information
+    - uses_external_tools
+    - sensitive_or_high_risk
 
 domains:
+  prompt_generation:
+    enabled: true
+    keywords:
+      - create prompt
+      - generate prompt
+      - reusable prompt
+      - ساخت پرامپت
+      - تولید پرامپت
+      - پرامپت بده
+    confidence_threshold: 0.82
+
+  document_review:
+    enabled: true
+    keywords:
+      - document review
+      - review documents
+      - document critique
+      - بررسی سند
+      - نقد سند
+      - بررسی اسناد
+    confidence_threshold: 0.82
+
+  ai_workflow_design:
+    enabled: true
+    keywords:
+      - workflow design
+      - automation pipeline
+      - agent workflow
+      - pipeline design
+      - پایپلاین
+      - ورکفلو
+      - گردش کار
+      - اتوماسیون
+    confidence_threshold: 0.82
+
+  multimodal:
+    enabled: true
+    keywords:
+      - multimodal
+      - image prompt design
+      - visual prompt
+      - overlay-safe
+      - چندوجهی
+      - پرامپت تصویر
+      - لوگو
+      - متن روی تصویر
+    confidence_threshold: 0.82
+
   general:
     enabled: true
     is_fallback: true
