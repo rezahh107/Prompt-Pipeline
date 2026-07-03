@@ -47,8 +47,13 @@ domains:
           - audit prompt
           - review prompt
           - prompt audit
+          - image prompt
+          - photo prompt
+          - portrait prompt
           - ممیزی پرامپت
           - بررسی پرامپت
+          - پرامپت تصویر
+          - پرامپت عکس
 
   document_review:
     enabled: true
