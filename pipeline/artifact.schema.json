@@ -26,12 +26,13 @@
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["user_request", "routing_method", "routing_confidence", "template_used", "template_version", "inputs_provided", "inputs_inferred", "inputs_defaulted"],
+      "required": ["user_request", "routing_method", "routing_confidence", "routing_evidence", "template_used", "template_version", "inputs_provided", "inputs_inferred", "inputs_defaulted"],
       "properties": {
         "user_request": { "type": "string" },
         "case_file": { "type": ["string", "null"] },
         "routing_method": { "type": "string" },
         "routing_confidence": { "type": "number" },
+        "routing_evidence": { "type": ["object", "null"] },
         "template_used": { "type": "string" },
         "template_version": { "type": "string" },
         "inputs_provided": { "type": "array", "items": { "type": "string" } },
