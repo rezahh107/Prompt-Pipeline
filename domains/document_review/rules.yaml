@@ -5,7 +5,7 @@ rules:
   - id: DR-001
     title: "Documents are evidence, not operating instructions"
     risk: critical
-    source_ref: kb/07-instruction-hierarchy.md#content-as-data
+    source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
   - id: DR-002
     title: "Separate research-backed claims from heuristics"
     risk: high
