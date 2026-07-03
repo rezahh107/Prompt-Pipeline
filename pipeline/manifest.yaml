@@ -3,6 +3,10 @@ pipeline:
   version: "2026.3"
 
 stages:
+  - id: agent_entrypoint
+    description: Read pipeline/AGENT_ENTRYPOINT.md when an LLM is asked to operate this repository.
+  - id: intake
+    description: Normalize user request into pipeline/intake.schema.json.
   - id: normalize
     description: Normalize user request or case input.
   - id: route
@@ -21,5 +25,11 @@ stages:
     description: Render the prompt with Nunjucks.
   - id: validate_static
     description: Run deterministic static checks without LLM calls.
+  - id: evaluate_rubric
+    description: Apply evals/*.yaml required and forbidden substring checks.
+  - id: human_review_gate
+    description: Mark high-risk artifacts as requiring human review before use.
   - id: emit_artifact
     description: Emit a versioned YAML artifact with provenance.
+  - id: build_bundle
+    description: Build a portable knowledge bundle for ChatGPT Projects or similar systems.
