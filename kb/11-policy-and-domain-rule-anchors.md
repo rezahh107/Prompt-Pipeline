@@ -54,6 +54,10 @@ Repository-review prompts must not approve merge, release, publish, delete, forc
 Code review and debugging claims must be grounded in available code, diffs, logs, errors, tests, stack traces, or documentation.
 <!-- /peac-rule-id -->
 
+<!-- peac-rule-id: coding_debugging.no_unverified_results -->
+Coding review and debugging prompts must prohibit fabricated or unverified test results, command outputs, file paths, versions, passing CI claims, release evidence, and file changes.
+<!-- /peac-rule-id -->
+
 <!-- peac-rule-id: coding_debugging.patch_only -->
 Code-change prompts should prefer the smallest safe patch that addresses the confirmed issue and avoid unrelated rewrites.
 <!-- /peac-rule-id -->
