@@ -1,0 +1,32 @@
+policy_id: prompt_level_vs_system_level_enforcement
+source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
+version: "2026.3"
+risk: critical
+applies_when:
+  - "true"
+
+statement: >-
+  A generated prompt must distinguish prompt-level influence from system-level enforcement.
+  Generation constraints, examples, roles, and templates are not hard enforcement.
+
+required_distinction:
+  prompt_level_influence:
+    - role framing
+    - explicit instructions
+    - generation constraints
+    - examples
+    - output templates
+  system_level_enforcement:
+    - schema validation
+    - parser rejection
+    - validator rules
+    - fixtures
+    - CI checks
+    - external guardrails
+    - downstream rejection
+    - human review gates
+
+forbidden_language:
+  - "This prompt guarantees"
+  - "The model cannot violate"
+  - "Prompt instructions enforce deterministically"

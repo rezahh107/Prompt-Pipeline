@@ -1,0 +1,16 @@
+domain: multimodal
+version: "2026.3"
+
+rules:
+  - id: MM-001
+    title: "Exact text and logos are reliability risks"
+    risk: high
+    source_ref: kb/10-multimodal-image-prompting.md#multimodal.text_logo_caveat
+  - id: MM-002
+    title: "Identity preservation source must be explicit"
+    risk: high
+    source_ref: policies/identity-preservation.yaml
+  - id: MM-003
+    title: "Overlay-safe workflow required when exact typography or marks matter"
+    risk: medium
+    source_ref: policies/overlay-exact-text.yaml

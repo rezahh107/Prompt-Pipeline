@@ -1,0 +1,33 @@
+policy_id: evidence_and_citation_policy
+source_ref: pipeline/evidence-policy.yaml
+version: "2026.3"
+risk: high
+applies_when:
+  - "true"
+
+statement: >-
+  Generated prompts must require evidence, recency checks, and uncertainty labels for
+  claims that may change over time or affect high-impact decisions.
+
+required_when:
+  - exact_factual_claims
+  - current_or_unstable_dependencies
+  - legal_medical_financial
+  - security_sensitive
+  - official_information
+  - model_or_api_capability
+
+claim_labels:
+  - established
+  - provider_documented
+  - research_supported
+  - preprint_supported
+  - industry_best_practice
+  - engineering_heuristic
+  - project_specific
+  - needs_verification
+
+forbidden:
+  - fabricated citations
+  - fabricated benchmark results
+  - unsupported current claims

@@ -1,0 +1,52 @@
+output_contracts:
+  version: "2026.3"
+
+  rendered_prompt:
+    required_sections:
+      - ROLE
+      - MISSION
+      - INPUTS
+      - TASK STEPS
+      - CONSTRAINTS
+      - OUTPUT FORMAT
+      - SELF-CHECK BEFORE FINAL ANSWER
+    recommended_sections:
+      - CONTEXT
+      - EVIDENCE AND ACCURACY RULES
+      - SAFETY AND INSTRUCTION BOUNDARY
+      - VALIDATION OR EVALUATION
+
+  visible_response:
+    allowed:
+      - selected_domain
+      - missing_required_fields
+      - rendered_prompt
+      - validation_notes
+      - human_review_status
+      - next_command
+    forbidden:
+      - hidden_state_claim
+      - internal_reasoning_trace
+      - fabricated_test_result
+      - fabricated_repository_state
+      - raw_irrelevant_kb_dump
+
+  case_yaml:
+    required_fields:
+      - case_id
+      - domain
+      - subtype
+      - inputs
+      - expected
+
+  bundle:
+    required_files:
+      - README.md
+      - pipeline/AGENT_ENTRYPOINT.md
+      - docs/MASTER_REFERENCE.md
+      - kb/00-INDEX.md
+      - pipeline/intake.schema.json
+      - pipeline/router.yaml
+      - pipeline/quality-gates.yaml
+      - pipeline/evidence-policy.yaml
+      - pipeline/output-contracts.yaml

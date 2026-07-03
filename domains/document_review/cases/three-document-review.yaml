@@ -1,0 +1,22 @@
+case_id: document-review-three-documents
+version: "2026.3"
+description: "Review three prompt engineering knowledge documents and propose a master reference."
+domain: document_review
+subtype: research_grounded_review
+
+inputs:
+  documents_description: "Exactly three attached prompt engineering, LLM UX, and behavioral enforcement documents."
+  review_objective: "Verify correctness, identify fixes, map conceptual relationships, and recommend a final master document architecture."
+  target_model: "GPT"
+  output_language: "Persian"
+  evidence_level: research_grade
+  compare_documents: true
+  requires_current_research: true
+  external_files: true
+  desired_output: "Rigorous diagnosis, evidence alignment, conceptual integration, and practical roadmap."
+
+expected:
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true

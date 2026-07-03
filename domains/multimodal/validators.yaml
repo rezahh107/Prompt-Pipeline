@@ -1,0 +1,23 @@
+domain: multimodal
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+
+  - id: multimodal_reliability_rules_present
+    type: output_check
+    check: "rendered_prompt contains '[MULTIMODAL RELIABILITY RULES]'"
+    severity: error
+
+  - id: qa_checklist_present
+    type: output_check
+    check: "rendered_prompt contains 'Visual QA checklist'"
+    severity: warning
+
+  - id: overlay_safe_present
+    type: output_check
+    check: "rendered_prompt contains 'overlay-safe'"
+    severity: warning

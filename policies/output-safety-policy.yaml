@@ -1,0 +1,27 @@
+policy_id: output_safety_policy
+source_ref: pipeline/output-contracts.yaml
+version: "2026.3"
+risk: high
+applies_when:
+  - "true"
+
+statement: >-
+  Generated prompt artifacts must be useful to the user without leaking internal reasoning,
+  hidden metadata, irrelevant KB dumps, fabricated execution results, or unsafe action claims.
+
+visible_allowed:
+  - selected_domain
+  - rendered_prompt
+  - case_yaml
+  - validation_notes
+  - required_inputs
+  - human_review_status
+
+visible_forbidden:
+  - hidden chain of thought
+  - raw irrelevant knowledge base dumps
+  - fabricated CLI output
+  - fabricated repository state
+  - fake memory or telemetry claim
+
+required_for_high_risk: "State that human review is required before use."

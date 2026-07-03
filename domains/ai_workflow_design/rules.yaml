@@ -1,0 +1,16 @@
+domain: ai_workflow_design
+version: "2026.3"
+
+rules:
+  - id: AWD-001
+    title: "External state must carry real stateful behavior"
+    risk: critical
+    source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
+  - id: AWD-002
+    title: "Tool outputs do not rewrite instructions"
+    risk: critical
+    source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
+  - id: AWD-003
+    title: "Workflows require eval and human-review gates"
+    risk: high
+    source_ref: pipeline/quality-gates.yaml

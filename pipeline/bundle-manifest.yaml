@@ -1,0 +1,29 @@
+bundle:
+  name: Prompt-Pipeline-KB-Bundle
+  version_source: peac.config.yaml
+  builder: scripts/peac-build-bundle.ts
+  output: dist/Prompt-Pipeline-KB-Bundle-v<version>.zip
+
+  purpose: >-
+    Portable knowledge package for ChatGPT Projects or similar model environments.
+    The Git repository remains the source of truth; the ZIP is a compiled consumption artifact.
+
+  include_roots:
+    - README.md
+    - peac.config.yaml
+    - docs/
+    - kb/
+    - policies/
+    - pipeline/
+    - domains/
+    - evals/
+
+  exclude_roots:
+    - outputs/
+    - dist/
+    - node_modules/
+    - .git/
+
+  consumption_rule: >-
+    Upload the generated ZIP to a project knowledge base when repository browsing is not available.
+    Prefer rendered prompt artifacts for task execution.

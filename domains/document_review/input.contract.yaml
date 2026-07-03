@@ -1,0 +1,40 @@
+contract_version: "1.0"
+domain: document_review
+version: "2026.3"
+
+fields:
+  required:
+    - name: documents_description
+      type: string
+      ask_if_missing: "What documents will the model review?"
+    - name: review_objective
+      type: string
+      ask_if_missing: "What should the review determine or improve?"
+
+  optional:
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: output_language
+      type: string
+      default: "Persian"
+    - name: evidence_level
+      type: string
+      enum: [basic, strict, research_grade]
+      default: research_grade
+    - name: compare_documents
+      type: boolean
+      default: true
+    - name: requires_current_research
+      type: boolean
+      default: true
+    - name: external_files
+      type: boolean
+      default: true
+    - name: desired_output
+      type: string
+      default: "Evidence-based review, conceptual map, issues, and final-document recommendation."
+
+  inferred:
+    - name: risk_level
+      default: medium

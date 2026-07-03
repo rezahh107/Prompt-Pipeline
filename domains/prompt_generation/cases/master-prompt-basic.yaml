@@ -1,0 +1,24 @@
+case_id: prompt-generation-master-basic
+version: "2026.3"
+description: "Generate a reusable repository audit prompt."
+domain: prompt_generation
+subtype: master_prompt
+
+inputs:
+  task: "Create a prompt that asks an LLM to audit a GitHub repository and produce an evidence-based improvement report."
+  desired_output: "A copy-ready prompt with role, mission, repository access rules, evidence policy, output format, and self-check."
+  target_environment: "ChatGPT"
+  target_model: "GPT"
+  output_language: "Persian explanation; English prompt when useful"
+  strictness: production-grade
+  requires_current_information: true
+  uses_external_tools: true
+  sensitive_or_high_risk: false
+  requires_structured_output: true
+  user_constraints: "The target model must not modify files unless explicitly asked."
+
+expected:
+  risk_level: high
+  requires_human_review: true
+  validation:
+    should_pass: true

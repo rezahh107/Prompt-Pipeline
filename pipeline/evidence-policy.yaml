@@ -1,0 +1,39 @@
+evidence_policy:
+  version: "2026.3"
+  purpose: "Define how generated prompts should handle evidence, recency, citations, and uncertainty."
+
+  source_priority:
+    - official_documentation
+    - standards_and_security_frameworks
+    - peer_reviewed_research
+    - reputable_preprints_labeled_as_preprint
+    - high_quality_industry_guidance
+    - project_specific_experience_labeled_as_heuristic
+
+  claim_labels:
+    established: "Stable, widely supported claim."
+    provider_documented: "Documented by a model or platform provider."
+    research_supported: "Supported by research literature."
+    preprint_supported: "Supported by preprint; not final peer-reviewed evidence."
+    industry_best_practice: "Common professional practice where research is limited."
+    engineering_heuristic: "Useful pattern that needs local validation."
+    project_specific: "Derived from a specific workflow or repository."
+    needs_verification: "Should not be treated as fact until checked."
+
+  recency_rules:
+    unstable_claims:
+      examples:
+        - model_behavior
+        - API_capabilities
+        - software_versions
+        - prices
+        - laws
+        - security_risks
+        - model_provider_features
+      requirement: "Require current source verification when browsing or repository access is available."
+
+  citation_rules:
+    - "Do not fabricate citations, papers, benchmarks, authors, dates, APIs, or standards."
+    - "Mark arXiv or unpublished research as preprint when used."
+    - "Distinguish confirmed facts from assumptions and inference."
+    - "Project-specific patterns must be labeled as project-specific or heuristic."

@@ -13,8 +13,62 @@ risk_assessment:
     - irreversible_actions
     - exact_factual_claims
     - legal_medical_financial
+    - requires_current_information
+    - uses_external_tools
+    - sensitive_or_high_risk
 
 domains:
+  prompt_generation:
+    enabled: true
+    keywords:
+      - create prompt
+      - generate prompt
+      - reusable prompt
+      - ساخت پرامپت
+      - تولید پرامپت
+      - پرامپت بده
+    confidence_threshold: 0.82
+
+  document_review:
+    enabled: true
+    keywords:
+      - document review
+      - review documents
+      - document critique
+      - بررسی سند
+      - نقد سند
+      - بررسی اسناد
+    confidence_threshold: 0.82
+
+  ai_workflow_design:
+    enabled: true
+    keywords:
+      - workflow design
+      - automation pipeline
+      - agent workflow
+      - pipeline design
+      - پایپلاین
+      - ورکفلو
+      - گردش کار
+      - اتوماسیون
+    confidence_threshold: 0.82
+
+  multimodal:
+    enabled: true
+    keywords:
+      - multimodal
+      - multimodal prompt
+      - overlay-safe
+      - exact text
+      - text logo reliability
+      - logo fidelity
+      - چندوجهی
+      - لوگو
+      - متن روی تصویر
+      - متن دقیق
+      - لوگوی دقیق
+    confidence_threshold: 0.82
+
   general:
     enabled: true
     is_fallback: true
@@ -61,10 +115,10 @@ domains:
       - ممیزی سورس
       - بررسی سورس
     patterns:
-      - "repository[\\s\\S]*audit"
-      - "source[\\s\\S]*audit"
-      - "بررسی[\\s\\S]*ریپو"
-      - "بررسی[\\s\\S]*مخزن"
+      - 'repository[\s\S]*audit'
+      - 'source[\s\S]*audit'
+      - 'بررسی[\s\S]*ریپو'
+      - 'بررسی[\s\S]*مخزن'
     confidence_threshold: 0.8
 
   coding_debugging:
@@ -83,11 +137,11 @@ domains:
       - خطای تست
       - اصلاح کد
     patterns:
-      - "code[\\s\\S]*review"
-      - "debug[\\s\\S]*code"
-      - "failing[\\s\\S]*test"
-      - "بررسی[\\s\\S]*کد"
-      - "خطای[\\s\\S]*کد"
+      - 'code[\s\S]*review'
+      - 'debug[\s\S]*code'
+      - 'failing[\s\S]*test'
+      - 'بررسی[\s\S]*کد'
+      - 'خطای[\s\S]*کد'
     confidence_threshold: 0.8
 
   image:
@@ -101,7 +155,7 @@ domains:
       - photo
       - portrait
     patterns:
-      - "پرامپت.*تصویر"
-      - "ویرایش.*عکس"
-      - "عکس.*پرامپت"
+      - 'پرامپت.*تصویر'
+      - 'ویرایش.*عکس'
+      - 'عکس.*پرامپت'
     confidence_threshold: 0.8

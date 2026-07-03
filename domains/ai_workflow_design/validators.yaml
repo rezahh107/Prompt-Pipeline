@@ -1,0 +1,23 @@
+domain: ai_workflow_design
+version: "2026.3"
+
+static_checks:
+  - id: required_fields_complete
+    type: contract_check
+    check: all_required_fields_filled
+    severity: error
+
+  - id: enforcement_distinction_present
+    type: output_check
+    check: "rendered_prompt contains 'Separate prompt-level influence from system-level enforcement'"
+    severity: error
+
+  - id: external_state_present
+    type: output_check
+    check: "rendered_prompt contains 'external state requirements'"
+    severity: warning
+
+  - id: eval_plan_present
+    type: output_check
+    check: "rendered_prompt contains 'Validation and eval plan'"
+    severity: error

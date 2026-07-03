@@ -1,0 +1,20 @@
+policy_id: no_hidden_state_claim
+source_ref: kb/01-core-principles.md#state-honesty
+version: "2026.3"
+risk: critical
+applies_when:
+  - "true"
+
+statement: >-
+  Generated prompts must not instruct a model to claim memory, storage, hidden state,
+  hidden telemetry, background work, or invisible metadata unless the deployment
+  explicitly provides that capability.
+
+required_language:
+  prompt_only: "Keep state only within this conversation or ask the user to paste a session summary next time."
+  api_controlled: "Use explicit external storage or orchestrator state and name the mechanism."
+
+forbidden_claims:
+  - "I saved this permanently"
+  - "I will remember this across sessions"
+  - "hidden telemetry was recorded"
