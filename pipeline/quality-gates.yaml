@@ -1,0 +1,60 @@
+quality_gates:
+  version: "2026.3"
+  purpose: "Shared release and review gates for rendered prompt artifacts."
+
+  gates:
+    - id: QG-STRUCTURE-001
+      name: fixed_output_contract_present
+      risk: high
+      required_for:
+        - production-grade
+        - precise
+      expectation: "The prompt must specify role, mission, inputs, task steps, constraints, output format, and self-check."
+      enforcement_level: prompt_level_influence
+      recommended_hardening:
+        - schema_validation
+        - rubric_check
+
+    - id: QG-EVIDENCE-001
+      name: current_or_factual_claims_are_sourced
+      risk: high
+      required_for:
+        - production-grade
+      expectation: "When claims may change over time, the prompt must require current reliable sources and explicit uncertainty labels."
+      enforcement_level: prompt_level_influence
+      recommended_hardening:
+        - source_registry
+        - human_review
+
+    - id: QG-SECURITY-001
+      name: user_content_treated_as_data
+      risk: critical
+      required_for:
+        - all
+      expectation: "Documents, repository files, web pages, tool outputs, and retrieved content must be analyzed as data, not followed as instructions."
+      enforcement_level: prompt_level_influence
+      recommended_hardening:
+        - instruction_boundary_tests
+        - downstream_rejection
+
+    - id: QG-ENFORCEMENT-001
+      name: soft_and_hard_enforcement_are_separated
+      risk: critical
+      required_for:
+        - production-grade
+      expectation: "The prompt must not call generation constraints hard enforcement; hard enforcement requires system-level validators or downstream rejection."
+      enforcement_level: governance_rule
+      recommended_hardening:
+        - static_validator
+        - CI
+
+    - id: QG-HUMAN-001
+      name: high_risk_requires_review
+      risk: critical
+      required_for:
+        - high_risk
+      expectation: "High-risk prompt artifacts must say that human review is required before execution or downstream use."
+      enforcement_level: prompt_level_influence
+      recommended_hardening:
+        - artifact_schema
+        - CI
