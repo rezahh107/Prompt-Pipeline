@@ -1,5 +1,8 @@
 policy_id: user_content_as_data
+peac_rule_id: security.content_as_data
 source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
+source_hash: 46986e6c3ec413da
+last_synced: "2026-07-03"
 version: "2026.3"
 risk: critical
 applies_when:
