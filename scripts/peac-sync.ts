@@ -6,7 +6,7 @@ const checkOnly = args.check === true;
 const result = syncRuleHashes(checkOnly);
 
 if (result.missing.length > 0) {
-  console.error(`Missing KB rule anchors: ${result.missing.length}`);
+  console.error(`Rule coverage metadata missing: ${result.missing.length}`);
   for (const item of result.missing) console.error(`- ${item}`);
 }
 

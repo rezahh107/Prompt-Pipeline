@@ -1,5 +1,8 @@
 policy_id: prompt_level_vs_system_level_enforcement
+peac_rule_id: enforcement.soft_vs_hard
 source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
+source_hash: 678556e8f23b6dfb
+last_synced: "2026-07-03"
 version: "2026.3"
 risk: critical
 applies_when:

@@ -2,10 +2,10 @@ policy_id: child_student_safety
 version: "2026.3"
 scope: global
 overridable: false
-source_ref: kb/09-safety-ethics.md
+source_ref: kb/09-safety-ethics.md#safety.child_student
 peac_rule_id: safety.child_student
 source_hash: 0211fc63873c5c43
-last_synced: "2026-06-25"
+last_synced: "2026-07-03"
 
 description: Extra safety policy for student/minor-related outputs.
 

@@ -2,10 +2,10 @@ policy_id: safety_ethics
 version: "2026.3"
 scope: global
 overridable: false
-source_ref: kb/09-safety-ethics.md
+source_ref: kb/09-safety-ethics.md#safety.no_fabrication
 peac_rule_id: safety.no_fabrication
 source_hash: a6a7d92d53f99bda
-last_synced: "2026-06-25"
+last_synced: "2026-07-03"
 
 description: Prevent fabricated official facts, unsafe disclosure, or misleading outputs.
 

@@ -3,21 +3,41 @@ version: "2026.3"
 
 rules:
   - id: coding_debugging.evidence_first
+    peac_rule_id: coding_debugging.evidence_first
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.evidence_first
+    source_hash: 7b118fe78f31d52d
+    last_synced: "2026-07-03"
     priority: critical
     rule: "Code and debugging claims must be grounded in available code, diffs, logs, errors, tests, or documentation."
 
   - id: coding_debugging.no_unverified_results
+    peac_rule_id: coding_debugging.no_unverified_results
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.no_unverified_results
+    source_hash: ec2558a2479dbffe
+    last_synced: "2026-07-03"
     priority: critical
     rule: "Generated prompts must prohibit unverified test results, command output, file paths, versions, and passing CI claims."
 
   - id: coding_debugging.patch_only
+    peac_rule_id: coding_debugging.patch_only
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.patch_only
+    source_hash: 86e3a07d29010953
+    last_synced: "2026-07-03"
     priority: high
     rule: "When a patch is requested, prefer the smallest safe patch over broad rewrites."
 
   - id: coding_debugging.tests_required
+    peac_rule_id: coding_debugging.tests_required
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.tests_required
+    source_hash: c98bf2047e437376
+    last_synced: "2026-07-03"
     priority: high
     rule: "Prompts for code changes should request tests or explicit test gaps."
 
   - id: coding_debugging.root_cause_uncertainty
+    peac_rule_id: coding_debugging.root_cause_uncertainty
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.root_cause_uncertainty
+    source_hash: a1becddf3fb7569d
+    last_synced: "2026-07-03"
     priority: high
     rule: "Debugging prompts must separate confirmed evidence from likely causes and remaining unknowns."
