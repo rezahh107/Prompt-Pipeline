@@ -3,14 +3,23 @@ version: "2026.3"
 
 rules:
   - id: MM-001
+    peac_rule_id: multimodal.text_logo_caveat
     title: "Exact text and logos are reliability risks"
     risk: high
     source_ref: kb/10-multimodal-image-prompting.md#multimodal.text_logo_caveat
+    source_hash: 579eff8a5653f481
+    last_synced: "2026-07-03"
   - id: MM-002
+    peac_rule_id: image.identity.preservation
     title: "Identity preservation source must be explicit"
     risk: high
-    source_ref: policies/identity-preservation.yaml
+    source_ref: kb/04-templates/image.md#image.identity.preservation
+    source_hash: 3bdc1b77ee1d5bb3
+    last_synced: "2026-07-03"
   - id: MM-003
+    peac_rule_id: image.overlay.exact_text
     title: "Overlay-safe workflow required when exact typography or marks matter"
     risk: medium
-    source_ref: policies/overlay-exact-text.yaml
+    source_ref: kb/04-templates/image.md#image.overlay.exact_text
+    source_hash: 943b0ec351cdd164
+    last_synced: "2026-07-03"
