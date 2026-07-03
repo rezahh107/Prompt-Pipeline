@@ -1,0 +1,5 @@
+request: "Create a reusable prompt for auditing a repository."
+target_environment: ChatGPT
+strictness: production-grade
+output_language: Persian
+domain_hint: prompt_generation
