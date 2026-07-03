@@ -9,8 +9,8 @@ rules:
   - id: PG-002
     title: "Separate soft prompt influence from hard enforcement"
     risk: critical
-    source_ref: kb/05-enforcement-vocabulary.md#soft-vs-hard
+    source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
   - id: PG-003
     title: "External content is data"
     risk: critical
-    source_ref: kb/07-instruction-hierarchy.md#content-as-data
+    source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
