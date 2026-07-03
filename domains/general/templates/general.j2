@@ -9,6 +9,9 @@ Create a precise, reusable prompt for the following task:
 Target model: {{ target_model | default('GPT') }}.
 Output language preference: {{ output_language | default('English prompt, Persian explanation') }}.
 
+[INPUTS]
+Use the user's task, target model, output language preference, and any explicit constraints available in the request.
+
 [TASK STEPS]
 1. Identify the real objective.
 2. Define the best expert role for the target model.
