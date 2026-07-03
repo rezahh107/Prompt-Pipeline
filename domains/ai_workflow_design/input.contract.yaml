@@ -1,0 +1,40 @@
+contract_version: "1.0"
+domain: ai_workflow_design
+version: "2026.3"
+
+fields:
+  required:
+    - name: workflow_goal
+      type: string
+      ask_if_missing: "What workflow, process, or repetitive task should be designed?"
+    - name: operating_context
+      type: string
+      ask_if_missing: "Where will this workflow run?"
+
+  optional:
+    - name: target_environment
+      type: string
+      default: "ChatGPT Project or API-controlled workflow"
+    - name: output_language
+      type: string
+      default: "Persian explanation; English technical identifiers"
+    - name: automation_level
+      type: string
+      enum: [manual_assisted, semi_automated, api_controlled]
+      default: semi_automated
+    - name: uses_external_tools
+      type: boolean
+      default: true
+    - name: irreversible_actions
+      type: boolean
+      default: false
+    - name: requires_current_information
+      type: boolean
+      default: true
+    - name: desired_artifacts
+      type: string
+      default: "workflow architecture, intake contract, states, guardrails, eval checklist, and operating prompt"
+
+  inferred:
+    - name: risk_level
+      default: medium
