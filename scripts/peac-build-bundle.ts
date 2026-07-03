@@ -17,7 +17,7 @@ function extensionOf(path: string): string {
 function walk(path: string): string[] {
   if (!existsSync(path)) return [];
   const stat = statSync(path);
-  if (stat.isFile()) return INCLUDED_EXTENSIONS.has(extensionOf(path)) || path === 'README.md' || path === 'peac.config.yaml' ? [path] : [];
+  if (stat.isFile()) return [path];
   const files: string[] = [];
   for (const entry of readdirSync(path, { withFileTypes: true })) {
     const child = join(path, entry.name);
@@ -72,7 +72,7 @@ function localHeader(name: Buffer, data: Buffer, crc: number, stamp: { time: num
 function centralHeader(name: Buffer, data: Buffer, crc: number, offset: number, stamp: { time: number; date: number }): Buffer {
   const header = Buffer.alloc(46);
   header.writeUInt32LE(0x02014b50, 0);
-  header.writeUInt16LE(20, 4);
+  header.writeUInt16LE(0x0314, 4);
   header.writeUInt16LE(20, 6);
   header.writeUInt16LE(0, 8);
   header.writeUInt16LE(0, 10);
@@ -86,7 +86,7 @@ function centralHeader(name: Buffer, data: Buffer, crc: number, offset: number, 
   header.writeUInt16LE(0, 32);
   header.writeUInt16LE(0, 34);
   header.writeUInt16LE(0, 36);
-  header.writeUInt32LE(0, 38);
+  header.writeUInt32LE(0x81a40000, 38);
   header.writeUInt32LE(offset, 42);
   return Buffer.concat([header, name]);
 }
