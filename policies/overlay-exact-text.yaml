@@ -2,10 +2,10 @@ policy_id: overlay_exact_text
 version: "2026.3"
 scope: global
 overridable: false
-source_ref: kb/04-templates/image.md
+source_ref: kb/04-templates/image.md#image.overlay.exact_text
 peac_rule_id: image.overlay.exact_text
 source_hash: 943b0ec351cdd164
-last_synced: "2026-06-25"
+last_synced: "2026-07-03"
 
 description: Exact Persian text, official logos, QR codes, and formal identifiers require deterministic overlay.
 
