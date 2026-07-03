@@ -1,0 +1,18 @@
+domain: multimodal
+version: "2026.3"
+
+subtypes:
+  - id: image_prompt_design
+    description: "Design a safe, preservation-aware multimodal/image prompt."
+    templates:
+      primary: image-prompt-design.j2
+
+risk_overrides:
+  - condition: "minors_or_students == true"
+    risk: high
+  - condition: "identity_preservation == true"
+    risk: medium
+  - condition: "exact_text_or_logo == true"
+    risk: medium
+  - condition: "overlay_safe_required == true"
+    risk: medium
