@@ -4,7 +4,7 @@ routing_strategy:
   tiebreak: score_then_confidence_then_priority_then_domain
   scoring:
     concept_weight: 4
-    negative_weight: -4
+    negative_weight: -8
     confidence_base: 0.5
     confidence_step: 0.05
     confidence_max: 0.96
@@ -101,7 +101,7 @@ domains:
           - multimodal prompt
           - چندوجهی
       - id: exact_text_logo_reliability
-        weight: 8
+        weight: 10
         keywords:
           - overlay-safe
           - exact text
