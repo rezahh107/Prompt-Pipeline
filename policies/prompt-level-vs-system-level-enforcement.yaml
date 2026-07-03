@@ -1,5 +1,5 @@
 policy_id: prompt_level_vs_system_level_enforcement
-source_ref: kb/05-enforcement-vocabulary.md#soft-vs-hard
+source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
 version: "2026.3"
 risk: critical
 applies_when:
