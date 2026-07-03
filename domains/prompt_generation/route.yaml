@@ -1,0 +1,18 @@
+domain: prompt_generation
+version: "2026.3"
+
+subtypes:
+  - id: master_prompt
+    description: "Generate a production-grade reusable prompt from a user request."
+    templates:
+      primary: master-prompt.j2
+
+risk_overrides:
+  - condition: "sensitive_or_high_risk == true"
+    risk: high
+  - condition: "uses_external_tools == true"
+    risk: high
+  - condition: "requires_current_information == true"
+    risk: medium
+  - condition: "requires_structured_output == true"
+    risk: medium
