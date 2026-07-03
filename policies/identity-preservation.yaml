@@ -2,10 +2,10 @@ policy_id: identity_preservation
 version: "2026.3"
 scope: global
 overridable: false
-source_ref: kb/04-templates/image.md
+source_ref: kb/04-templates/image.md#image.identity.preservation
 peac_rule_id: image.identity.preservation
 source_hash: 3bdc1b77ee1d5bb3
-last_synced: "2026-06-25"
+last_synced: "2026-07-03"
 
 description: Preserve identity and physical integrity when editing images with people.
 
