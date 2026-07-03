@@ -1,0 +1,39 @@
+contract_version: "1.0"
+domain: multimodal
+version: "2026.3"
+
+fields:
+  required:
+    - name: multimodal_task
+      type: string
+      ask_if_missing: "What multimodal or image-related prompt should be produced?"
+    - name: asset_types
+      type: string
+      ask_if_missing: "What assets are involved? Example: source photo, reference image, screenshot, PDF, logo, text overlay."
+
+  optional:
+    - name: target_model
+      type: string
+      default: "GPT image-capable model"
+    - name: output_language
+      type: string
+      default: "Persian explanation; English prompt"
+    - name: identity_preservation
+      type: boolean
+      default: false
+    - name: exact_text_or_logo
+      type: boolean
+      default: false
+    - name: minors_or_students
+      type: boolean
+      default: false
+    - name: overlay_safe_required
+      type: boolean
+      default: false
+    - name: desired_output
+      type: string
+      default: "A copy-ready multimodal prompt with preservation rules and QA checklist."
+
+  inferred:
+    - name: risk_level
+      default: medium
