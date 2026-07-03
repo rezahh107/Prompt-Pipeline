@@ -4,8 +4,8 @@ version: "2026.3"
 rules:
   - id: prompt_audit.finding_taxonomy
     peac_rule_id: audit.finding_taxonomy
-    source_ref: kb/07-evaluation-rubrics.md
+    source_ref: kb/01-core-principles.md#audit.finding_taxonomy
     source_hash: 421d74c3da9c8fbf
-    last_synced: "2026-06-25"
+    last_synced: "2026-07-03"
     priority: high
     rule: "Classify findings as confirmed_issue, probable_issue, potential_risk, or strength."
