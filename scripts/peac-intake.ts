@@ -45,8 +45,13 @@ function bool(value: unknown): boolean | undefined {
   if (['false', '0', 'no'].includes(value.toLowerCase())) return false;
   return undefined;
 }
+function clean<T extends Dict>(value: T): Partial<T> {
+  const out: Partial<T> = {};
+  for (const [key, item] of Object.entries(value)) if (item !== undefined) out[key as keyof T] = item as T[keyof T];
+  return out;
+}
 function fromFlags(a: Record<string, string | boolean>): Partial<Intake> {
-  return {
+  return clean({
     request: typeof a.request === 'string' ? a.request : undefined,
     desired_output: typeof (a['desired-output'] ?? a.desired_output) === 'string' ? String(a['desired-output'] ?? a.desired_output) : undefined,
     target_environment: typeof (a['target-environment'] ?? a.target_environment) === 'string' ? String(a['target-environment'] ?? a.target_environment) : undefined,
@@ -59,7 +64,7 @@ function fromFlags(a: Record<string, string | boolean>): Partial<Intake> {
     uses_external_tools: bool(a['uses-external-tools'] ?? a.uses_external_tools),
     sensitive_or_high_risk: bool(a['sensitive-or-high-risk'] ?? a.sensitive_or_high_risk),
     requires_structured_output: bool(a['requires-structured-output'] ?? a.requires_structured_output),
-  };
+  });
 }
 function fmt(errors: ErrorObject[] | null | undefined): string { return (errors ?? []).map((e) => `${e.instancePath || '/'} ${e.message ?? 'is invalid'}`).join('; '); }
 function validateIntake(value: unknown, config: Config): Intake {
@@ -83,12 +88,12 @@ function route(intake: Intake, config: Config): { domain: string; confidence: nu
   return { domain: 'general', confidence: 0.5, method: 'fallback_general_low_risk' };
 }
 function seedInputs(intake: Intake, domain: string): Dict {
-  const common = { output_language: intake.output_language, target_model: intake.target_environment };
-  if (domain === 'prompt_generation') return { ...common, task: intake.request, desired_output: intake.desired_output, target_environment: intake.target_environment, strictness: intake.strictness, user_constraints: (intake.constraints ?? []).join('\n') || 'No extra constraints provided.' };
-  if (domain === 'document_review') return { ...common, documents_description: intake.request, review_objective: intake.desired_output, desired_output: intake.desired_output, requires_current_research: intake.requires_current_information };
-  if (domain === 'ai_workflow_design') return { ...common, workflow_goal: intake.request, operating_context: intake.target_environment, target_environment: intake.target_environment, desired_artifacts: intake.desired_output };
-  if (domain === 'multimodal') return { ...common, multimodal_task: intake.request, asset_types: (intake.available_sources ?? []).join(', ') || 'unspecified', desired_output: intake.desired_output };
-  return { ...common, task: intake.request, output_format: intake.desired_output };
+  const common = clean({ output_language: intake.output_language, target_model: intake.target_environment });
+  if (domain === 'prompt_generation') return clean({ ...common, task: intake.request, desired_output: intake.desired_output, target_environment: intake.target_environment, strictness: intake.strictness, user_constraints: (intake.constraints ?? []).join('\n') || 'No extra constraints provided.' });
+  if (domain === 'document_review') return clean({ ...common, documents_description: intake.request, review_objective: intake.desired_output, desired_output: intake.desired_output, requires_current_research: intake.requires_current_information });
+  if (domain === 'ai_workflow_design') return clean({ ...common, workflow_goal: intake.request, operating_context: intake.target_environment, target_environment: intake.target_environment, desired_artifacts: intake.desired_output });
+  if (domain === 'multimodal') return clean({ ...common, multimodal_task: intake.request, asset_types: (intake.available_sources ?? []).join(', ') || 'unspecified', desired_output: intake.desired_output });
+  return clean({ ...common, task: intake.request, output_format: intake.desired_output });
 }
 function missing(config: Config, domain: string, inputs: Dict): string[] {
   const path = join(config.domains_path, domain, 'input.contract.yaml');
