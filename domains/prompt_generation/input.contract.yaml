@@ -1,0 +1,46 @@
+contract_version: "1.0"
+domain: prompt_generation
+version: "2026.3"
+
+fields:
+  required:
+    - name: task
+      type: string
+      ask_if_missing: "What topic, problem, or workflow should the prompt handle?"
+    - name: desired_output
+      type: string
+      ask_if_missing: "What should the target model produce?"
+
+  optional:
+    - name: target_environment
+      type: string
+      default: "ChatGPT"
+    - name: target_model
+      type: string
+      default: "GPT"
+    - name: output_language
+      type: string
+      default: "Persian explanation; English prompt when useful"
+    - name: strictness
+      type: string
+      enum: [quick, precise, production-grade]
+      default: production-grade
+    - name: requires_current_information
+      type: boolean
+      default: false
+    - name: uses_external_tools
+      type: boolean
+      default: false
+    - name: sensitive_or_high_risk
+      type: boolean
+      default: false
+    - name: requires_structured_output
+      type: boolean
+      default: true
+    - name: user_constraints
+      type: string
+      default: "No extra constraints provided."
+
+  inferred:
+    - name: risk_level
+      default: medium
