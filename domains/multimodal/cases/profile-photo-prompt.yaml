@@ -1,0 +1,22 @@
+case_id: multimodal-profile-photo
+version: "2026.3"
+description: "Generate a prompt for selecting and editing a professional profile photo from source photos."
+domain: multimodal
+subtype: image_prompt_design
+
+inputs:
+  multimodal_task: "Select the best source photo and create a realistic professional profile photo prompt."
+  asset_types: "Multiple source photos of the same person and optional style preferences."
+  target_model: "GPT image-capable model"
+  output_language: "Persian explanation; English prompt"
+  identity_preservation: true
+  exact_text_or_logo: false
+  minors_or_students: false
+  overlay_safe_required: false
+  desired_output: "A copy-ready image editing prompt plus QA checklist."
+
+expected:
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
