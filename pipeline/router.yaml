@@ -57,13 +57,16 @@ domains:
     enabled: true
     keywords:
       - multimodal
-      - image prompt design
-      - visual prompt
+      - multimodal prompt
       - overlay-safe
+      - exact text
+      - text logo reliability
+      - logo fidelity
       - چندوجهی
-      - پرامپت تصویر
       - لوگو
       - متن روی تصویر
+      - متن دقیق
+      - لوگوی دقیق
     confidence_threshold: 0.82
 
   general:
@@ -112,10 +115,10 @@ domains:
       - ممیزی سورس
       - بررسی سورس
     patterns:
-      - "repository[\\s\\S]*audit"
-      - "source[\\s\\S]*audit"
-      - "بررسی[\\s\\S]*ریپو"
-      - "بررسی[\\s\\S]*مخزن"
+      - "repository[\s\S]*audit"
+      - "source[\s\S]*audit"
+      - "بررسی[\s\S]*ریپو"
+      - "بررسی[\s\S]*مخزن"
     confidence_threshold: 0.8
 
   coding_debugging:
@@ -134,11 +137,11 @@ domains:
       - خطای تست
       - اصلاح کد
     patterns:
-      - "code[\\s\\S]*review"
-      - "debug[\\s\\S]*code"
-      - "failing[\\s\\S]*test"
-      - "بررسی[\\s\\S]*کد"
-      - "خطای[\\s\\S]*کد"
+      - "code[\s\S]*review"
+      - "debug[\s\S]*code"
+      - "failing[\s\S]*test"
+      - "بررسی[\s\S]*کد"
+      - "خطای[\s\S]*کد"
     confidence_threshold: 0.8
 
   image:
