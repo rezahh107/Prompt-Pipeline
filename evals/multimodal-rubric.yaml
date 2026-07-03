@@ -1,0 +1,16 @@
+rubric_id: multimodal_prompt_quality
+checks:
+  - id: multimodal_sections_present
+    domain: multimodal
+    subtype: image_prompt_design
+    required_substrings:
+      - "[MULTIMODAL RELIABILITY RULES]"
+      - "Source-role map"
+      - "Visual QA checklist"
+
+  - id: reliability_caveats_present
+    domain: multimodal
+    subtype: image_prompt_design
+    required_substrings:
+      - "Exact text, logos, typography, and layout parity are model-dependent"
+      - "overlay-safe"
