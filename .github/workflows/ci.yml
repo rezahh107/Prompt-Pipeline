@@ -6,41 +6,58 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  static-validation:
+  peac-ci:
+    name: PEaC canonical CI
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Enable Corepack
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.13.1 --activate
+
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: PEaC self tests
-        run: pnpm peac:selftest
-      - name: PEaC router tests
-        run: pnpm peac:routertest
-      - name: PEaC domain tests
-        run: pnpm peac:domaintest
-      - name: Static validation
+
+      - name: Run canonical CI
         run: |
           set -o pipefail
-          pnpm peac:validate 2>&1 | tee peac-validate.log
-      - name: Local rubric evaluation
-        run: pnpm peac:eval
-      - name: Upload validation log
+          pnpm ci 2>&1 | tee peac-ci.log
+
+      - name: Verify bundle output
+        run: |
+          test -d dist
+          test -n "$(find dist -maxdepth 1 -type f -name 'Prompt-Pipeline-KB-Bundle-v*.zip' -print -quit)"
+
+      - name: Upload PEaC knowledge bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt-pipeline-kb-bundle
+          path: dist/Prompt-Pipeline-KB-Bundle-v*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload CI log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: peac-validation-log
-          path: peac-validate.log
-      - name: Rule drift check
-        run: pnpm peac:sync -- --check
-      - name: Smoke generate artifact
-        run: pnpm peac:smoke
+          name: peac-ci-log
+          path: peac-ci.log
+          if-no-files-found: ignore
+          retention-days: 14
