@@ -1,0 +1,15 @@
+request: "Create a prompt that reviews a GitHub repository and reports correctness, risks, and next fixes."
+desired_output: "A production-grade reusable prompt with evidence rules, repository boundaries, output format, and self-check."
+target_environment: ChatGPT
+strictness: production-grade
+output_language: "Persian explanation; English prompt when useful"
+domain_hint: prompt_generation
+requires_current_information: true
+uses_external_tools: true
+requires_structured_output: true
+constraints:
+  - "Do not modify files unless explicitly requested."
+  - "Separate confirmed facts from assumptions."
+success_criteria:
+  - "The generated prompt is copy-ready."
+  - "The generated prompt requires evidence for repository claims."
