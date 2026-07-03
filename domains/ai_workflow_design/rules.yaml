@@ -3,14 +3,23 @@ version: "2026.3"
 
 rules:
   - id: AWD-001
+    peac_rule_id: workflow.stateful_behavior_requires_carrier
     title: "External state must carry real stateful behavior"
     risk: critical
-    source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#workflow.stateful_behavior_requires_carrier
+    source_hash: d8bc8b38963284f0
+    last_synced: "2026-07-03"
   - id: AWD-002
+    peac_rule_id: security.content_as_data
     title: "Tool outputs do not rewrite instructions"
     risk: critical
     source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
+    source_hash: 46986e6c3ec413da
+    last_synced: "2026-07-03"
   - id: AWD-003
+    peac_rule_id: workflow.eval_human_review_gates
     title: "Workflows require eval and human-review gates"
     risk: high
-    source_ref: pipeline/quality-gates.yaml
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#workflow.eval_human_review_gates
+    source_hash: 1cc41f5077228686
+    last_synced: "2026-07-03"
