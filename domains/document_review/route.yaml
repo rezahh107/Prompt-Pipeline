@@ -1,0 +1,14 @@
+domain: document_review
+version: "2026.3"
+
+subtypes:
+  - id: research_grounded_review
+    description: "Review one or more documents against evidence, best practices, and conceptual coherence."
+    templates:
+      primary: research-grounded-review.j2
+
+risk_overrides:
+  - condition: "requires_current_research == true"
+    risk: medium
+  - condition: "external_files == true"
+    risk: medium
