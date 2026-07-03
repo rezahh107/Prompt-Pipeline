@@ -27,14 +27,26 @@ Code context:
 {{ security_context }}
 {% endif %}
 
-Constraints:
+Declared constraints:
 {{ constraints | default('Preserve existing architecture unless a change is justified by evidence.') }}
 
 Target model or executor:
 {{ target_model | default('GPT') }}
 
+[INPUTS]
+Use only supplied code, logs, stack traces, reproduction notes, comments, generated reports, documentation, and user-provided context that are available to the target model.
+
 [EXECUTION BOUNDARY]
-This prompt is for diagnosis and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Do not execute, merge, publish, delete, migrate, force-push, or alter remote/production state without explicit user confirmation and passing checks.
+This prompt is for diagnosis and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Remote, release, production, or irreversible operations require explicit user approval and passing checks.
+
+[TASK STEPS]
+1. Restate the observed failure precisely.
+2. Separate confirmed evidence from assumptions.
+3. Identify the smallest relevant code path.
+4. List likely root causes in priority order.
+5. Propose the smallest reproducer or inspection step.
+6. Propose a minimal fix plan.
+7. Define regression tests that would prevent recurrence.
 
 [DEBUGGING PROTOCOL]
 1. Restate the observed failure precisely.
@@ -64,7 +76,7 @@ This prompt is for diagnosis and patch planning unless the user explicitly asks 
 - Keep file names, class names, function names, package names, commands, and technical identifiers in English.
 - Use severity levels: blocker, high, medium, low.
 - Do not recommend merge or release if the failure is not reproduced or guarded by tests.
-- Do not perform irreversible actions unless the user explicitly requested that action.
+- Require explicit user approval for remote, release, production, or irreversible operations.
 
 [OUTPUT FORMAT]
 Return:

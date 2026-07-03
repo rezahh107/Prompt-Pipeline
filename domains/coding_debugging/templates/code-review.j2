@@ -21,14 +21,24 @@ Additional code context:
 {{ security_context }}
 {% endif %}
 
-Constraints:
+Declared constraints:
 {{ constraints | default('Preserve existing architecture unless a change is justified by evidence.') }}
 
 Target model or executor:
 {{ target_model | default('GPT') }}
 
+[INPUTS]
+Use only supplied source files, diffs, logs, comments, generated reports, documentation, and user-provided context that are available to the target model.
+
 [EXECUTION BOUNDARY]
-This prompt is for review and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Do not execute, merge, publish, delete, migrate, force-push, or alter remote/production state without explicit user confirmation and passing checks.
+This prompt is for review and patch planning unless the user explicitly asks the target agent to edit files. Patch guidance is advisory only. Remote, release, production, or irreversible operations require explicit user approval and passing checks.
+
+[TASK STEPS]
+1. Map the review artifact and objective.
+2. Identify confirmed behavior from available evidence.
+3. Review correctness, edge cases, validation, errors, security, maintainability, and tests.
+4. Separate confirmed findings from assumptions and risks.
+5. Recommend the smallest safe next change when a fix is justified.
 
 [REVIEW FOCUS]
 - Correctness and edge cases.
@@ -57,7 +67,7 @@ This prompt is for review and patch planning unless the user explicitly asks the
 - Keep file names, class names, function names, package names, commands, and technical identifiers in English.
 - Use severity levels: blocker, high, medium, low.
 - Do not recommend merge or release if blocker findings or failing checks remain.
-- Do not perform irreversible actions unless the user explicitly requested that action.
+- Require explicit user approval for remote, release, production, or irreversible operations.
 
 [OUTPUT FORMAT]
 Return:

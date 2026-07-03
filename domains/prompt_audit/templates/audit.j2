@@ -8,7 +8,8 @@ Audit the provided prompt for clarity, reliability, completeness, safety, and ta
 Target model: {{ target_model | default('GPT') }}
 Target task: {{ target_task | default('not specified') }}
 
-[PROMPT TO AUDIT]
+[INPUTS]
+Prompt to audit:
 {{ prompt_to_audit }}
 
 [TASK STEPS]
@@ -17,6 +18,12 @@ Target task: {{ target_task | default('not specified') }}
 3. Check whether the output format is enforceable.
 4. Check whether evidence and safety rules are appropriate for the task.
 5. Recommend targeted fixes without unnecessarily rewriting strong sections.
+
+[CONSTRAINTS]
+- Do not invent issues.
+- Tie every issue to prompt text or a clearly stated risk.
+- Keep recommendations targeted and practical.
+- Do not rewrite the entire prompt unless the prompt is structurally unsalvageable.
 
 [OUTPUT FORMAT]
 Return the audit in Persian using this structure:
@@ -30,5 +37,5 @@ B. Findings Table
 C. Priority Fixes
 D. Final Verdict
 
-[SELF-CHECK]
-Do not invent issues. Tie every issue to prompt text or a clearly stated risk.
+[SELF-CHECK BEFORE FINAL ANSWER]
+Verify that every issue is grounded in the prompt text or a clearly stated risk, and that no unsupported defect was invented.
