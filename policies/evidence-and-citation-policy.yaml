@@ -1,5 +1,8 @@
 policy_id: evidence_and_citation_policy
-source_ref: pipeline/evidence-policy.yaml
+peac_rule_id: evidence.current_claims_need_sources
+source_ref: kb/11-policy-and-domain-rule-anchors.md#evidence.current_claims_need_sources
+source_hash: 3d10cc8a2a674f9f
+last_synced: "2026-07-03"
 version: "2026.3"
 risk: high
 applies_when:
