@@ -3,9 +3,9 @@ version: "2026.3"
 
 rules:
   - id: general.prompt_structure
-    peac_rule_id: general.prompt_structure
-    source_ref: kb/01-core-principles.md
-    source_hash: e9c363d29238c658
-    last_synced: "2026-06-25"
+    peac_rule_id: refactor.full_structure
+    source_ref: kb/01-core-principles.md#refactor.full_structure
+    source_hash: 3545a32daccea118
+    last_synced: "2026-07-03"
     priority: high
     rule: "Use role, mission, context, inputs, constraints, output format, quality bar, and self-check."
