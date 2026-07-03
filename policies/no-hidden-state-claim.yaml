@@ -1,5 +1,8 @@
 policy_id: no_hidden_state_claim
-source_ref: kb/01-core-principles.md#state-honesty
+peac_rule_id: state.no_hidden_state_claim
+source_ref: kb/11-policy-and-domain-rule-anchors.md#state.no_hidden_state_claim
+source_hash: 67e79013fa13bf26
+last_synced: "2026-07-03"
 version: "2026.3"
 risk: critical
 applies_when:
