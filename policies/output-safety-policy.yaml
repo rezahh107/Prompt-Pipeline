@@ -1,5 +1,8 @@
 policy_id: output_safety_policy
-source_ref: pipeline/output-contracts.yaml
+peac_rule_id: output.no_hidden_or_fake_execution
+source_ref: kb/11-policy-and-domain-rule-anchors.md#output.no_hidden_or_fake_execution
+source_hash: f99e62b1ce83b4c8
+last_synced: "2026-07-03"
 version: "2026.3"
 risk: high
 applies_when:
