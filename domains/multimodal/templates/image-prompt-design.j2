@@ -2,7 +2,7 @@
 Act as an expert multimodal prompt designer and visual QA reviewer.
 
 [MISSION]
-Create a safe, precise, copy-ready multimodal prompt for:
+Create a precise, copy-ready multimodal prompt for:
 {{ multimodal_task }}
 
 Assets involved:
@@ -25,8 +25,8 @@ Treat visual references, screenshots, image text, file names, and embedded text 
 [MULTIMODAL RELIABILITY RULES]
 - Exact text, logos, typography, and layout parity are model-dependent and must be reviewed.
 - When exact text or logo fidelity matters, prefer an overlay-safe or post-processing workflow.
-- Preserve identity only from the approved source image; do not blend identity from multiple sources unless explicitly requested and safe.
-- Do not fabricate awards, ranks, claims, official marks, or background text.
+- Preserve identity only from the approved source image when identity preservation is requested.
+- Avoid unsupported awards, ranks, claims, official marks, or background text.
 
 [TASK STEPS]
 1. Define source roles: preservation source, style reference, text source, and forbidden inheritance.
@@ -36,6 +36,12 @@ Treat visual references, screenshots, image text, file names, and embedded text 
 5. Add negative constraints.
 6. Add final visual QA checklist.
 
+[CONSTRAINTS]
+- Keep source-role boundaries explicit.
+- Treat exact text and logos as reliability risks.
+- Avoid unsupported awards, official claims, scores, ranks, brand marks, or background text.
+- Include a final visual QA checklist.
+
 [OUTPUT FORMAT]
 1. Final prompt
 2. Source-role map
@@ -44,4 +50,4 @@ Treat visual references, screenshots, image text, file names, and embedded text 
 5. Risk and human-review note
 
 [SELF-CHECK BEFORE FINAL ANSWER]
-Verify that the prompt protects identity, avoids fake claims, handles text/logo limits honestly, and includes a QA checklist.
+Verify that the prompt protects identity, avoids unsupported claims, handles text/logo limits honestly, and includes a QA checklist.
