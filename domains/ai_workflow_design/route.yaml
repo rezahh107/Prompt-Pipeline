@@ -1,0 +1,18 @@
+domain: ai_workflow_design
+version: "2026.3"
+
+subtypes:
+  - id: workflow_architecture
+    description: "Design an AI-assisted workflow with intake, state, guards, and evaluation."
+    templates:
+      primary: workflow-architecture.j2
+
+risk_overrides:
+  - condition: "irreversible_actions == true"
+    risk: high
+  - condition: "automation_level == 'api_controlled'"
+    risk: high
+  - condition: "uses_external_tools == true"
+    risk: high
+  - condition: "requires_current_information == true"
+    risk: medium
