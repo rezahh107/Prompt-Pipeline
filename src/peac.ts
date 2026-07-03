@@ -29,6 +29,9 @@ interface CaseExpected {
 }
 interface CaseFile { case_id: string; description?: string; domain: string; subtype?: string; version?: string; inputs: Dict; expected?: CaseExpected }
 interface RoutingResult { domain: string; subtype: string | null; confidence: number; method: string }
+interface RouterDomainConfig { enabled?: boolean; is_fallback?: boolean; keywords?: string[]; patterns?: string[]; negative_keywords?: string[]; requires_any?: string[]; confidence_threshold?: number; priority?: number; keyword_weight?: number; pattern_weight?: number; negative_weight?: number }
+interface RouterConfig { routing_strategy?: { scoring?: { keyword_weight?: number; pattern_weight?: number; negative_weight?: number; confidence_base?: number; confidence_step?: number } }; domains: Record<string, RouterDomainConfig> }
+interface RouterCandidate { domain: string; score: number; confidence: number; priority: number; matchedTerms: string[]; negativeTerms: string[] }
 interface ValidationResult { passed: boolean; warnings: string[]; errors: string[]; checks_run: string[] }
 interface PromptArtifact {
   prompt_id: string;
@@ -148,7 +151,43 @@ function applyOptionalDefaults(contract: Dict, inputs: Dict): { inputs: Dict; de
 function applyInferences(contract: Dict, inputs: Dict): { inputs: Dict; inferred: string[] } { const copy = { ...inputs }; const inferred: string[] = []; for (const field of contractFields(contract).inferred ?? []) { if (field.name === 'risk_level' || copy[field.name] !== undefined) continue; if (field.logic) { copy[field.name] = evalCondition(field.logic, copy); inferred.push(field.name); continue } if (Object.prototype.hasOwnProperty.call(field, 'default')) { copy[field.name] = field.default; inferred.push(field.name) } } return { inputs: copy, inferred } }
 function selectSubtype(route: Dict, inputs: Dict, requested?: string): string { if (requested) return requested; const subtypes = (route.subtypes as Array<{ id: string; triggers?: string[] }> | undefined) ?? []; for (const subtype of subtypes) if ((subtype.triggers ?? []).every((condition) => evalCondition(condition, inputs))) return subtype.id; return subtypes[0]?.id ?? 'default' }
 function selectTemplate(route: Dict, subtype: string): string { const subtypes = (route.subtypes as Array<{ id: string; templates?: { primary?: string } }> | undefined) ?? []; return subtypes.find((item) => item.id === subtype)?.templates?.primary ?? `${subtype}.j2` }
-function routeRequest(request: string, config: PEaCConfig): RoutingResult { const router = readYamlFile<{ domains: Record<string, { enabled?: boolean; keywords?: string[]; patterns?: string[]; confidence_threshold?: number }> }>(join(config.pipeline_path, 'router.yaml')) ?? { domains: {} }; const normalized = request.toLowerCase(); for (const [domain, domainConfig] of Object.entries(router.domains)) { if (domainConfig.enabled === false || domain === 'general') continue; const keywordMatch = (domainConfig.keywords ?? []).some((keyword) => normalized.includes(keyword.toLowerCase())); const patternMatch = (domainConfig.patterns ?? []).some((pattern) => new RegExp(pattern, 'i').test(request)); if (keywordMatch || patternMatch) return { domain, subtype: null, confidence: domainConfig.confidence_threshold ?? 0.8, method: 'keyword_match' } } return { domain: 'general', subtype: 'default', confidence: 0.5, method: 'fallback_general_low_risk' } }
+function termMatches(request: string, normalized: string, term: string): boolean { return normalized.includes(term.toLowerCase()) || request.includes(term) }
+function patternMatches(request: string, pattern: string): boolean { return new RegExp(pattern, 'i').test(request) }
+function scoreRouterDomain(request: string, domain: string, config: RouterDomainConfig, router: RouterConfig): RouterCandidate | null {
+  if (!config || config.enabled === false || config.is_fallback === true || domain === 'general') return null;
+  const normalized = request.toLowerCase();
+  const scoring = router.routing_strategy?.scoring ?? {};
+  const keywordWeight = config.keyword_weight ?? scoring.keyword_weight ?? 3;
+  const patternWeight = config.pattern_weight ?? scoring.pattern_weight ?? 4;
+  const negativeWeight = Math.abs(config.negative_weight ?? scoring.negative_weight ?? -6);
+  const matchedKeywords = (config.keywords ?? []).filter((keyword) => termMatches(request, normalized, keyword));
+  const matchedPatterns = (config.patterns ?? []).filter((pattern) => patternMatches(request, pattern));
+  const negativeTerms = (config.negative_keywords ?? []).filter((keyword) => termMatches(request, normalized, keyword));
+  const required = config.requires_any ?? [];
+  if (required.length > 0 && !required.some((term) => termMatches(request, normalized, term))) return null;
+  const score = matchedKeywords.length * keywordWeight + matchedPatterns.length * patternWeight - negativeTerms.length * negativeWeight;
+  if (score <= 0) return null;
+  const confidenceBase = scoring.confidence_base ?? 0.55;
+  const confidenceStep = scoring.confidence_step ?? 0.1;
+  const confidence = Math.max(0, Math.min(0.99, confidenceBase + score * confidenceStep));
+  return { domain, score, confidence, priority: config.priority ?? 0, matchedTerms: [...matchedKeywords, ...matchedPatterns], negativeTerms };
+}
+function selectBestRouterCandidate(request: string, router: RouterConfig): RouterCandidate | null {
+  const candidates = Object.entries(router.domains)
+    .map(([domain, config]) => scoreRouterDomain(request, domain, config, router))
+    .filter((candidate): candidate is RouterCandidate => candidate !== null)
+    .filter((candidate) => candidate.confidence >= (router.domains[candidate.domain]?.confidence_threshold ?? 0.8))
+    .sort((a, b) => b.score - a.score || b.confidence - a.confidence || b.priority - a.priority || a.domain.localeCompare(b.domain));
+  return candidates[0] ?? null;
+}
+function routeRequest(request: string, config: PEaCConfig): RoutingResult { return routeRequestForTest(request, config) }
+export function routeRequestForTest(request: string, configOverride?: PEaCConfig): RoutingResult {
+  const config = configOverride ?? loadConfig();
+  const router = readYamlFile<RouterConfig>(join(config.pipeline_path, 'router.yaml')) ?? { domains: {} };
+  const best = selectBestRouterCandidate(request, router);
+  if (best) return { domain: best.domain, subtype: null, confidence: best.confidence, method: 'weighted_score' };
+  return { domain: 'general', subtype: 'default', confidence: router.domains.general?.confidence_threshold ?? 0.5, method: 'fallback_general_low_risk' };
+}
 function loadPolicies(config: PEaCConfig, inputs: Dict): Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> { if (!existsSync(config.policies_path)) return []; const result: Array<{ id: string; source_ref: string; source_hash: string | null; triggered_by: string }> = []; for (const file of readdirSync(config.policies_path).filter((item) => item.endsWith('.yaml')).sort()) { const policy = readYamlFile<{ policy_id: string; source_ref: string; source_hash?: string | null; applies_when?: string[] }>(join(config.policies_path, file)); if (!policy?.policy_id || !policy.source_ref) continue; const conditions = policy.applies_when ?? ['true']; if (conditions.some((condition) => evalCondition(condition, inputs))) result.push({ id: policy.policy_id, source_ref: policy.source_ref, source_hash: policy.source_hash ?? null, triggered_by: conditions.join(' OR ') }) } return result }
 function renderTemplate(templatePath: string, inputs: Dict): string { const env = new nunjucks.Environment(undefined, { autoescape: false, throwOnUndefined: false }); return `${env.renderString(readFileSync(templatePath, 'utf8'), inputs).trim()}\n` }
 function runStaticValidation(renderedPrompt: string, validatorsPath: string, contract: Dict, inputs: Dict, policiesApplied: string[]): ValidationResult { const validation: ValidationResult = { passed: true, warnings: [], errors: [], checks_run: [] }; const validators = readYamlFile<{ static_checks?: Array<Dict> }>(validatorsPath) ?? {}; const add = (severity: string, message: string) => { if (severity === 'error') { validation.errors.push(message); validation.passed = false } else validation.warnings.push(message) }; for (const check of validators.static_checks ?? []) { const id = String(check.id ?? 'unnamed_check'); validation.checks_run.push(id); if (!evalCondition(check.applies_when as string | undefined, { ...inputs, rendered_prompt: renderedPrompt })) continue; const severity = String(check.severity ?? 'warning'); if (check.type === 'contract_check') { const missing = getMissingRequiredFields(contract, inputs); if (missing.length > 0) add(severity, `Missing required fields: ${missing.join(', ')}`) } if (check.type === 'rule_presence') { const required = String(check.required_policy_id ?? ''); if (required && !policiesApplied.includes(required)) add(severity, String(check.message ?? `Required policy not applied: ${required}`)) } if (check.type === 'forbidden_instruction') for (const pattern of (check.forbidden_patterns as string[] | undefined) ?? []) if (renderedPrompt.toLowerCase().includes(pattern.toLowerCase())) add(severity, `Forbidden instruction found: ${pattern}`); if (check.type === 'field_check' && !evalCondition(check.check as string | undefined, inputs)) add(severity, String(check.message ?? `Field check failed: ${id}`)); if (check.type === 'output_check' && !checkOutputExpression(String(check.check ?? ''), renderedPrompt, inputs)) add(severity, String(check.message ?? `Output check failed: ${id}`)); if (check.type === 'forbidden_combination') for (const violation of getForbiddenCombinationViolations(contract, inputs)) add(violation.severity || severity, `Forbidden input combination: ${violation.message}`) } return validation }
