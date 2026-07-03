@@ -12,6 +12,7 @@
     "peac:generate": "tsx scripts/peac-generate.ts",
     "peac:validate": "tsx scripts/peac-validate.ts",
     "peac:sync": "tsx scripts/peac-sync.ts",
+    "peac:synctest": "tsx scripts/peac-sync-self-test.ts",
     "peac:eval": "tsx scripts/peac-eval.ts",
     "peac:output-contract": "tsx scripts/peac-output-contract-check.ts",
     "peac:intake": "tsx scripts/peac-intake.ts",
@@ -22,7 +23,7 @@
     "peac:bundle": "tsx scripts/peac-build-bundle.ts",
     "peac:smoke": "pnpm peac:generate -- --case domains/image/cases/academic-portrait.yaml --mode batch",
     "typecheck": "tsc --noEmit",
-    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:sync -- --check && pnpm peac:bundle && pnpm peac:smoke"
+    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:synctest && pnpm peac:sync -- --check && pnpm peac:bundle && pnpm peac:smoke"
   },
   "dependencies": {
     "ajv": "^8.17.1",
