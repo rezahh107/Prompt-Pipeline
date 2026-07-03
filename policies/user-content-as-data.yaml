@@ -1,5 +1,5 @@
 policy_id: user_content_as_data
-source_ref: kb/07-instruction-hierarchy.md#content-as-data
+source_ref: kb/07-instruction-hierarchy.md#security.content_as_data
 version: "2026.3"
 risk: critical
 applies_when:
