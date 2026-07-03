@@ -11,9 +11,9 @@ rules:
     rule: "Code and debugging claims must be grounded in available code, diffs, logs, errors, tests, or documentation."
 
   - id: coding_debugging.no_unverified_results
-    peac_rule_id: repo_review.no_unverified_results
-    source_ref: kb/11-policy-and-domain-rule-anchors.md#repo_review.no_unverified_results
-    source_hash: 0c1f693e8a0a2842
+    peac_rule_id: coding_debugging.no_unverified_results
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#coding_debugging.no_unverified_results
+    source_hash: ec2558a2479dbffe
     last_synced: "2026-07-03"
     priority: critical
     rule: "Generated prompts must prohibit unverified test results, command output, file paths, versions, and passing CI claims."
