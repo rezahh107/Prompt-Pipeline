@@ -1,0 +1,22 @@
+case_id: ai-workflow-prompt-pipeline
+version: "2026.3"
+description: "Design a pipeline where a model reads the repository, asks for a topic, and produces a prompt artifact."
+domain: ai_workflow_design
+subtype: workflow_architecture
+
+inputs:
+  workflow_goal: "Turn Prompt-Pipeline into a reusable prompt generation and validation pipeline."
+  operating_context: "GitHub repository plus ChatGPT Project or model with repository access."
+  target_environment: "ChatGPT Project or API-controlled workflow"
+  output_language: "Persian explanation; English technical identifiers"
+  automation_level: semi_automated
+  uses_external_tools: true
+  irreversible_actions: false
+  requires_current_information: true
+  desired_artifacts: "agent entrypoint, intake contract, routing, policies, prompt domains, eval rubrics, and bundle output."
+
+expected:
+  risk_level: high
+  requires_human_review: true
+  validation:
+    should_pass: true
