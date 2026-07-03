@@ -35,10 +35,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Run canonical CI
+      - name: Run canonical CI script
         run: |
           set -o pipefail
-          pnpm ci 2>&1 | tee peac-ci.log
+          pnpm run ci 2>&1 | tee peac-ci.log
 
       - name: Verify bundle output
         run: |
