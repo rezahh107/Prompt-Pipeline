@@ -1,0 +1,50 @@
+intake_flow:
+  version: "2026.3"
+  purpose: "Convert a vague user request into a routeable PEaC case."
+
+  entrypoint: pipeline/AGENT_ENTRYPOINT.md
+
+  phases:
+    - id: collect_minimum_viable_context
+      description: "Collect only the fields needed to select a domain and render a useful artifact."
+      required_fields:
+        - request
+        - desired_output
+        - strictness
+        - target_environment
+      clarification_policy:
+        ask_only_if_blocking: true
+        max_questions_initial_turn: 5
+
+    - id: classify_risk
+      description: "Classify whether the prompt may affect money, safety, law, security, privacy, code, children, irreversible actions, or current factual claims."
+      risk_escalation:
+        high:
+          - sensitive_or_high_risk == true
+          - uses_external_tools == true
+        medium:
+          - requires_current_information == true
+          - requires_structured_output == true
+
+    - id: route_domain
+      description: "Use domain_hint when reliable; otherwise use pipeline/router.yaml keyword and pattern routing."
+      fallback_domain: general
+
+    - id: render_or_case
+      description: "Produce a rendered prompt when all required fields exist; otherwise produce a case skeleton and ask for missing fields."
+      outputs:
+        - rendered_prompt
+        - case_yaml
+        - validation_notes
+
+    - id: validate
+      description: "Run static checks, rubrics, and human-review gates where possible."
+      validation_sources:
+        - domains/<domain>/validators.yaml
+        - evals/*.yaml
+        - pipeline/quality-gates.yaml
+
+  agent_response_contract:
+    before_user_topic: "Emit the exact intake request from AGENT_ENTRYPOINT."
+    after_user_topic: "Show selected domain, missing fields if any, then the generated prompt artifact or case YAML."
+    never_claim: "Do not claim actual CLI execution, tests, or repository changes unless they occurred."
