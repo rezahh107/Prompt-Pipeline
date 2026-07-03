@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Prompt Pipeline Intake",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request", "desired_output", "strictness", "target_environment"],
+  "properties": {
+    "request": { "type": "string", "minLength": 3 },
+    "desired_output": { "type": "string", "minLength": 3 },
+    "target_environment": {
+      "type": "string",
+      "enum": ["ChatGPT", "ChatGPT Project", "OpenAI API", "Codex", "Claude", "Gemini", "Local", "unspecified"]
+    },
+    "strictness": {
+      "type": "string",
+      "enum": ["quick", "precise", "production-grade"]
+    },
+    "output_language": { "type": "string", "default": "Persian explanation; English prompt when useful" },
+    "available_sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "sensitive_or_high_risk": { "type": "boolean", "default": false },
+    "uses_external_tools": { "type": "boolean", "default": false },
+    "requires_current_information": { "type": "boolean", "default": false },
+    "requires_structured_output": { "type": "boolean", "default": true },
+    "domain_hint": {
+      "type": ["string", "null"],
+      "enum": ["prompt_generation", "prompt_audit", "prompt_refactor", "document_review", "repo_review", "coding_debugging", "image", "multimodal", "ai_workflow_design", "general", null]
+    },
+    "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "success_criteria": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "human_review_required": { "type": "boolean", "default": false }
+  }
+}
