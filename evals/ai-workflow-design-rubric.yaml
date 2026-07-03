@@ -1,0 +1,17 @@
+rubric_id: ai_workflow_design_quality
+checks:
+  - id: workflow_sections_present
+    domain: ai_workflow_design
+    subtype: workflow_architecture
+    required_substrings:
+      - "Intake contract"
+      - "State machine"
+      - "Policy and guardrail model"
+      - "Validation and eval plan"
+
+  - id: state_and_enforcement_present
+    domain: ai_workflow_design
+    subtype: workflow_architecture
+    required_substrings:
+      - "external state requirements"
+      - "Separate prompt-level influence from system-level enforcement"
