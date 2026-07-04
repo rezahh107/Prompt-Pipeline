@@ -132,6 +132,36 @@ rules:
     next_hardening:
       - "Promote eval_suite into artifact metadata and require downstream rejection for missing production-grade eval metadata."
 
+  - rule_id: R-PP-MODEL-001
+    title: "Prompt generation artifacts must apply an explicit target model profile"
+    risk: high
+    source_refs:
+      - pipeline/model-profiles.yaml#gpt
+      - domains/prompt_generation/input.contract.yaml#model_profile
+      - pipeline/intake.schema.json#model_profile
+      - scripts/peac-model-profile-check.ts#model-profile-check
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:model_profile
+        - domains/prompt_generation/input.contract.yaml:model_profile
+      validator_rules:
+        - model_profile_present
+        - selected_model_profile_rendered
+      rubric_checks:
+        - prompt_generation_quality/model_profile_present
+      valid_fixtures:
+        - intakes/valid/model-profile-claude.yaml
+      invalid_fixtures:
+        - intakes/invalid/invalid-model-profile.yaml
+      ci_steps:
+        - pnpm peac:model-profile
+        - pnpm peac:intakecheck
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Promote model_profile into artifact metadata and downstream bundle contracts."
+
   - rule_id: R-PP-HUMAN-001
     title: "High-risk artifacts require human review before downstream use"
     risk: critical
