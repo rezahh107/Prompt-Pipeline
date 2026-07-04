@@ -2,6 +2,12 @@ domain: prompt_generation
 version: "2026.3"
 
 subtypes:
+  - id: conversation_continuation_summary
+    description: "Generate a prompt for closing a conversation with a future-use continuation summary."
+    triggers:
+      - "subtype_hint == 'conversation_continuation_summary'"
+    templates:
+      primary: conversation-continuation-summary.j2
   - id: master_prompt
     description: "Generate a production-grade reusable prompt from a user request."
     templates:
