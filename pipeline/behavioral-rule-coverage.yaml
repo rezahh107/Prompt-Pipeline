@@ -105,6 +105,33 @@ rules:
     next_hardening:
       - "Add task-specific evidence fixtures for current-info and no-current-info modes."
 
+  - rule_id: R-PP-EVAL-001
+    title: "Production-grade artifacts require explicit success criteria, failure modes, and eval suite"
+    risk: critical
+    source_refs:
+      - pipeline/intake.schema.json#success_criteria
+      - scripts/peac-production-grade-gate.ts#production-grade-gate
+      - package.json#peac:production-gate
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:success_criteria
+        - pipeline/intake.schema.json:failure_modes
+        - pipeline/intake.schema.json:eval_suite
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+        - domains/prompt_generation/cases/valid/english-prompt-persian-output.yaml
+      invalid_fixtures:
+        - tests/production-grade-gate/invalid/missing-eval-suite.yaml
+      ci_steps:
+        - pnpm peac:production-gate
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Promote eval_suite into artifact metadata and require downstream rejection for missing production-grade eval metadata."
+
   - rule_id: R-PP-HUMAN-001
     title: "High-risk artifacts require human review before downstream use"
     risk: critical
