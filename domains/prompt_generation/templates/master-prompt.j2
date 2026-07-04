@@ -21,7 +21,7 @@ The target model should produce:
 [MODEL PROFILE]
 Selected model profile: {{ model_profile }}.
 {% if model_profile == "claude" %}
-- Use XML-style tags for complex context, examples, constraints, and output contracts.
+- Use XML-style tags for complex inputs, context, examples, and output contracts.
 - Separate instructions from data with explicit boundaries.
 - Make evaluation criteria and refusal boundaries explicit.
 {% elif model_profile == "gemini" %}
@@ -32,10 +32,12 @@ Selected model profile: {{ model_profile }}.
 - Use shorter instructions with fewer branches.
 - Prefer rigid output formats and minimal conditional logic.
 - Avoid long nested policies unless they are required for safety or correctness.
-{% else %}
+{% elif model_profile == "gpt" %}
 - Use clear section headers and outcome-first instructions.
 - Prefer explicit constraints, success criteria, and self-checks.
 - Keep examples concise and task-relevant.
+{% else %}
+- Unsupported model profile. This artifact must fail validation before downstream use.
 {% endif %}
 
 [LANGUAGE POLICY]
