@@ -1,0 +1,20 @@
+version: "2026.3"
+purpose: "Invalid fixture for CI carrier resolution."
+rules:
+  - rule_id: R-TEST-CI-001
+    title: "CI carrier must be present in the CI chain"
+    risk: high
+    source_refs:
+      - package.json#scripts
+    coverage:
+      schema_carriers: []
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:intake
+      downstream_contracts: []
+    coverage_status: tracked_gap
+    next_hardening:
+      - "This fixture must fail because the script exists but is not called by the ci script."
