@@ -24,6 +24,12 @@ The target model should produce:
 - Require the target model to write its final answer in {{ target_output_language }}.
 - Do not merge prompt language with target output language.
 
+[PIPELINE RULES]
+- Separate prompt-level influence from system-level enforcement.
+- Prompt-level influence includes role framing, instructions, examples, templates, and wording.
+- System-level enforcement requires schemas, validators, fixtures, CI checks, downstream rejection, external guardrails, or human review.
+- Do not claim that prompt text alone guarantees behavior.
+
 [CONTEXT CONTINUITY RULES]
 The generated prompt must instruct the target model to:
 - use only conversation content visible to the target model;
