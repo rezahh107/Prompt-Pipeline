@@ -1,7 +1,13 @@
 routing_strategy:
-  primary: keyword_match
-  fallback: not_implemented
-  tiebreak: depends_on_execution_mode
+  primary: evidence_concept_score
+  fallback: general
+  tiebreak: score_then_confidence_then_priority_then_domain
+  scoring:
+    concept_weight: 4
+    negative_weight: -8
+    confidence_base: 0.5
+    confidence_step: 0.05
+    confidence_max: 0.96
 
 risk_assessment:
   factors:
@@ -20,59 +26,105 @@ risk_assessment:
 domains:
   prompt_generation:
     enabled: true
-    keywords:
-      - create prompt
-      - generate prompt
-      - reusable prompt
-      - ساخت پرامپت
-      - تولید پرامپت
-      - پرامپت بده
+    priority: 90
     confidence_threshold: 0.82
+    evidence_concepts:
+      - id: prompt_meta_intent
+        weight: 8
+        keywords:
+          - create prompt
+          - generate prompt
+          - reusable prompt
+          - ساخت پرامپت
+          - تولید پرامپت
+          - پرامپت بده
+        patterns:
+          - '\b(create|generate|write|build|draft|design)\b[\s\S]{0,80}\b(a\s+)?prompt\b'
+          - '\bprompt\b[\s\S]{0,80}\b(for|to|that)\b'
+          - '(ساخت|تولید|نوشتن|طراحی)[\s\S]{0,80}پرامپت'
+          - 'پرامپت[\s\S]{0,50}(بده|بساز|طراحی کن)'
+        negative_keywords:
+          - audit prompt
+          - review prompt
+          - prompt audit
+          - image prompt
+          - photo prompt
+          - portrait prompt
+          - ممیزی پرامپت
+          - بررسی پرامپت
+          - پرامپت تصویر
+          - پرامپت عکس
 
   document_review:
     enabled: true
-    keywords:
-      - document review
-      - review documents
-      - document critique
-      - بررسی سند
-      - نقد سند
-      - بررسی اسناد
-    confidence_threshold: 0.82
+    priority: 75
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: document_review_intent
+        weight: 4
+        keywords:
+          - document review
+          - review documents
+          - document critique
+          - بررسی سند
+          - نقد سند
+          - بررسی اسناد
+        patterns:
+          - 'review[\s\S]{0,40}documents?'
+          - 'document[\s\S]{0,40}(review|critique)'
+          - 'بررسی[\s\S]{0,40}(سند|اسناد)'
 
   ai_workflow_design:
     enabled: true
-    keywords:
-      - workflow design
-      - automation pipeline
-      - agent workflow
-      - pipeline design
-      - پایپلاین
-      - ورکفلو
-      - گردش کار
-      - اتوماسیون
-    confidence_threshold: 0.82
+    priority: 70
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: workflow_design_intent
+        weight: 4
+        keywords:
+          - workflow design
+          - automation pipeline
+          - agent workflow
+          - pipeline design
+          - پایپلاین
+          - ورکفلو
+          - گردش کار
+          - اتوماسیون
+        patterns:
+          - '(workflow|pipeline)[\s\S]{0,40}(design|architecture)'
+          - '(طراحی|ساخت)[\s\S]{0,40}(پایپلاین|ورکفلو|گردش کار)'
 
   multimodal:
     enabled: true
-    keywords:
-      - multimodal
-      - multimodal prompt
-      - overlay-safe
-      - exact text
-      - text logo reliability
-      - logo fidelity
-      - چندوجهی
-      - لوگو
-      - متن روی تصویر
-      - متن دقیق
-      - لوگوی دقیق
+    priority: 85
     confidence_threshold: 0.82
+    evidence_concepts:
+      - id: multimodal_explicit
+        weight: 8
+        keywords:
+          - multimodal
+          - multimodal prompt
+          - چندوجهی
+      - id: exact_text_logo_reliability
+        weight: 10
+        keywords:
+          - overlay-safe
+          - exact text
+          - text logo reliability
+          - logo fidelity
+          - متن دقیق
+          - لوگوی دقیق
+        patterns:
+          - 'exact[\s\S]{0,40}(text|logo)'
+          - '(text|logo)[\s\S]{0,40}(fidelity|reliability|overlay)'
+          - 'متن[\s\S]{0,40}دقیق'
+          - 'لوگو[\s\S]{0,40}(دقیق|اصلی|فیدلیتی|کیفیت)'
 
   general:
     enabled: true
     is_fallback: true
     max_risk_level: low
+    priority: 0
     keywords:
       - prompt
       - پرامپت
@@ -83,79 +135,105 @@ domains:
 
   prompt_audit:
     enabled: true
-    keywords:
-      - audit prompt
-      - review prompt
-      - prompt audit
-      - ممیزی پرامپت
-      - بررسی پرامپت
-      - ارزیابی پرامپت
-    confidence_threshold: 0.75
+    priority: 80
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: prompt_audit_intent
+        weight: 4
+        keywords:
+          - audit prompt
+          - review prompt
+          - prompt audit
+          - ممیزی پرامپت
+          - بررسی پرامپت
+          - ارزیابی پرامپت
+        patterns:
+          - '(audit|review|critique)[\s\S]{0,40}prompt'
+          - 'prompt[\s\S]{0,40}(audit|review|critique)'
+          - '(ممیزی|بررسی|ارزیابی)[\s\S]{0,40}پرامپت'
 
   prompt_refactor:
     enabled: true
-    keywords:
-      - improve prompt
-      - refactor prompt
-      - بازنویسی پرامپت
-      - اصلاح پرامپت
-      - بهتر کردن پرامپت
-    confidence_threshold: 0.75
+    priority: 78
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: prompt_refactor_intent
+        weight: 4
+        keywords:
+          - improve prompt
+          - refactor prompt
+          - بازنویسی پرامپت
+          - اصلاح پرامپت
+          - بهتر کردن پرامپت
+        patterns:
+          - '(improve|refactor|rewrite)[\s\S]{0,40}prompt'
+          - '(بازنویسی|اصلاح|بهتر کردن)[\s\S]{0,40}پرامپت'
 
   repo_review:
     enabled: true
-    keywords:
-      - repository audit
-      - repository critique
-      - repository analysis
-      - source audit
-      - source critique
-      - بررسی ریپو
-      - بررسی مخزن
-      - ممیزی سورس
-      - بررسی سورس
-    patterns:
-      - 'repository[\s\S]*audit'
-      - 'source[\s\S]*audit'
-      - 'بررسی[\s\S]*ریپو'
-      - 'بررسی[\s\S]*مخزن'
-    confidence_threshold: 0.8
+    priority: 82
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: repository_review_intent
+        weight: 4
+        keywords:
+          - repository critique
+          - repository analysis
+          - source critique
+          - بررسی ریپو
+          - بررسی مخزن
+          - ممیزی سورس
+          - بررسی سورس
+        patterns:
+          - 'repository[\s\S]{0,80}audit'
+          - 'source[\s\S]{0,80}audit'
+          - 'بررسی[\s\S]{0,80}ریپو'
+          - 'بررسی[\s\S]{0,80}مخزن'
 
   coding_debugging:
     enabled: true
-    keywords:
-      - code review
-      - review code
-      - debug code
-      - debugging
-      - runtime error
-      - failing test
-      - patch protocol
-      - بررسی کد
-      - دیباگ
-      - خطای کد
-      - خطای تست
-      - اصلاح کد
-    patterns:
-      - 'code[\s\S]*review'
-      - 'debug[\s\S]*code'
-      - 'failing[\s\S]*test'
-      - 'بررسی[\s\S]*کد'
-      - 'خطای[\s\S]*کد'
-    confidence_threshold: 0.8
+    priority: 82
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: code_review_or_debug_intent
+        weight: 4
+        keywords:
+          - code review
+          - review code
+          - debug code
+          - debugging
+          - runtime error
+          - failing test
+          - patch protocol
+          - بررسی کد
+          - دیباگ
+          - خطای کد
+          - خطای تست
+          - اصلاح کد
+        patterns:
+          - 'code[\s\S]{0,40}review'
+          - 'review[\s\S]{0,40}code'
+          - 'debug[\s\S]{0,40}code'
+          - 'failing[\s\S]{0,40}test'
+          - 'بررسی[\s\S]{0,40}کد'
+          - 'خطای[\s\S]{0,40}کد'
 
   image:
     enabled: true
-    keywords:
-      - عکس
-      - تصویر
-      - پرتره
-      - ویرایش عکس
-      - image
-      - photo
-      - portrait
-    patterns:
-      - 'پرامپت.*تصویر'
-      - 'ویرایش.*عکس'
-      - 'عکس.*پرامپت'
-    confidence_threshold: 0.8
+    priority: 65
+    confidence_threshold: 0.68
+    evidence_concepts:
+      - id: image_generation_or_edit_intent
+        weight: 4
+        keywords:
+          - عکس
+          - تصویر
+          - پرتره
+          - ویرایش عکس
+          - image
+          - photo
+          - portrait
+        patterns:
+          - 'پرامپت[\s\S]{0,50}تصویر'
+          - 'ویرایش[\s\S]{0,50}عکس'
+          - 'عکس[\s\S]{0,50}پرامپت'
