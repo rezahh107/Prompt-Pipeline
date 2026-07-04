@@ -26,6 +26,20 @@ quality_gates:
         - source_registry
         - human_review
 
+    - id: QG-LANG-001
+      name: prompt_language_and_target_output_language_are_separated
+      risk: high
+      required_for:
+        - production-grade
+        - precise
+      expectation: "Rendered prompt artifacts must separate prompt language from target output language."
+      enforcement_level: governance_rule
+      recommended_hardening:
+        - static_validator
+        - rubric_check
+        - invalid_fixture
+        - CI
+
     - id: QG-SECURITY-001
       name: user_content_treated_as_data
       risk: critical
