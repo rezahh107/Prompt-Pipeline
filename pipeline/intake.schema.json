@@ -37,8 +37,7 @@
     },
     "model_profile": {
       "type": "string",
-      "enum": ["gpt", "claude", "gemini", "local_small"],
-      "default": "gpt"
+      "enum": ["gpt", "claude", "gemini", "local_small"]
     },
     "prompt_language": {
       "type": "string",
