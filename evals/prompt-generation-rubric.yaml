@@ -6,9 +6,24 @@ checks:
     required_substrings:
       - "[ROLE]"
       - "[MISSION]"
+      - "[LANGUAGE POLICY]"
       - "[TASK STEPS]"
       - "[OUTPUT FORMAT]"
       - "[SELF-CHECK BEFORE FINAL ANSWER]"
+
+  - id: language_contract_present
+    domain: prompt_generation
+    subtype: master_prompt
+    required_substrings:
+      - "Prompt language: English"
+      - "Explanation language: Persian"
+      - "Required target output language: Persian"
+      - "Write the final copy-ready prompt in English"
+      - "Require the target model to write its final answer in Persian"
+      - "Do not merge prompt language with target output language"
+    forbidden_substrings:
+      - "English prompt when useful"
+      - "Persian explanation; English prompt when useful"
 
   - id: governance_rules_present
     domain: prompt_generation
