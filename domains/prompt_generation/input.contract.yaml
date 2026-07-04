@@ -18,6 +18,10 @@ fields:
     - name: target_model
       type: string
       default: "GPT"
+    - name: subtype_hint
+      type: string
+      enum: [master_prompt, conversation_continuation_summary]
+      default: master_prompt
     - name: prompt_language
       type: string
       enum: [English]
