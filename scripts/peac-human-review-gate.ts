@@ -29,7 +29,7 @@ function reviewFailures(label: string, subject: ReviewSubject): string[] {
     if (!reason) failures.push(`${label}: requires_human_review=true requires non-empty review_reason`);
     else if (!reason.startsWith('Human review required:')) failures.push(`${label}: review_reason must start with "Human review required:"`);
   }
-  if (subject.requires_human_review === false && subject.review_reason !== null && subject.review_reason !== undefined) failures.push(`${label}: requires_human_review=false requires review_reason to be null or absent`);
+  if (subject.requires_human_review === false && subject.review_reason !== null) failures.push(`${label}: requires_human_review=false requires review_reason to be null`);
   return failures;
 }
 function caseFiles(): string[] { return walk('domains').filter((path) => path.replaceAll('\\', '/').includes('/cases/') && !path.replaceAll('\\', '/').includes('/cases/invalid/') && path.endsWith('.yaml')) }
