@@ -39,12 +39,13 @@ After the user provides the request:
 
 1. Normalize the request using `pipeline/intake.schema.json`.
 2. Route to the best domain using `pipeline/router.yaml`.
-3. Apply global policies before domain rules.
-4. Select the relevant domain contract and template under `domains/<domain>/`.
-5. Produce either:
+3. If required fields are missing, ask only the missing critical questions.
+4. Apply global policies before domain rules.
+5. Select the relevant domain contract and template under `domains/<domain>/`.
+6. Produce either:
    - a copy-ready prompt, or
-   - a case YAML suitable for `pnpm peac:generate`.
-6. State validation notes and whether human review is required.
+   - a `domains/<domain>/cases/<case>.yaml` case file suitable for `pnpm peac:generate`.
+7. State validation notes and whether human review is required.
 
 ## Important boundaries
 
