@@ -24,11 +24,11 @@ fields:
       default: English
     - name: explanation_language
       type: string
-      enum: [Persian, English]
+      enum: [Persian]
       default: Persian
     - name: target_output_language
       type: string
-      enum: [Persian, English, same_as_user]
+      enum: [Persian]
       default: Persian
     - name: strictness
       type: string
