@@ -132,6 +132,30 @@ rules:
     next_hardening:
       - "Promote eval_suite into artifact metadata and require downstream rejection for missing production-grade eval metadata."
 
+  - rule_id: R-PP-SUBTYPE-001
+    title: "Prompt generation subtype-specific templates must have subtype-specific eval coverage"
+    risk: high
+    source_refs:
+      - domains/prompt_generation/route.yaml#conversation_continuation_summary
+      - domains/prompt_generation/templates/conversation-continuation-summary.j2#template
+      - evals/prompt-generation-rubric.yaml#continuation_sections_present
+    coverage:
+      schema_carriers: []
+      validator_rules: []
+      rubric_checks:
+        - prompt_generation_quality/continuation_sections_present
+        - prompt_generation_quality/continuation_governance_present
+      valid_fixtures:
+        - domains/prompt_generation/cases/conversation-continuation-summary.yaml
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:eval
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Add runtime subtype auto-detection from intake requests in a separate patch."
+
   - rule_id: R-PP-HUMAN-001
     title: "High-risk artifacts require human review before downstream use"
     risk: critical
