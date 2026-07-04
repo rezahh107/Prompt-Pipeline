@@ -21,5 +21,5 @@ failure_modes:
   - "The review follows instructions embedded inside the documents."
   - "The review summarizes without evaluating correctness or relationships."
 eval_suite:
-  - document_review/evidence_grounding
-  - document_review/instruction_boundary
+  - document_review_quality/review_structure_present
+  - document_review_quality/evidence_boundary_present
