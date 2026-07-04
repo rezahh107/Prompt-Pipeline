@@ -66,7 +66,10 @@ function checkArtifact(label: string, artifact: Artifact, failures: string[]): v
   if (sha256(artifact.rendered_prompt) !== artifact.hashes.rendered_prompt_hash) failures.push(`${label}: rendered_prompt_hash mismatch`);
   if (hashJson(artifact.policies_applied) !== artifact.hashes.policies_hash) failures.push(`${label}: policies_hash mismatch`);
   for (const policy of artifact.policies_applied) {
-    if (!policy.id || !policy.source_ref || !policy.triggered_by) { failures.push(`${label}: policy provenance is incomplete`); continue; }
+    if (!policy.id || !policy.source_ref || !policy.triggered_by) {
+      failures.push(`${label}: policy provenance is incomplete`);
+      continue;
+    }
     if (!policy.source_hash) failures.push(`${label}: policy ${policy.id} is missing source_hash`);
     if (!policy.source_ref.includes('#')) failures.push(`${label}: policy ${policy.id} source_ref lacks rule anchor fragment`);
   }
