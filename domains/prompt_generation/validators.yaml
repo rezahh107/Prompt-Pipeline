@@ -25,6 +25,16 @@ static_checks:
     message: "Target output language must be Persian for default prompt_generation artifacts."
     severity: error
 
+  - id: model_profile_present
+    type: output_check
+    check: "rendered_prompt contains '[MODEL PROFILE]'"
+    severity: error
+
+  - id: selected_model_profile_rendered
+    type: output_check
+    check: "rendered_prompt contains 'Selected model profile:'"
+    severity: error
+
   - id: language_policy_present
     type: output_check
     check: "rendered_prompt contains '[LANGUAGE POLICY]'"
