@@ -138,20 +138,26 @@ rules:
     source_refs:
       - pipeline/quality-gates.yaml#QG-HUMAN-001
       - src/peac.ts#resolveRisk
-      - domains/prompt_generation/cases/master-prompt-basic.yaml#expected.requires_human_review
+      - scripts/peac-human-review-gate.ts#human-review-gate
+      - pipeline/artifact.schema.json#review_reason
     coverage:
       schema_carriers:
         - pipeline/artifact.schema.json:requires_human_review
+        - pipeline/artifact.schema.json:review_reason
         - pipeline/intake.schema.json:human_review_required
       validator_rules: []
       rubric_checks: []
       valid_fixtures:
         - domains/prompt_generation/cases/master-prompt-basic.yaml
-      invalid_fixtures: []
+      invalid_fixtures:
+        - tests/human-review-gate/invalid/high-risk-without-review.yaml
+        - tests/human-review-gate/invalid/missing-review-reason.yaml
+        - tests/human-review-gate/invalid/low-risk-with-review-reason.yaml
       ci_steps:
         - pnpm peac:behavioral-coverage
+        - pnpm peac:human-review-gate
         - pnpm peac:provenance
       downstream_contracts: []
-    coverage_status: tracked_gap
+    coverage_status: fixture_tested
     next_hardening:
-      - "Add a validator or artifact contract check that fails high-risk artifacts without a human-review note."
+      - "Promote human review metadata into downstream rejection contracts."
