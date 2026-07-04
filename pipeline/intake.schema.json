@@ -35,6 +35,11 @@
       "type": "string",
       "description": "Deprecated legacy intake field retained for backward compatibility with non-prompt-generation fixtures. New prompt_generation artifacts use prompt_language, explanation_language, and target_output_language."
     },
+    "subtype_hint": {
+      "type": "string",
+      "enum": ["master_prompt", "conversation_continuation_summary"],
+      "default": "master_prompt"
+    },
     "prompt_language": {
       "type": "string",
       "enum": ["English"],
