@@ -1,0 +1,26 @@
+case_id: prompt-generation-english-prompt-persian-output
+version: "2026.3"
+description: "Generate a prompt with an English prompt body and Persian target output."
+domain: prompt_generation
+subtype: master_prompt
+
+inputs:
+  task: "Create a prompt that closes a conversation by producing a future-use continuation summary."
+  desired_output: "A copy-ready prompt. The prompt instructions must be in English. The target model must write the final summary in Persian."
+  target_environment: "ChatGPT"
+  target_model: "GPT"
+  prompt_language: English
+  explanation_language: Persian
+  target_output_language: Persian
+  strictness: production-grade
+  requires_current_information: false
+  uses_external_tools: false
+  sensitive_or_high_risk: false
+  requires_structured_output: true
+  user_constraints: "Use only visible conversation content. Do not invent missing context."
+
+expected:
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: true
