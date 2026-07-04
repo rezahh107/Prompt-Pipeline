@@ -49,6 +49,8 @@
     },
     "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
     "success_criteria": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "failure_modes": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "eval_suite": { "type": "array", "items": { "type": "string" }, "default": [] },
     "human_review_required": { "type": "boolean", "default": false }
   }
 }
