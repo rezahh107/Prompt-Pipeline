@@ -1,0 +1,11 @@
+request: "Create a production-grade prompt artifact with whitespace eval metadata."
+desired_output: "A prompt artifact."
+target_environment: ChatGPT
+strictness: production-grade
+domain_hint: prompt_generation
+success_criteria:
+  - "The prompt is copy-ready."
+failure_modes:
+  - "The prompt lacks required validation criteria."
+eval_suite:
+  - "   "
