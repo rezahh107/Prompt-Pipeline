@@ -41,6 +41,7 @@ rules:
       - pipeline/AGENT_ENTRYPOINT.md#Important-boundaries
       - domains/prompt_generation/validators.yaml#instruction_boundary_present
       - pipeline/quality-gates.yaml#QG-SECURITY-001
+      - scripts/peac-boundary-fixture-check.ts#boundary-fixture-check
     coverage:
       schema_carriers: []
       validator_rules:
@@ -49,13 +50,17 @@ rules:
         - prompt_generation_quality/governance_rules_present
       valid_fixtures:
         - domains/prompt_generation/cases/master-prompt-basic.yaml
+        - tests/boundary/fixtures/prompt-task-boundary.yaml
+        - tests/boundary/fixtures/prompt-constraints-boundary.yaml
+        - tests/boundary/fixtures/continuation-boundary.yaml
       invalid_fixtures: []
       ci_steps:
         - pnpm peac:behavioral-coverage
+        - pnpm peac:boundary-fixtures
       downstream_contracts: []
-    coverage_status: validator_backed
+    coverage_status: fixture_tested
     next_hardening:
-      - "Add adversarial prompt-injection fixtures for uploaded files, repository files, web pages, and tool outputs."
+      - "Add broader external-content probes for repository files, web pages, screenshots, and tool outputs."
 
   - rule_id: R-PP-ENFORCEMENT-001
     title: "Separate prompt-level influence from system-level enforcement"
