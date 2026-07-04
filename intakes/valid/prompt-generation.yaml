@@ -15,3 +15,9 @@ constraints:
 success_criteria:
   - "The generated prompt is copy-ready."
   - "The generated prompt requires evidence for repository claims."
+failure_modes:
+  - "The generated prompt allows unsourced repository claims."
+  - "The generated prompt lacks a self-check or validation section."
+eval_suite:
+  - prompt_generation_quality/required_sections_present
+  - prompt_generation_quality/governance_rules_present
