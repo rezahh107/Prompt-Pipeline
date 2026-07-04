@@ -17,6 +17,17 @@ inputs:
   uses_external_tools: true
   sensitive_or_high_risk: false
   requires_structured_output: true
+  success_criteria:
+    - "The generated prompt is copy-ready and structured."
+    - "The generated prompt requires evidence for repository claims."
+    - "The generated prompt separates confirmed facts from assumptions."
+  failure_modes:
+    - "The prompt permits unsourced repository claims."
+    - "The prompt allows file modification without explicit user authorization."
+    - "The prompt omits validation or self-check criteria."
+  eval_suite:
+    - prompt_generation_quality/required_sections_present
+    - prompt_generation_quality/governance_rules_present
   user_constraints: "The target model must not modify files unless explicitly asked."
 
 expected:

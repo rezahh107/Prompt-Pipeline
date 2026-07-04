@@ -1,0 +1,21 @@
+version: "2026.3"
+purpose: "Invalid fixture: validator rule identifier does not exist."
+rules:
+  - rule_id: R-TEST-VALIDATOR-001
+    title: "Validator carrier must resolve to a real static check id"
+    risk: critical
+    source_refs:
+      - domains/prompt_generation/validators.yaml#not_a_real_validator
+    coverage:
+      schema_carriers: []
+      validator_rules:
+        - not_a_real_validator
+      rubric_checks: []
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: validator_backed
+    next_hardening:
+      - "This fixture should fail because the validator id is invalid."

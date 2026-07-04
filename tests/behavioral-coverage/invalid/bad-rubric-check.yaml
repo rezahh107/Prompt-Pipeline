@@ -1,0 +1,21 @@
+version: "2026.3"
+purpose: "Invalid fixture for rubric carrier resolution."
+rules:
+  - rule_id: R-TEST-RUBRIC-001
+    title: "Rubric carrier must resolve"
+    risk: high
+    source_refs:
+      - evals/prompt-generation-rubric.yaml#missing_check
+    coverage:
+      schema_carriers: []
+      validator_rules: []
+      rubric_checks:
+        - prompt_generation_quality/missing_check
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: validator_backed
+    next_hardening:
+      - "This fixture must fail."

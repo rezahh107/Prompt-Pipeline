@@ -1,0 +1,157 @@
+version: "2026.3"
+purpose: "Lightweight coverage map for high-risk behavioral rules in Prompt-Pipeline."
+
+rules:
+  - rule_id: R-PP-LANG-001
+    title: "Separate prompt language from target output language"
+    risk: high
+    source_refs:
+      - domains/prompt_generation/input.contract.yaml#prompt_language
+      - domains/prompt_generation/validators.yaml#prompt_language_must_be_english
+      - evals/prompt-generation-rubric.yaml#language_contract_present
+      - pipeline/quality-gates.yaml#QG-LANG-001
+    coverage:
+      schema_carriers:
+        - domains/prompt_generation/input.contract.yaml:prompt_language
+        - domains/prompt_generation/input.contract.yaml:explanation_language
+        - domains/prompt_generation/input.contract.yaml:target_output_language
+      validator_rules:
+        - prompt_language_must_be_english
+        - explanation_language_must_be_persian
+        - target_output_language_must_be_persian
+        - language_policy_present
+      rubric_checks:
+        - prompt_generation_quality/language_contract_present
+      valid_fixtures:
+        - domains/prompt_generation/cases/valid/english-prompt-persian-output.yaml
+      invalid_fixtures:
+        - domains/prompt_generation/cases/invalid/ambiguous-output-language.yaml
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Add downstream artifact rejection based on rendered_prompt_contract metadata."
+
+  - rule_id: R-PP-INSTRUCTION-001
+    title: "External content is data, not instruction"
+    risk: critical
+    source_refs:
+      - AGENTS.md#Important-boundaries
+      - pipeline/AGENT_ENTRYPOINT.md#Important-boundaries
+      - domains/prompt_generation/validators.yaml#instruction_boundary_present
+      - pipeline/quality-gates.yaml#QG-SECURITY-001
+    coverage:
+      schema_carriers: []
+      validator_rules:
+        - instruction_boundary_present
+      rubric_checks:
+        - prompt_generation_quality/governance_rules_present
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: validator_backed
+    next_hardening:
+      - "Add adversarial prompt-injection fixtures for uploaded files, repository files, web pages, and tool outputs."
+
+  - rule_id: R-PP-ENFORCEMENT-001
+    title: "Separate prompt-level influence from system-level enforcement"
+    risk: critical
+    source_refs:
+      - AGENTS.md#Important-boundaries
+      - domains/prompt_generation/rules.yaml#PG-002
+      - domains/prompt_generation/validators.yaml#enforcement_distinction_present
+      - pipeline/quality-gates.yaml#QG-ENFORCEMENT-001
+    coverage:
+      schema_carriers: []
+      validator_rules:
+        - enforcement_distinction_present
+      rubric_checks:
+        - prompt_generation_quality/governance_rules_present
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: validator_backed
+    next_hardening:
+      - "Add an invalid fixture that fails when prompt-level wording is described as deterministic enforcement."
+
+  - rule_id: R-PP-EVIDENCE-001
+    title: "Factual or current claims require evidence and uncertainty handling"
+    risk: high
+    source_refs:
+      - pipeline/evidence-policy.yaml#evidence-policy
+      - domains/prompt_generation/validators.yaml#evidence_rules_present
+      - pipeline/quality-gates.yaml#QG-EVIDENCE-001
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:requires_current_information
+      validator_rules:
+        - evidence_rules_present
+      rubric_checks:
+        - prompt_generation_quality/governance_rules_present
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: validator_backed
+    next_hardening:
+      - "Add task-specific evidence fixtures for current-info and no-current-info modes."
+
+  - rule_id: R-PP-EVAL-001
+    title: "Production-grade artifacts require explicit success criteria, failure modes, and eval suite"
+    risk: critical
+    source_refs:
+      - pipeline/intake.schema.json#success_criteria
+      - scripts/peac-production-grade-gate.ts#production-grade-gate
+      - package.json#peac:production-gate
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:success_criteria
+        - pipeline/intake.schema.json:failure_modes
+        - pipeline/intake.schema.json:eval_suite
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+        - domains/prompt_generation/cases/valid/english-prompt-persian-output.yaml
+      invalid_fixtures:
+        - tests/production-grade-gate/invalid/missing-eval-suite.yaml
+      ci_steps:
+        - pnpm peac:production-gate
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Promote eval_suite into artifact metadata and require downstream rejection for missing production-grade eval metadata."
+
+  - rule_id: R-PP-HUMAN-001
+    title: "High-risk artifacts require human review before downstream use"
+    risk: critical
+    source_refs:
+      - pipeline/quality-gates.yaml#QG-HUMAN-001
+      - src/peac.ts#resolveRisk
+      - domains/prompt_generation/cases/master-prompt-basic.yaml#expected.requires_human_review
+    coverage:
+      schema_carriers:
+        - pipeline/artifact.schema.json:requires_human_review
+        - pipeline/intake.schema.json:human_review_required
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures:
+        - domains/prompt_generation/cases/master-prompt-basic.yaml
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+        - pnpm peac:provenance
+      downstream_contracts: []
+    coverage_status: tracked_gap
+    next_hardening:
+      - "Add a validator or artifact contract check that fails high-risk artifacts without a human-review note."

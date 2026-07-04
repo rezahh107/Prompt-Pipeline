@@ -1,0 +1,21 @@
+version: "2026.3"
+purpose: "Invalid fixture for contract reference resolution."
+rules:
+  - rule_id: R-TEST-CONTRACT-001
+    title: "Contract reference must resolve"
+    risk: high
+    source_refs:
+      - package.json#scripts
+    coverage:
+      schema_carriers: []
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts:
+        - package.json#absent_contract_reference
+    coverage_status: tracked_gap
+    next_hardening:
+      - "Expected to fail because the contract reference is absent."

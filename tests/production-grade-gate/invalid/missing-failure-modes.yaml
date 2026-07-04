@@ -1,0 +1,9 @@
+request: "Create a production-grade prompt artifact without failure modes."
+desired_output: "A prompt artifact."
+target_environment: ChatGPT
+strictness: production-grade
+domain_hint: prompt_generation
+success_criteria:
+  - "The prompt is copy-ready."
+eval_suite:
+  - prompt_generation_quality/required_sections_present
