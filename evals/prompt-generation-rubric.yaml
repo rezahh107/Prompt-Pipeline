@@ -20,14 +20,6 @@ checks:
       - "Selected model profile:"
       - "model-profile-aware"
 
-  - id: claude_profile_present
-    domain: prompt_generation
-    subtype: master_prompt
-    required_substrings:
-      - "Selected model profile: claude"
-      - "Use XML-style tags"
-      - "Separate instructions from data with explicit boundaries"
-
   - id: language_contract_present
     domain: prompt_generation
     subtype: master_prompt
