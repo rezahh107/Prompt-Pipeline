@@ -1,0 +1,21 @@
+version: "2026.3"
+purpose: "Invalid fixture: schema carrier identifier does not exist."
+rules:
+  - rule_id: R-TEST-SCHEMA-001
+    title: "Schema carrier must resolve to a real field"
+    risk: high
+    source_refs:
+      - pipeline/intake.schema.json#requires_current_information
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:not_a_real_field
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: tracked_gap
+    next_hardening:
+      - "This fixture should fail because the schema carrier is invalid."
