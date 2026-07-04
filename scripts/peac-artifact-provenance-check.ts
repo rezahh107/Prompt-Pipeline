@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import yaml from 'js-yaml';
 import { generateArtifact, loadConfig, routeRequestForTest } from '../src/peac.js';
 
@@ -27,18 +27,36 @@ function packageManager(): string | null { try { return (JSON.parse(readFileSync
 function requireFileHash(failures: string[], label: string, path: string, expected: string): void { if (!existsSync(path)) { failures.push(`${label}: missing file ${path}`); return; } const actual = sha256(readFileSync(path, 'utf8')); if (actual !== expected) failures.push(`${label}: hash mismatch for ${path}`); }
 function assertArray(name: string, value: string[], failures: string[], label: string, allowEmpty = false): void { if (!Array.isArray(value)) failures.push(`${label}: ${name} is not an array`); else if (!allowEmpty && value.length === 0) failures.push(`${label}: ${name} is empty`); }
 
+function isInsideDirectory(child: string, parent: string): boolean {
+  const childPath = resolve(child);
+  const parentPath = resolve(parent);
+  const rel = relative(parentPath, childPath);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+}
+
+function checkPathContainmentRegression(failures: string[]): void {
+  const templateRoot = join('domains', 'image', 'templates');
+  const valid = join(templateRoot, 'academic-portrait.j2');
+  const siblingPrefix = join('domains', 'image', 'templates_evil', 'academic-portrait.j2');
+  const traversal = join(templateRoot, '..', 'templates_evil', 'academic-portrait.j2');
+  if (!isInsideDirectory(valid, templateRoot)) failures.push('path containment regression: valid template path rejected');
+  if (isInsideDirectory(siblingPrefix, templateRoot)) failures.push('path containment regression: sibling-prefix template path accepted');
+  if (isInsideDirectory(traversal, templateRoot)) failures.push('path containment regression: traversal template path accepted');
+}
+
 function checkArtifact(label: string, artifact: Artifact, failures: string[]): void {
   const config = loadConfig();
   const contractPath = join(config.domains_path, artifact.domain, 'input.contract.yaml');
   const routePath = join(config.domains_path, artifact.domain, 'route.yaml');
   const validatorsPath = join(config.domains_path, artifact.domain, 'validators.yaml');
+  const templateRoot = join(config.domains_path, artifact.domain, 'templates');
   if (!artifact.validation.passed) failures.push(`${label}: artifact validation failed: ${artifact.validation.errors.join('; ')}`);
   assertArray('validation.checks_run', artifact.validation.checks_run, failures, label);
   assertArray('provenance.inputs_provided', artifact.provenance.inputs_provided, failures, label);
   assertArray('provenance.inputs_inferred', artifact.provenance.inputs_inferred, failures, label);
   assertArray('provenance.inputs_defaulted', artifact.provenance.inputs_defaulted, failures, label, true);
   if (!existsSync(artifact.provenance.template_used)) failures.push(`${label}: template_used does not exist: ${artifact.provenance.template_used}`);
-  if (!artifact.provenance.template_used.startsWith(join(config.domains_path, artifact.domain, 'templates'))) failures.push(`${label}: template_used is outside expected domain template directory`);
+  if (!isInsideDirectory(artifact.provenance.template_used, templateRoot)) failures.push(`${label}: template_used is outside expected domain template directory`);
   if (artifact.provenance.template_version.trim() === '') failures.push(`${label}: template_version is empty`);
   requireFileHash(failures, label, 'peac.config.yaml', artifact.hashes.config_hash);
   requireFileHash(failures, label, contractPath, artifact.hashes.contract_hash);
@@ -48,7 +66,7 @@ function checkArtifact(label: string, artifact: Artifact, failures: string[]): v
   if (sha256(artifact.rendered_prompt) !== artifact.hashes.rendered_prompt_hash) failures.push(`${label}: rendered_prompt_hash mismatch`);
   if (hashJson(artifact.policies_applied) !== artifact.hashes.policies_hash) failures.push(`${label}: policies_hash mismatch`);
   for (const policy of artifact.policies_applied) {
-    if (!policy.id || !policy.source_ref || !policy.triggered_by) failures.push(`${label}: policy provenance is incomplete`);
+    if (!policy.id || !policy.source_ref || !policy.triggered_by) { failures.push(`${label}: policy provenance is incomplete`); continue; }
     if (!policy.source_hash) failures.push(`${label}: policy ${policy.id} is missing source_hash`);
     if (!policy.source_ref.includes('#')) failures.push(`${label}: policy ${policy.id} source_ref lacks rule anchor fragment`);
   }
@@ -61,6 +79,8 @@ const config = loadConfig();
 const failures: string[] = [];
 let checked = 0;
 let skipped = 0;
+
+checkPathContainmentRegression(failures);
 
 for (const caseFile of walkCases(config.domains_path)) {
   if (!caseShouldPass(caseFile)) { skipped += 1; continue; }
