@@ -11,9 +11,17 @@ The target model should produce:
 [INPUTS]
 - Target environment: {{ target_environment }}
 - Target model: {{ target_model }}
-- Output language: {{ output_language }}
+- Prompt language: {{ prompt_language }}
+- Explanation language: {{ explanation_language }}
+- Required target output language: {{ target_output_language }}
 - Strictness: {{ strictness }}
 - User constraints: {{ user_constraints }}
+
+[LANGUAGE POLICY]
+- Write the final copy-ready prompt in {{ prompt_language }}.
+- Write explanations, diagnosis, usage notes, validation notes, and risk notes in {{ explanation_language }}.
+- Require the target model to write its final answer in {{ target_output_language }}.
+- Do not merge prompt language with target output language.
 
 [PIPELINE RULES]
 - Separate prompt-level influence from system-level enforcement.
@@ -51,4 +59,4 @@ Return:
 4. Risk and human-review note
 
 [SELF-CHECK BEFORE FINAL ANSWER]
-Verify that the prompt is specific, operational, evidence-aware, safe against instruction-boundary confusion, and testable.
+Verify that the prompt is specific, operational, evidence-aware, safe against instruction-boundary confusion, language-explicit, and testable.
