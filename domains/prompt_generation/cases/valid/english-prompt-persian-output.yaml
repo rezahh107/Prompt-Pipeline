@@ -17,6 +17,17 @@ inputs:
   uses_external_tools: false
   sensitive_or_high_risk: false
   requires_structured_output: true
+  success_criteria:
+    - "The final copy-ready prompt is written in English."
+    - "The prompt explicitly requires Persian final output from the target model."
+    - "The prompt forbids inventing unavailable conversation context."
+  failure_modes:
+    - "The prompt body is generated in Persian instead of English."
+    - "The target model output language is omitted or ambiguous."
+    - "The prompt reconstructs missing context instead of marking it unknown."
+  eval_suite:
+    - prompt_generation_quality/required_sections_present
+    - prompt_generation_quality/language_contract_present
   user_constraints: "Use only visible conversation content. Do not invent missing context."
 
 expected:

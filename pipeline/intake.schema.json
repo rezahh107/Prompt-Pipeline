@@ -4,6 +4,22 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["request", "desired_output", "strictness", "target_environment"],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "strictness": { "const": "production-grade" } },
+        "required": ["strictness"]
+      },
+      "then": {
+        "required": ["success_criteria", "failure_modes", "eval_suite"],
+        "properties": {
+          "success_criteria": { "minItems": 1 },
+          "failure_modes": { "minItems": 1 },
+          "eval_suite": { "minItems": 1 }
+        }
+      }
+    }
+  ],
   "properties": {
     "request": { "type": "string", "minLength": 3 },
     "desired_output": { "type": "string", "minLength": 3 },
@@ -48,7 +64,9 @@
       "enum": ["prompt_generation", "prompt_audit", "prompt_refactor", "document_review", "repo_review", "coding_debugging", "image", "multimodal", "ai_workflow_design", "general", null]
     },
     "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
-    "success_criteria": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "success_criteria": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "failure_modes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "eval_suite": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
     "human_review_required": { "type": "boolean", "default": false }
   }
 }
