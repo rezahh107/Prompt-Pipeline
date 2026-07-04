@@ -15,7 +15,21 @@
       "type": "string",
       "enum": ["quick", "precise", "production-grade"]
     },
-    "output_language": { "type": "string", "default": "Persian explanation; English prompt when useful" },
+    "prompt_language": {
+      "type": "string",
+      "enum": ["English"],
+      "default": "English"
+    },
+    "explanation_language": {
+      "type": "string",
+      "enum": ["Persian", "English"],
+      "default": "Persian"
+    },
+    "target_output_language": {
+      "type": "string",
+      "enum": ["Persian", "English", "same_as_user"],
+      "default": "Persian"
+    },
     "available_sources": {
       "type": "array",
       "items": { "type": "string" },
