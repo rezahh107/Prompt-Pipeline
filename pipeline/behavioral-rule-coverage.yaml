@@ -145,17 +145,21 @@ rules:
         - pipeline/intake.schema.json:model_profile
         - domains/prompt_generation/input.contract.yaml:model_profile
       validator_rules:
+        - model_profile_must_be_supported
         - model_profile_present
         - selected_model_profile_rendered
       rubric_checks:
         - prompt_generation_quality/model_profile_present
       valid_fixtures:
         - intakes/valid/model-profile-claude.yaml
+        - intakes/valid/document-review-with-model-profile.yaml
       invalid_fixtures:
         - intakes/invalid/invalid-model-profile.yaml
+        - domains/prompt_generation/cases/invalid/invalid-model-profile.yaml
       ci_steps:
         - pnpm peac:model-profile
         - pnpm peac:intakecheck
+        - pnpm peac:validate
         - pnpm peac:behavioral-coverage
       downstream_contracts: []
     coverage_status: fixture_tested
