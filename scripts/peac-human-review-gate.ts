@@ -6,6 +6,7 @@ import { generateArtifact } from '../src/peac.js';
 
 type Dict = Record<string, unknown>;
 interface ReviewSubject { risk_level?: string; requires_human_review?: boolean; review_reason?: unknown }
+interface CaseFile { expected?: { validation?: { should_pass?: boolean } } }
 const INVALID_ROOT = 'tests/human-review-gate/invalid';
 
 function walk(dir: string): string[] {
@@ -19,6 +20,7 @@ function walk(dir: string): string[] {
   return out;
 }
 function loadYaml<T>(path: string): T { return yaml.load(readFileSync(path, 'utf8')) as T }
+function shouldPassCase(path: string): boolean { const data = loadYaml<CaseFile>(path); return data.expected?.validation?.should_pass !== false }
 function reviewFailures(label: string, subject: ReviewSubject): string[] {
   const failures: string[] = [];
   const reason = typeof subject.review_reason === 'string' ? subject.review_reason.trim() : '';
@@ -32,9 +34,15 @@ function reviewFailures(label: string, subject: ReviewSubject): string[] {
 }
 function caseFiles(): string[] { return walk('domains').filter((path) => path.replaceAll('\\', '/').includes('/cases/') && !path.replaceAll('\\', '/').includes('/cases/invalid/') && path.endsWith('.yaml')) }
 const failures: string[] = [];
+let skippedCases = 0;
 for (const file of caseFiles()) {
-  const { artifact } = generateArtifact({ case: file, mode: 'ci' });
-  failures.push(...reviewFailures(file, artifact));
+  if (!shouldPassCase(file)) { skippedCases += 1; continue; }
+  try {
+    const { artifact } = generateArtifact({ case: file, mode: 'ci' });
+    failures.push(...reviewFailures(file, artifact));
+  } catch (error) {
+    failures.push(`${file}: expected pass, got error: ${(error as Error).message}`);
+  }
 }
 let invalidCount = 0;
 for (const file of walk(INVALID_ROOT)) {
@@ -48,4 +56,4 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`PEaC human review gate passed for ${caseFiles().length} case(s) and ${invalidCount} invalid fixture(s).`);
+console.log(`PEaC human review gate passed for ${caseFiles().length - skippedCases} case(s), skipped ${skippedCases} expected failing case(s), and checked ${invalidCount} invalid fixture(s).`);
