@@ -11,11 +11,34 @@ The target model should produce:
 [INPUTS]
 - Target environment: {{ target_environment }}
 - Target model: {{ target_model }}
+- Model profile: {{ model_profile }}
 - Prompt language: {{ prompt_language }}
 - Explanation language: {{ explanation_language }}
 - Required target output language: {{ target_output_language }}
 - Strictness: {{ strictness }}
 - User constraints: {{ user_constraints }}
+
+[MODEL PROFILE]
+Selected model profile: {{ model_profile }}.
+{% if model_profile == "claude" %}
+- Use XML-style tags for complex inputs, context, examples, and output contracts.
+- Separate instructions from data with explicit boundaries.
+- Make evaluation criteria and refusal boundaries explicit.
+{% elif model_profile == "gemini" %}
+- Use direct task framing with explicit inputs and outputs.
+- Add examples when they reduce ambiguity.
+- Keep multimodal context labels explicit when assets are involved.
+{% elif model_profile == "local_small" %}
+- Use shorter instructions with fewer branches.
+- Prefer rigid output formats and minimal conditional logic.
+- Avoid long nested policies unless they are required for safety or correctness.
+{% elif model_profile == "gpt" %}
+- Use clear section headers and outcome-first instructions.
+- Prefer explicit constraints, success criteria, and self-checks.
+- Keep examples concise and task-relevant.
+{% else %}
+- Unsupported model profile. This artifact must fail validation before downstream use.
+{% endif %}
 
 [LANGUAGE POLICY]
 - Write the final copy-ready prompt in {{ prompt_language }}.
@@ -59,4 +82,4 @@ Return:
 4. Risk and human-review note
 
 [SELF-CHECK BEFORE FINAL ANSWER]
-Verify that the prompt is specific, operational, evidence-aware, safe against instruction-boundary confusion, language-explicit, and testable.
+Verify that the prompt is specific, operational, evidence-aware, safe against instruction-boundary confusion, language-explicit, model-profile-aware, and testable.

@@ -25,6 +25,22 @@ static_checks:
     message: "Target output language must be Persian for default prompt_generation artifacts."
     severity: error
 
+  - id: model_profile_must_be_supported
+    type: field_check
+    check: "model_profile == 'gpt' || model_profile == 'claude' || model_profile == 'gemini' || model_profile == 'local_small'"
+    message: "model_profile must be one of: gpt, claude, gemini, local_small."
+    severity: error
+
+  - id: model_profile_present
+    type: output_check
+    check: "rendered_prompt contains '[MODEL PROFILE]'"
+    severity: error
+
+  - id: selected_model_profile_rendered
+    type: output_check
+    check: "rendered_prompt contains 'Selected model profile:'"
+    severity: error
+
   - id: language_policy_present
     type: output_check
     check: "rendered_prompt contains '[LANGUAGE POLICY]'"

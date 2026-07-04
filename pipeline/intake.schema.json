@@ -35,6 +35,10 @@
       "type": "string",
       "description": "Deprecated legacy intake field retained for backward compatibility with non-prompt-generation fixtures. New prompt_generation artifacts use prompt_language, explanation_language, and target_output_language."
     },
+    "model_profile": {
+      "type": "string",
+      "enum": ["gpt", "claude", "gemini", "local_small"]
+    },
     "prompt_language": {
       "type": "string",
       "enum": ["English"],

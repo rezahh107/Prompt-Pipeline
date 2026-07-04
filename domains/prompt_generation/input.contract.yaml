@@ -18,6 +18,10 @@ fields:
     - name: target_model
       type: string
       default: "GPT"
+    - name: model_profile
+      type: string
+      enum: [gpt, claude, gemini, local_small]
+      default: gpt
     - name: prompt_language
       type: string
       enum: [English]

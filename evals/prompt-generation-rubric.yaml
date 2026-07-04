@@ -6,10 +6,19 @@ checks:
     required_substrings:
       - "[ROLE]"
       - "[MISSION]"
+      - "[MODEL PROFILE]"
       - "[LANGUAGE POLICY]"
       - "[TASK STEPS]"
       - "[OUTPUT FORMAT]"
       - "[SELF-CHECK BEFORE FINAL ANSWER]"
+
+  - id: model_profile_present
+    domain: prompt_generation
+    subtype: master_prompt
+    required_substrings:
+      - "Model profile:"
+      - "Selected model profile:"
+      - "model-profile-aware"
 
   - id: language_contract_present
     domain: prompt_generation

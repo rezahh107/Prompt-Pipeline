@@ -1,0 +1,43 @@
+version: "2026.3"
+purpose: "Model-specific prompt adaptation profiles for Prompt-Pipeline."
+
+profiles:
+  - id: gpt
+    label: "GPT"
+    target_environments:
+      - ChatGPT
+      - ChatGPT Project
+      - OpenAI API
+      - Codex
+    prompt_guidance:
+      - "Use clear section headers and outcome-first instructions."
+      - "Prefer explicit constraints, success criteria, and self-checks."
+      - "Keep examples concise and task-relevant."
+
+  - id: claude
+    label: "Claude"
+    target_environments:
+      - Claude
+    prompt_guidance:
+      - "Use XML-style tags for complex inputs, context, examples, and output contracts."
+      - "Separate instructions from data with explicit boundaries."
+      - "Make evaluation criteria and refusal boundaries explicit."
+
+  - id: gemini
+    label: "Gemini"
+    target_environments:
+      - Gemini
+    prompt_guidance:
+      - "Use direct task framing with explicit inputs and outputs."
+      - "Add examples when they reduce ambiguity."
+      - "Keep multimodal context labels explicit when assets are involved."
+
+  - id: local_small
+    label: "Local or small model"
+    target_environments:
+      - Local
+      - unspecified
+    prompt_guidance:
+      - "Use shorter instructions with fewer branches."
+      - "Prefer rigid output formats and minimal conditional logic."
+      - "Avoid long nested policies unless they are required for safety or correctness."
