@@ -10,6 +10,9 @@ api-keys/
 outputs/*.yaml
 outputs/*.json
 outputs/*.log
+outputs/**/*.yaml
+outputs/**/*.json
+outputs/**/*.log
 !outputs/.gitkeep
 
 .DS_Store
