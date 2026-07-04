@@ -2,14 +2,18 @@ domain: prompt_generation
 version: "2026.3"
 
 subtypes:
-  - id: master_prompt
-    description: "Generate a production-grade reusable prompt from a user request."
-    templates:
-      primary: master-prompt.j2
   - id: conversation_continuation_summary
     description: "Generate a prompt for closing a conversation with a future-use continuation summary."
+    triggers:
+      - "subtype_hint == 'conversation_continuation_summary'"
     templates:
       primary: conversation-continuation-summary.j2
+  - id: master_prompt
+    description: "Generate a production-grade reusable prompt from a user request."
+    triggers:
+      - "subtype_hint == 'master_prompt'"
+    templates:
+      primary: master-prompt.j2
 
 risk_overrides:
   - condition: "sensitive_or_high_risk == true"

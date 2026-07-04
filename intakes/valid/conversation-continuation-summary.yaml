@@ -1,0 +1,26 @@
+request: "Create a prompt that closes this conversation with a future-use continuation summary."
+desired_output: "A copy-ready prompt that asks the target model to write a Persian continuation summary from visible conversation context only."
+target_environment: ChatGPT
+strictness: production-grade
+domain_hint: prompt_generation
+subtype_hint: conversation_continuation_summary
+prompt_language: English
+explanation_language: Persian
+target_output_language: Persian
+requires_current_information: false
+uses_external_tools: false
+requires_structured_output: true
+constraints:
+  - "Use only visible conversation content."
+  - "Mark missing context as unavailable."
+success_criteria:
+  - "The generated prompt uses the conversation_continuation_summary subtype."
+  - "The generated prompt requires visible-context-only summarization."
+  - "The generated prompt asks for Persian final output."
+failure_modes:
+  - "The intake silently falls back to master_prompt."
+  - "The generated prompt omits context-loss disclosure."
+  - "The generated prompt reconstructs unavailable context."
+eval_suite:
+  - prompt_generation_quality/continuation_sections_present
+  - prompt_generation_quality/continuation_governance_present
