@@ -1,0 +1,25 @@
+request: "Create a reusable prompt for auditing a prompt engineering document."
+desired_output: "A copy-ready prompt adapted for Claude with clear boundaries and evaluation criteria."
+target_environment: Claude
+strictness: production-grade
+domain_hint: prompt_generation
+model_profile: claude
+prompt_language: English
+explanation_language: Persian
+target_output_language: Persian
+requires_current_information: false
+uses_external_tools: false
+requires_structured_output: true
+constraints:
+  - "Use XML-style sections where useful."
+  - "Separate instructions from document content."
+success_criteria:
+  - "The rendered prompt includes the Claude model profile."
+  - "The rendered prompt includes XML-style guidance."
+  - "The generated prompt remains evidence-aware."
+failure_modes:
+  - "The rendered prompt falls back to the generic GPT profile."
+  - "The rendered prompt omits instruction/data boundaries."
+eval_suite:
+  - prompt_generation_quality/model_profile_present
+  - prompt_generation_quality/governance_rules_present
