@@ -7,6 +7,44 @@ static_checks:
     check: all_required_fields_filled
     severity: error
 
+  - id: prompt_language_must_be_english
+    type: field_check
+    check: "prompt_language == 'English'"
+    message: "Prompt language must be English for prompt_generation artifacts."
+    severity: error
+
+  - id: explanation_language_must_be_persian
+    type: field_check
+    check: "explanation_language == 'Persian'"
+    message: "Explanation language must be Persian for prompt_generation artifacts."
+    severity: error
+
+  - id: target_output_language_must_be_persian
+    type: field_check
+    check: "target_output_language == 'Persian'"
+    message: "Target output language must be Persian for default prompt_generation artifacts."
+    severity: error
+
+  - id: language_policy_present
+    type: output_check
+    check: "rendered_prompt contains '[LANGUAGE POLICY]'"
+    severity: error
+
+  - id: prompt_language_rendered
+    type: output_check
+    check: "rendered_prompt contains 'Write the final copy-ready prompt in English'"
+    severity: error
+
+  - id: explanation_language_rendered
+    type: output_check
+    check: "rendered_prompt contains 'Write explanations, diagnosis, usage notes, validation notes, and risk notes in Persian'"
+    severity: error
+
+  - id: target_output_language_rendered
+    type: output_check
+    check: "rendered_prompt contains 'Require the target model to write its final answer in Persian'"
+    severity: error
+
   - id: enforcement_distinction_present
     type: output_check
     check: "rendered_prompt contains 'Separate prompt-level influence from system-level enforcement'"

@@ -1,0 +1,28 @@
+case_id: prompt-generation-ambiguous-output-language
+version: "2026.3"
+description: "Reject ambiguous or non-English prompt language for prompt_generation artifacts."
+domain: prompt_generation
+subtype: master_prompt
+
+inputs:
+  task: "Create a prompt that closes a conversation by producing a future-use continuation summary."
+  desired_output: "A copy-ready prompt with a Persian final summary."
+  target_environment: "ChatGPT"
+  target_model: "GPT"
+  prompt_language: Persian
+  explanation_language: Persian
+  target_output_language: Persian
+  strictness: production-grade
+  requires_current_information: false
+  uses_external_tools: false
+  sensitive_or_high_risk: false
+  requires_structured_output: true
+  user_constraints: "Use only visible conversation content."
+
+expected:
+  risk_level: medium
+  requires_human_review: false
+  validation:
+    should_pass: false
+    expected_errors:
+      - "Prompt language must be English for prompt_generation artifacts."

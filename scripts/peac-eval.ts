@@ -17,6 +17,14 @@ interface RubricFile {
   checks: RubricCheck[];
 }
 
+interface CaseFile {
+  expected?: {
+    validation?: {
+      should_pass?: boolean;
+    };
+  };
+}
+
 function walkCases(dir: string): string[] {
   const result: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -25,6 +33,11 @@ function walkCases(dir: string): string[] {
     if (entry.isFile() && path.replaceAll('\\', '/').includes('/cases/') && path.endsWith('.yaml')) result.push(path);
   }
   return result;
+}
+
+function caseShouldPass(caseFile: string): boolean {
+  const data = yaml.load(readFileSync(caseFile, 'utf8')) as CaseFile | null;
+  return data?.expected?.validation?.should_pass !== false;
 }
 
 function loadRubrics(): RubricFile[] {
@@ -48,7 +61,13 @@ if (rubrics.length === 0) {
 
 const failures: string[] = [];
 let checksRun = 0;
+let skipped = 0;
 for (const caseFile of walkCases(config.domains_path)) {
+  if (!caseShouldPass(caseFile)) {
+    skipped += 1;
+    continue;
+  }
+
   let artifact;
   try {
     artifact = generateArtifact({ case: caseFile, mode: 'ci' }).artifact;
@@ -78,4 +97,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`PEaC rubric evaluation passed with ${rubrics.length} rubric file(s) and ${checksRun} check application(s).`);
+console.log(`PEaC rubric evaluation passed with ${rubrics.length} rubric file(s), ${checksRun} check application(s), and ${skipped} expected failing case(s) skipped.`);

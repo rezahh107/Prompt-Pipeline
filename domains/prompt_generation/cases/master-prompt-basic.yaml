@@ -9,7 +9,9 @@ inputs:
   desired_output: "A copy-ready prompt with role, mission, repository access rules, evidence policy, output format, and self-check."
   target_environment: "ChatGPT"
   target_model: "GPT"
-  output_language: "Persian explanation; English prompt when useful"
+  prompt_language: English
+  explanation_language: Persian
+  target_output_language: Persian
   strictness: production-grade
   requires_current_information: true
   uses_external_tools: true

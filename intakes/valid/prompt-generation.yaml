@@ -2,7 +2,9 @@ request: "Create a prompt that reviews a GitHub repository and reports correctne
 desired_output: "A production-grade reusable prompt with evidence rules, repository boundaries, output format, and self-check."
 target_environment: ChatGPT
 strictness: production-grade
-output_language: "Persian explanation; English prompt when useful"
+prompt_language: English
+explanation_language: Persian
+target_output_language: Persian
 domain_hint: prompt_generation
 requires_current_information: true
 uses_external_tools: true

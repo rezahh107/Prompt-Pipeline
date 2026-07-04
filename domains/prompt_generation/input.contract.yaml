@@ -18,9 +18,18 @@ fields:
     - name: target_model
       type: string
       default: "GPT"
-    - name: output_language
+    - name: prompt_language
       type: string
-      default: "Persian explanation; English prompt when useful"
+      enum: [English]
+      default: English
+    - name: explanation_language
+      type: string
+      enum: [Persian]
+      default: Persian
+    - name: target_output_language
+      type: string
+      enum: [Persian]
+      default: Persian
     - name: strictness
       type: string
       enum: [quick, precise, production-grade]
