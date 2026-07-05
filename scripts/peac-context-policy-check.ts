@@ -11,7 +11,7 @@ interface ContextItem { id?: string; source?: string; purpose?: string; trust_le
 const POLICY = 'pipeline/context-policy.yaml';
 const WORK_DIR = 'outputs/context-policy-check';
 const REQUIRED = new Set(['minimal', 'standard', 'deep']);
-function load<T>(path: string): T { return yaml.load(readFileSync(path, 'utf8')) as T }
+function load<T>(path: string): T { return (yaml.load(readFileSync(path, 'utf8')) ?? {}) as T }
 function writeCase(path: string, value: unknown): void { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, yaml.dump(value, { lineWidth: 120, noRefs: true })) }
 function policy(): { profiles: ContextProfile[]; commonRules: string[]; failures: string[] } {
   const failures: string[] = [];
