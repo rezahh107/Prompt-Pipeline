@@ -100,7 +100,7 @@ function checkArtifact(label: string, artifact: Dict, contract: Contract): strin
     if (!reason.startsWith(prefix)) failures.push(`${label}: human review reason must start with ${prefix}`);
   }
   if (artifact.requires_human_review === false && humanReview.false_reason_must_be_null === true && artifact.review_reason !== null) {
-    failures.push(`${label}: low-risk/non-review artifact must use null review_reason`);
+    failures.push(`${label}: review_reason must be null when human review is not required`);
   }
   return failures;
 }
@@ -116,7 +116,7 @@ function checkGeneratedArtifacts(contract: Contract): { checked: number; failure
   for (const caseFile of walk(PROMPT_CASES)) {
     if (!shouldPass(caseFile)) continue;
     try {
-      const artifact = generateArtifact({ case: caseFile, mode: 'ci' }).artifact as Dict;
+      const artifact = generateArtifact({ case: caseFile, mode: 'ci' }).artifact as unknown as Dict;
       failures.push(...checkArtifact(caseFile, artifact, contract));
       checked += 1;
     } catch (error) {
