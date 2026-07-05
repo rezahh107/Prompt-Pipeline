@@ -73,33 +73,37 @@ function isPromptGenerationArtifact(artifact: unknown): boolean {
   return artifact !== null && typeof artifact === 'object' && !Array.isArray(artifact) && (artifact as Dict).domain === 'prompt_generation';
 }
 
-function checkArtifact(label: string, artifact: Dict, contract: Contract): string[] {
-  if (!isPromptGenerationArtifact(artifact)) return [];
+function checkArtifact(label: string, artifact: unknown, contract: Contract): string[] {
+  if (artifact === null || typeof artifact !== 'object' || Array.isArray(artifact)) {
+    return [`${label}: artifact is not a valid object`];
+  }
+  const artDict = artifact as Dict;
+  if (!isPromptGenerationArtifact(artDict)) return [];
   const config: PromptGenerationContract = contract.prompt_generation ?? {};
   const failures: string[] = [];
-  const inputNames = inputMetadataNames(artifact);
+  const inputNames = inputMetadataNames(artDict);
   for (const name of config.required_input_metadata ?? []) {
     if (!inputNames.has(name)) failures.push(`${label}: missing input metadata ${name}`);
   }
   for (const path of config.required_top_level_metadata ?? []) {
-    if (!hasTopLevelMetadata(artifact, path)) failures.push(`${label}: missing top-level metadata ${path}`);
+    if (!hasTopLevelMetadata(artDict, path)) failures.push(`${label}: missing top-level metadata ${path}`);
   }
-  const validation = dict(artifact.validation);
+  const validation = dict(artDict.validation);
   const checksRun = new Set(strings(validation.checks_run));
   for (const check of config.required_validation_checks ?? []) {
     if (!checksRun.has(check)) failures.push(`${label}: metadata validation check was not run: ${check}`);
   }
-  const renderedPrompt = typeof artifact.rendered_prompt === 'string' ? artifact.rendered_prompt : '';
+  const renderedPrompt = typeof artDict.rendered_prompt === 'string' ? artDict.rendered_prompt : '';
   for (const text of config.required_rendered_substrings ?? []) {
     if (!renderedPrompt.includes(text)) failures.push(`${label}: rendered prompt metadata is missing ${text}`);
   }
   const humanReview = config.human_review ?? {};
-  if (artifact.requires_human_review === true) {
-    const reason = typeof artifact.review_reason === 'string' ? artifact.review_reason : '';
+  if (artDict.requires_human_review === true) {
+    const reason = typeof artDict.review_reason === 'string' ? artDict.review_reason : '';
     const prefix = humanReview.true_reason_prefix ?? 'Human review required:';
     if (!reason.startsWith(prefix)) failures.push(`${label}: human review reason must start with ${prefix}`);
   }
-  if (artifact.requires_human_review === false && humanReview.false_reason_must_be_null === true && artifact.review_reason !== null) {
+  if (artDict.requires_human_review === false && humanReview.false_reason_must_be_null === true && artDict.review_reason !== null) {
     failures.push(`${label}: review_reason must be null when human review is not required`);
   }
   return failures;
