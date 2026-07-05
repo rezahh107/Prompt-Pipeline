@@ -1,3 +1,4 @@
+id: artifact_metadata_contract_v1
 artifact_metadata_contract_id: artifact_metadata_contract_v1
 version: "2026.3"
 purpose: "Downstream contract for prompt-generation artifact metadata."
