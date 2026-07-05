@@ -1,0 +1,43 @@
+domain: prompt_generation
+risk_level: high
+requires_human_review: true
+review_reason: "Review later."
+provenance:
+  inputs_provided:
+    - task
+    - desired_output
+    - model_profile
+    - context_policy
+    - context_budget_tokens
+    - context_items
+    - prompt_language
+    - explanation_language
+    - target_output_language
+    - success_criteria
+    - failure_modes
+    - eval_suite
+    - human_review_required
+  inputs_inferred:
+    - risk_level
+  inputs_defaulted: []
+validation:
+  passed: true
+  checks_run:
+    - selected_model_profile_rendered
+    - context_policy_present
+    - context_budget_rendered
+    - language_policy_present
+    - evidence_rules_present
+  errors: []
+  warnings: []
+rendered_prompt: |
+  [MODEL PROFILE]
+  Selected model profile: gpt
+
+  [CONTEXT POLICY]
+  Selected context policy: standard
+  Context budget: 4000 tokens
+
+  [LANGUAGE POLICY]
+  Prompt language: English
+  Required target output language: Persian

@@ -1,0 +1,44 @@
+id: artifact_metadata_contract_v1
+artifact_metadata_contract_id: artifact_metadata_contract_v1
+version: "2026.3"
+purpose: "Downstream contract for prompt-generation artifact metadata."
+
+prompt_generation:
+  required_input_metadata:
+    - model_profile
+    - context_policy
+    - context_budget_tokens
+    - context_items
+    - prompt_language
+    - explanation_language
+    - target_output_language
+    - success_criteria
+    - failure_modes
+    - eval_suite
+  required_top_level_metadata:
+    - domain
+    - risk_level
+    - requires_human_review
+    - review_reason
+    - provenance.inputs_provided
+    - provenance.inputs_inferred
+    - provenance.inputs_defaulted
+    - validation.checks_run
+  required_validation_checks:
+    - selected_model_profile_rendered
+    - context_policy_present
+    - context_budget_rendered
+    - language_policy_present
+    - evidence_rules_present
+  required_rendered_substrings:
+    - "[MODEL PROFILE]"
+    - "Selected model profile:"
+    - "[CONTEXT POLICY]"
+    - "Selected context policy:"
+    - "Context budget:"
+    - "[LANGUAGE POLICY]"
+    - "Prompt language: English"
+    - "Required target output language: Persian"
+  human_review:
+    true_reason_prefix: "Human review required:"
+    false_reason_must_be_null: true
