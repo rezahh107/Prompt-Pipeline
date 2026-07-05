@@ -14,7 +14,6 @@ prompt_generation:
     - success_criteria
     - failure_modes
     - eval_suite
-    - human_review_required
   required_top_level_metadata:
     - domain
     - risk_level
