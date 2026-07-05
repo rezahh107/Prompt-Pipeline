@@ -69,8 +69,8 @@ function inputMetadataNames(artifact: Dict): Set<string> {
   ]);
 }
 
-function isPromptGenerationArtifact(artifact: Dict): boolean {
-  return artifact.domain === 'prompt_generation';
+function isPromptGenerationArtifact(artifact: unknown): boolean {
+  return artifact !== null && typeof artifact === 'object' && !Array.isArray(artifact) && (artifact as Dict).domain === 'prompt_generation';
 }
 
 function checkArtifact(label: string, artifact: Dict, contract: Contract): string[] {
