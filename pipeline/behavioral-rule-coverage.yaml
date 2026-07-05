@@ -231,3 +231,40 @@ rules:
     coverage_status: fixture_tested
     next_hardening:
       - "Promote human review metadata into downstream rejection contracts."
+
+  - rule_id: R-PP-ARTIFACT-METADATA-001
+    title: "Prompt generation artifacts expose downstream metadata contract"
+    risk: critical
+    source_refs:
+      - pipeline/artifact-metadata-contract.yaml#artifact_metadata_contract_v1
+      - scripts/peac-artifact-metadata-check.ts#artifact-metadata-check
+      - package.json#peac:artifact-metadata
+    coverage:
+      schema_carriers:
+        - domains/prompt_generation/input.contract.yaml:model_profile
+        - domains/prompt_generation/input.contract.yaml:context_policy
+        - pipeline/intake.schema.json:success_criteria
+        - pipeline/artifact.schema.json:requires_human_review
+      validator_rules:
+        - selected_model_profile_rendered
+        - context_budget_rendered
+        - language_policy_present
+        - evidence_rules_present
+      rubric_checks:
+        - prompt_generation_quality/model_profile_present
+        - prompt_generation_quality/context_policy_present
+        - prompt_generation_quality/language_contract_present
+      valid_fixtures:
+        - tests/artifact-metadata/valid/prompt-generation-complete.yaml
+      invalid_fixtures:
+        - tests/artifact-metadata/invalid/missing-model-profile.yaml
+        - tests/artifact-metadata/invalid/stale-context-rendering.yaml
+        - tests/artifact-metadata/invalid/bad-human-review-reason.yaml
+      ci_steps:
+        - pnpm peac:artifact-metadata
+        - pnpm peac:behavioral-coverage
+      downstream_contracts:
+        - pipeline/artifact-metadata-contract.yaml#artifact_metadata_contract_v1
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Promote the same metadata values into the generated artifact payload when the artifact generator is next expanded."
