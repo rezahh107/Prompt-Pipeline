@@ -6,15 +6,17 @@ import { generateArtifact } from '../src/peac.js';
 
 type Dict = Record<string, unknown>;
 
+type PromptGenerationContract = {
+  required_input_metadata?: string[];
+  required_top_level_metadata?: string[];
+  required_validation_checks?: string[];
+  required_rendered_substrings?: string[];
+  human_review?: { true_reason_prefix?: string; false_reason_must_be_null?: boolean };
+};
+
 type Contract = {
   artifact_metadata_contract_id?: string;
-  prompt_generation?: {
-    required_input_metadata?: string[];
-    required_top_level_metadata?: string[];
-    required_validation_checks?: string[];
-    required_rendered_substrings?: string[];
-    human_review?: { true_reason_prefix?: string; false_reason_must_be_null?: boolean };
-  };
+  prompt_generation?: PromptGenerationContract;
 };
 
 type CaseFile = { expected?: { validation?: { should_pass?: boolean } } };
@@ -73,7 +75,7 @@ function isPromptGenerationArtifact(artifact: Dict): boolean {
 
 function checkArtifact(label: string, artifact: Dict, contract: Contract): string[] {
   if (!isPromptGenerationArtifact(artifact)) return [];
-  const config = contract.prompt_generation ?? {};
+  const config: PromptGenerationContract = contract.prompt_generation ?? {};
   const failures: string[] = [];
   const inputNames = inputMetadataNames(artifact);
   for (const name of config.required_input_metadata ?? []) {
