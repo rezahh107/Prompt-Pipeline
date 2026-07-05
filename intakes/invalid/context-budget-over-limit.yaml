@@ -1,0 +1,7 @@
+request: "Create a reusable prompt with too much context budget."
+desired_output: "A copy-ready prompt."
+target_environment: ChatGPT
+strictness: precise
+domain_hint: prompt_generation
+context_policy: deep
+context_budget_tokens: 50000

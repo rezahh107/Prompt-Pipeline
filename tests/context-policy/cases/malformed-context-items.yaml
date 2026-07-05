@@ -1,0 +1,33 @@
+case_id: context-policy-malformed-context-items
+version: "2026.3"
+description: "Reject malformed direct context item provenance."
+domain: prompt_generation
+subtype: master_prompt
+
+inputs:
+  task: "Create a reusable prompt with malformed context metadata."
+  desired_output: "A copy-ready prompt."
+  target_environment: "ChatGPT"
+  target_model: "GPT"
+  model_profile: gpt
+  context_policy: standard
+  context_budget_tokens: 1000
+  context_items:
+    - source: "uploaded report"
+      trust_level: untrusted
+  prompt_language: English
+  explanation_language: Persian
+  target_output_language: Persian
+  strictness: precise
+  requires_current_information: false
+  uses_external_tools: false
+  sensitive_or_high_risk: false
+  requires_structured_output: true
+  user_constraints: "No extra constraints provided."
+
+expected:
+  validation:
+    should_pass: false
+    expected_errors:
+      - "context_items[0].id is required"
+      - "context_items[0].purpose is required"

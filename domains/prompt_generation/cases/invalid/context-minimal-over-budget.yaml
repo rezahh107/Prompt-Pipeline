@@ -1,0 +1,30 @@
+case_id: prompt-generation-context-minimal-over-budget
+version: "2026.3"
+description: "Reject minimal context policy budget above 1200 in direct case path."
+domain: prompt_generation
+subtype: master_prompt
+
+inputs:
+  task: "Create a reusable prompt with a minimal context policy."
+  desired_output: "A copy-ready prompt."
+  target_environment: "ChatGPT"
+  target_model: "GPT"
+  model_profile: gpt
+  context_policy: minimal
+  context_budget_tokens: 4000
+  context_items: []
+  prompt_language: English
+  explanation_language: Persian
+  target_output_language: Persian
+  strictness: precise
+  requires_current_information: false
+  uses_external_tools: false
+  sensitive_or_high_risk: false
+  requires_structured_output: true
+  user_constraints: "No extra constraints provided."
+
+expected:
+  validation:
+    should_pass: false
+    expected_errors:
+      - "context_budget_tokens exceeds the maximum allowed for the selected context_policy."

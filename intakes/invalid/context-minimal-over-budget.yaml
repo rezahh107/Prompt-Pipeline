@@ -1,0 +1,7 @@
+request: "Check context budget limits."
+desired_output: "A structured output."
+target_environment: ChatGPT
+strictness: precise
+domain_hint: prompt_generation
+context_policy: minimal
+context_budget_tokens: 4000

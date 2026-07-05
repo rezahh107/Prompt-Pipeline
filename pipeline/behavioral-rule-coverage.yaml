@@ -166,6 +166,42 @@ rules:
     next_hardening:
       - "Promote model_profile into artifact metadata and downstream bundle contracts."
 
+  - rule_id: R-PP-CONTEXT-001
+    title: "Prompt generation artifacts must declare context policy, budget, and provenance"
+    risk: high
+    source_refs:
+      - pipeline/context-policy.yaml#standard
+      - domains/prompt_generation/input.contract.yaml#context_policy
+      - pipeline/intake.schema.json#context_policy
+      - scripts/peac-context-policy-check.ts#context-policy-check
+    coverage:
+      schema_carriers:
+        - pipeline/intake.schema.json:context_policy
+        - pipeline/intake.schema.json:context_budget_tokens
+        - pipeline/intake.schema.json:context_items
+        - domains/prompt_generation/input.contract.yaml:context_policy
+      validator_rules:
+        - context_policy_must_be_supported
+        - context_policy_present
+        - context_budget_rendered
+        - context_boundary_rendered
+      rubric_checks:
+        - prompt_generation_quality/context_policy_present
+      valid_fixtures:
+        - intakes/valid/context-policy-standard.yaml
+      invalid_fixtures:
+        - intakes/invalid/invalid-context-policy.yaml
+        - intakes/invalid/context-budget-over-limit.yaml
+      ci_steps:
+        - pnpm peac:context-policy
+        - pnpm peac:intakecheck
+        - pnpm peac:validate
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: fixture_tested
+    next_hardening:
+      - "Promote context policy metadata into artifact schema and downstream rejection contracts."
+
   - rule_id: R-PP-HUMAN-001
     title: "High-risk artifacts require human review before downstream use"
     risk: critical
