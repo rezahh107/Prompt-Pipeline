@@ -37,6 +37,12 @@ static_checks:
     message: "context_policy must be one of: minimal, standard, deep."
     severity: error
 
+  - id: context_budget_within_policy_limit
+    type: field_check
+    check: "(context_policy == 'minimal' && context_budget_tokens <= 1200) || (context_policy == 'standard' && context_budget_tokens <= 4000) || (context_policy == 'deep' && context_budget_tokens <= 12000)"
+    message: "context_budget_tokens exceeds the maximum allowed for the selected context_policy."
+    severity: error
+
   - id: context_policy_present
     type: output_check
     check: "rendered_prompt contains '[CONTEXT POLICY]'"
