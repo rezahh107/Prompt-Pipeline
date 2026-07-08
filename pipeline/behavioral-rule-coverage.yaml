@@ -275,10 +275,12 @@ rules:
     source_refs:
       - kb/05-enforcement-vocabulary.md#Canonical-terms
       - kb/06-behavioral-rule-coverage.md#Coverage-row-format
-      - domains/prompt_audit/rules.yaml#prompt_audit.finding_taxonomy
+      - domains/prompt_audit/rules.yaml#prompt_audit.enforcement_vocabulary
+      - domains/prompt_audit/rules.yaml#prompt_audit.behavioral_rule_coverage
       - domains/prompt_audit/validators.yaml#brc_behavioral_gate_rendered
     coverage:
-      schema_carriers: []
+      schema_carriers:
+        - domains/prompt_audit/input.contract.yaml:audit_framework
       validator_rules:
         - brc_behavioral_gate_rendered
         - brc_enforcement_carrier_rendered
@@ -299,8 +301,6 @@ rules:
       downstream_contracts: []
     coverage_status: validator_backed
     next_hardening:
-      - "Wire kb/05 and kb/06 as source_refs in domains/prompt_audit/rules.yaml."
-      - "Add audit_framework enum field with values default and brc to domains/prompt_audit/input.contract.yaml."
       - "Create a prompt_audit rubric or equivalent resolvable quality carrier."
       - "Add valid and invalid fixtures only after schema, rendering, and validator carriers exist."
       - "Promote R-PP-AUDIT-VOCAB-001 to fixture_tested only after valid and invalid fixtures exist."
