@@ -10,3 +10,58 @@ static_checks:
     type: output_check
     check: "rendered_prompt contains 'confirmed_issue'"
     severity: warning
+  - id: brc_behavioral_gate_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'Behavioral Gate'"
+    severity: error
+  - id: brc_enforcement_carrier_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'Enforcement Carrier'"
+    severity: error
+  - id: brc_semantic_illusion_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'Semantic Illusion'"
+    severity: error
+  - id: brc_prose_only_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'prose_only'"
+    severity: error
+  - id: brc_prompt_level_influence_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'prompt_level_influence'"
+    severity: error
+  - id: brc_schema_backed_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'schema_backed'"
+    severity: error
+  - id: brc_validator_backed_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'validator_backed'"
+    severity: error
+  - id: brc_fixture_tested_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'fixture_tested'"
+    severity: error
+  - id: brc_ci_enforced_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'ci_enforced'"
+    severity: error
+  - id: brc_downstream_contract_enforced_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'downstream_contract_enforced'"
+    severity: error
+  - id: brc_insufficient_evidence_rendered
+    type: output_check
+    applies_when: "audit_framework == 'brc'"
+    check: "rendered_prompt contains 'insufficient_evidence'"
+    severity: error
