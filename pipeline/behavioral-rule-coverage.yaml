@@ -276,20 +276,31 @@ rules:
       - kb/05-enforcement-vocabulary.md#Canonical-terms
       - kb/06-behavioral-rule-coverage.md#Coverage-row-format
       - domains/prompt_audit/rules.yaml#prompt_audit.finding_taxonomy
+      - domains/prompt_audit/validators.yaml#brc_behavioral_gate_rendered
     coverage:
       schema_carriers: []
-      validator_rules: []
+      validator_rules:
+        - brc_behavioral_gate_rendered
+        - brc_enforcement_carrier_rendered
+        - brc_semantic_illusion_rendered
+        - brc_prose_only_rendered
+        - brc_prompt_level_influence_rendered
+        - brc_schema_backed_rendered
+        - brc_validator_backed_rendered
+        - brc_fixture_tested_rendered
+        - brc_ci_enforced_rendered
+        - brc_downstream_contract_enforced_rendered
+        - brc_insufficient_evidence_rendered
       rubric_checks: []
       valid_fixtures: []
       invalid_fixtures: []
       ci_steps:
         - pnpm peac:behavioral-coverage
       downstream_contracts: []
-    coverage_status: tracked_gap
+    coverage_status: validator_backed
     next_hardening:
       - "Wire kb/05 and kb/06 as source_refs in domains/prompt_audit/rules.yaml."
       - "Add audit_framework enum field with values default and brc to domains/prompt_audit/input.contract.yaml."
-      - "Add BRC-aware rendering support to the prompt_audit template."
-      - "Add validator rule brc_vocabulary_rendered_when_requested after the schema and template carriers exist."
       - "Create a prompt_audit rubric or equivalent resolvable quality carrier."
       - "Add valid and invalid fixtures only after schema, rendering, and validator carriers exist."
+      - "Promote R-PP-AUDIT-VOCAB-001 to fixture_tested only after valid and invalid fixtures exist."
