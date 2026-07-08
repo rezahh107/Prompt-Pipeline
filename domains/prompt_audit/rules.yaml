@@ -9,3 +9,17 @@ rules:
     last_synced: "2026-07-03"
     priority: high
     rule: "Classify findings as confirmed_issue, probable_issue, potential_risk, or strength."
+  - id: prompt_audit.enforcement_vocabulary
+    peac_rule_id: enforcement.soft_vs_hard
+    source_ref: kb/05-enforcement-vocabulary.md#enforcement.soft_vs_hard
+    source_hash: 678556e8f23b6dfb
+    last_synced: "2026-07-08"
+    priority: high
+    rule: "When audit_framework is brc, prompt_audit must distinguish prompt-level influence from system-level enforcement and use BRC enforcement vocabulary."
+  - id: prompt_audit.behavioral_rule_coverage
+    peac_rule_id: coverage.critical_rules_not_prose_only
+    source_ref: kb/06-behavioral-rule-coverage.md#coverage.critical_rules_not_prose_only
+    source_hash: dd231c33233771ee
+    last_synced: "2026-07-08"
+    priority: high
+    rule: "When audit_framework is brc, prompt_audit must check whether Critical and High behavioral rules are prose-only or backed by concrete carriers."
