@@ -7,6 +7,9 @@ Audit the provided prompt for clarity, reliability, completeness, safety, and ta
 [CONTEXT]
 Target model: {{ target_model | default('GPT') }}
 Target task: {{ target_task | default('not specified') }}
+{% if audit_framework == 'brc' %}
+Audit framework: Behavioral Rule Coverage (BRC)
+{% endif %}
 
 [INPUTS]
 Prompt to audit:
@@ -18,12 +21,59 @@ Prompt to audit:
 3. Check whether the output format is enforceable.
 4. Check whether evidence and safety rules are appropriate for the task.
 5. Recommend targeted fixes without unnecessarily rewriting strong sections.
+{% if audit_framework == 'brc' %}
+6. Identify Critical and High behavioral rules in the audited prompt.
+7. Distinguish prompt-level influence from system-level enforcement.
+8. Detect prose-only Critical/High rules.
+9. Flag Semantic Illusion risks where a field or phrase exists but does not prove meaning.
+10. Avoid claiming CI, validator, fixture, downstream, or runtime enforcement unless the inspected evidence supports it.
+11. Return insufficient_evidence when the needed carrier is absent or not inspectable.
+{% endif %}
 
 [CONSTRAINTS]
 - Do not invent issues.
 - Tie every issue to prompt text or a clearly stated risk.
 - Keep recommendations targeted and practical.
 - Do not rewrite the entire prompt unless the prompt is structurally unsalvageable.
+{% if audit_framework == 'brc' %}
+- In BRC mode, do not treat prompt-level wording as deterministic enforcement.
+- In BRC mode, do not promote a rule beyond the strongest carrier visible in the inspected evidence.
+{% endif %}
+{% if audit_framework == 'brc' %}
+
+[BRC VOCABULARY]
+Use this enforcement vocabulary when BRC mode is active:
+- Behavioral Gate: a rule that decides whether a model, agent, or pipeline may proceed, emit an artifact, execute an action, assume a condition, or pass work downstream.
+- Enforcement Carrier: a checkable mechanism such as a schema field, validator rule, valid fixture, invalid fixture, CI step, external guardrail, downstream rejection, or human review gate.
+- EFBG: Enforcement-Free Behavioral Gate; a high-risk behavioral gate that exists only as prose, examples, or role instruction.
+- Semantic Illusion: a field or phrase may exist without proving the intended concept; critical concepts need minimum semantic children and tests.
+
+Use these enforcement status terms precisely:
+- prose_only
+- prompt_level_influence
+- schema_backed
+- validator_backed
+- fixture_tested
+- ci_enforced
+- downstream_contract_enforced
+
+[BRC AUDIT STRUCTURE]
+For Critical and High behavioral rules, add compact BRC coverage notes using these fields where evidence exists:
+- rule_id
+- concept
+- risk
+- prose_source
+- prompt_level_carrier
+- schema_carrier
+- validator_rule
+- valid_fixture
+- invalid_fixture
+- ci_step
+- downstream_contract
+- status
+
+Use null or insufficient_evidence for carriers that are absent or not inspectable. Do not infer hidden validators, hidden fixtures, hidden CI, hidden downstream rejection, or hidden runtime enforcement from prose alone.
+{% endif %}
 
 [OUTPUT FORMAT]
 Return the audit in Persian using this structure:
@@ -34,8 +84,16 @@ B. Findings Table
 - why it matters
 - recommended fix
 - improved wording when useful
+{% if audit_framework == 'brc' %}
+BRC Coverage Notes
+- For each Critical/High behavioral rule, include the compact coverage-row fields requested in [BRC AUDIT STRUCTURE].
+- Explicitly label EFBG, Semantic Illusion, and insufficient_evidence cases when applicable.
+{% endif %}
 C. Priority Fixes
 D. Final Verdict
 
 [SELF-CHECK BEFORE FINAL ANSWER]
 Verify that every issue is grounded in the prompt text or a clearly stated risk, and that no unsupported defect was invented.
+{% if audit_framework == 'brc' %}
+Verify that every BRC enforcement status is supported by visible evidence and that prompt-level influence is not mislabeled as system-level enforcement.
+{% endif %}
