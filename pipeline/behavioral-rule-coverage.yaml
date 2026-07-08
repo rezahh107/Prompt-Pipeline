@@ -268,3 +268,28 @@ rules:
     coverage_status: fixture_tested
     next_hardening:
       - "Promote the same metadata values into the generated artifact payload when the artifact generator is next expanded."
+
+  - rule_id: R-PP-AUDIT-VOCAB-001
+    title: "Prompt audit must support Behavioral Rule Coverage vocabulary for enforcement-focused audits"
+    risk: high
+    source_refs:
+      - kb/05-enforcement-vocabulary.md#Canonical-terms
+      - kb/06-behavioral-rule-coverage.md#Coverage-row-format
+      - domains/prompt_audit/rules.yaml#prompt_audit.finding_taxonomy
+    coverage:
+      schema_carriers: []
+      validator_rules: []
+      rubric_checks: []
+      valid_fixtures: []
+      invalid_fixtures: []
+      ci_steps:
+        - pnpm peac:behavioral-coverage
+      downstream_contracts: []
+    coverage_status: tracked_gap
+    next_hardening:
+      - "Wire kb/05 and kb/06 as source_refs in domains/prompt_audit/rules.yaml."
+      - "Add audit_framework enum field with values default and brc to domains/prompt_audit/input.contract.yaml."
+      - "Add BRC-aware rendering support to the prompt_audit template."
+      - "Add validator rule brc_vocabulary_rendered_when_requested after the schema and template carriers exist."
+      - "Create a prompt_audit rubric or equivalent resolvable quality carrier."
+      - "Add valid and invalid fixtures only after schema, rendering, and validator carriers exist."
