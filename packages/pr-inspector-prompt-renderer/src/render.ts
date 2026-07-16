@@ -1,26 +1,42 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalize, finalText, sha256, sortedUnique, stableJson } from "./canonical.js";
+import { canonicalize, compareCodeUnits, finalText, sha256, sortedUnique, stableJson } from "./canonical.js";
 import { policy } from "./errors.js";
 import { ACTION_ROUTES } from "./routes.js";
 import type { EvidenceRecord, Finding, RendererInput, RendererOutput, RepairHandoff, Provenance } from "./types.js";
 import { validateInput, validateOutput } from "./validate.js";
 const HERE=dirname(fileURLToPath(import.meta.url)); const ASSETS=join(HERE,"assets");
 const provenance=JSON.parse(readFileSync(join(HERE,"provenance.json"),"utf8")) as Provenance;
+const TEMPLATE_TOKEN=/{{([A-Z0-9_]+)}}/g;
 function template(name:string):string { return readFileSync(join(ASSETS,"templates",name),"utf8"); }
-function fill(source:string, values:Record<string,string>):string { let out=source; for(const [key,value] of Object.entries(values)) out=out.replaceAll(`{{${key}}}`,value); if(/{{[A-Z0-9_]+}}/.test(out)) throw policy("unresolved template token"); return finalText(out); }
+function fill(source:string, values:Record<string,string>):string {
+  const tokens=[...source.matchAll(TEMPLATE_TOKEN)].map((match)=>match[1]).filter((token):token is string=>token!==undefined);
+  const unresolved=sortedUnique(tokens.filter((token)=>!(token in values)));
+  if(unresolved.length)throw policy("unresolved template token",unresolved);
+  let out=source;
+  for(const token of sortedUnique(tokens))out=out.replaceAll(`{{${token}}}`,values[token]??"");
+  return finalText(out);
+}
 function data(value:unknown):string { return stableJson(value); }
 function normalizedEvidence(item:EvidenceRecord):EvidenceRecord { return {...item,redactions:sortedUnique(item.redactions),limitations:sortedUnique(item.limitations)}; }
 function normalizedFinding(item:Finding):Finding { return {...item,rule_ids:sortedUnique(item.rule_ids),evidence_refs:sortedUnique(item.evidence_refs)}; }
-function normalizedHandoff(handoff:RepairHandoff|null):RepairHandoff|null { if(!handoff)return null; return {...handoff,affected_findings:[...handoff.affected_findings].sort((a,b)=>a.finding_id.localeCompare(b.finding_id)).map((item)=>({...item,affected_rule_ids:sortedUnique(item.affected_rule_ids),smallest_safe_repair:sortedUnique(item.smallest_safe_repair),do_not_change:sortedUnique(item.do_not_change),required_validation:sortedUnique(item.required_validation),overclaim_guards:sortedUnique(item.overclaim_guards)}))}; }
-function canonicalInput(input:RendererInput):unknown { return {...input,reason_codes:sortedUnique(input.reason_codes),reason_details:[...input.reason_details].sort((a,b)=>a.reason_code.localeCompare(b.reason_code)).map((item)=>({...item,subjects:sortedUnique(item.subjects)})),required_actions:sortedUnique(input.required_actions),findings:[...input.findings].sort((a,b)=>a.finding_id.localeCompare(b.finding_id)).map(normalizedFinding),repair_handoff:normalizedHandoff(input.repair_handoff),evidence_records:[...input.evidence_records].sort((a,b)=>a.evidence_id.localeCompare(b.evidence_id)).map(normalizedEvidence),evidence_limitations:sortedUnique(input.evidence_limitations),sensitive_domains:sortedUnique(input.sensitive_domains),context_items:[...input.context_items].sort((a,b)=>a.id.localeCompare(b.id)),success_criteria:sortedUnique(input.success_criteria),failure_modes:sortedUnique(input.failure_modes)}; }
+function normalizedHandoff(handoff:RepairHandoff|null):RepairHandoff|null { if(!handoff)return null; return {...handoff,affected_findings:[...handoff.affected_findings].sort((a,b)=>compareCodeUnits(a.finding_id,b.finding_id)).map((item)=>({...item,affected_rule_ids:sortedUnique(item.affected_rule_ids),smallest_safe_repair:sortedUnique(item.smallest_safe_repair),do_not_change:sortedUnique(item.do_not_change),required_validation:sortedUnique(item.required_validation),overclaim_guards:sortedUnique(item.overclaim_guards)}))}; }
+function canonicalInput(input:RendererInput):unknown { return {...input,reason_codes:sortedUnique(input.reason_codes),reason_details:[...input.reason_details].sort((a,b)=>compareCodeUnits(a.reason_code,b.reason_code)).map((item)=>({...item,subjects:sortedUnique(item.subjects)})),required_actions:sortedUnique(input.required_actions),findings:[...input.findings].sort((a,b)=>compareCodeUnits(a.finding_id,b.finding_id)).map(normalizedFinding),repair_handoff:normalizedHandoff(input.repair_handoff),evidence_records:[...input.evidence_records].sort((a,b)=>compareCodeUnits(a.evidence_id,b.evidence_id)).map(normalizedEvidence),evidence_limitations:sortedUnique(input.evidence_limitations),sensitive_domains:sortedUnique(input.sensitive_domains),context_items:[...input.context_items].sort((a,b)=>compareCodeUnits(a.id,b.id)),success_criteria:sortedUnique(input.success_criteria),failure_modes:sortedUnique(input.failure_modes)}; }
 function identity(input:RendererInput):string { return [`- repository: ${data(input.target_repository)}`,`- pull_request: ${input.pull_request_number}`,`- reviewed_head_sha: ${data(input.reviewed_head_sha)}`,`- base_sha: ${data(input.base_sha)}`,`- review_validity: ${data(input.review_validity)}`,`- protocol_version: ${data(input.pr_inspector_protocol_version)}`,`- canonical_review_package_sha256: ${data(input.canonical_review_package_sha256)}`].join("\n"); }
-function decision(input:RendererInput):string { return [`- technical_status: ${data(input.technical_status)}`,`- approval_requirement: ${data(input.approval_requirement)}`,`- action_kind: ${data(input.action_kind)}`,`- prompt_kind: ${data(input.prompt_kind)}`,`- recipient: ${data(input.recipient)}`,`- may_modify_code: ${input.may_modify_code}`,`- prompt_required: ${input.prompt_required}`,`- reason_codes: ${data(sortedUnique(input.reason_codes))}`,`- reason_details: ${data([...input.reason_details].sort((a,b)=>a.reason_code.localeCompare(b.reason_code)).map((item)=>({...item,subjects:sortedUnique(item.subjects)})))}`].join("\n"); }
-function findings(input:RendererInput):string { if(!input.findings.length) return "No validated findings are recorded."; const evidence=new Map(input.evidence_records.map((item)=>[item.evidence_id,normalizedEvidence(item)])); return [...input.findings].sort((a,b)=>a.finding_id.localeCompare(b.finding_id)).map((raw)=>{const finding=normalizedFinding(raw);return data({...finding,evidence:finding.evidence_refs.map((id)=>evidence.get(id)??{evidence_id:id,missing:true})});}).join("\n"); }
+function decision(input:RendererInput):string { return [`- technical_status: ${data(input.technical_status)}`,`- approval_requirement: ${data(input.approval_requirement)}`,`- action_kind: ${data(input.action_kind)}`,`- prompt_kind: ${data(input.prompt_kind)}`,`- recipient: ${data(input.recipient)}`,`- may_modify_code: ${input.may_modify_code}`,`- prompt_required: ${input.prompt_required}`,`- reason_codes: ${data(sortedUnique(input.reason_codes))}`,`- reason_details: ${data([...input.reason_details].sort((a,b)=>compareCodeUnits(a.reason_code,b.reason_code)).map((item)=>({...item,subjects:sortedUnique(item.subjects)})))}`].join("\n"); }
+function findings(input:RendererInput):string {
+  if(!input.findings.length)return input.action_kind==="rerun_review"?"No historical findings are carried by this stale or unknown review package.":"No validated findings are recorded.";
+  const evidence=new Map(input.evidence_records.map((item)=>[item.evidence_id,normalizedEvidence(item)]));
+  const serialized=[...input.findings].sort((a,b)=>compareCodeUnits(a.finding_id,b.finding_id)).map((raw)=>{const finding=normalizedFinding(raw);return data({...finding,evidence:finding.evidence_refs.map((id)=>evidence.get(id)??{evidence_id:id,missing:true})});}).join("\n");
+  return input.action_kind==="rerun_review"?`Historical, non-authorizing findings from the stale or unknown review package:\n${serialized}`:serialized;
+}
 function required(input:RendererInput):string { return data(sortedUnique(input.required_actions)); }
-function repairHandoff(input:RendererInput):string { return data(normalizedHandoff(input.repair_handoff)); }
-function context(input:RendererInput):string { if(!input.context_items.length) return "[]"; return data([...input.context_items].sort((a,b)=>a.id.localeCompare(b.id)).map((item)=>({id:item.id,source:item.source,trust_label:item.trust_label,content:item.content}))); }
+function repairHandoff(input:RendererInput):string {
+  if(input.action_kind!=="repair"&&input.action_kind!=="repair_and_verify")return "Not applicable. This canonical action carries no repair authority.";
+  return data(normalizedHandoff(input.repair_handoff));
+}
+function context(input:RendererInput):string { if(!input.context_items.length) return "[]"; return data([...input.context_items].sort((a,b)=>compareCodeUnits(a.id,b.id)).map((item)=>({id:item.id,source:item.source,trust_label:item.trust_label,content:item.content}))); }
 function roleMission(input:RendererInput):{role:string;mission:string;scope:string;validation:string;output:string}{
  switch(input.action_kind){
   case "verify": return {role:"You are the non-modifying verification lead for the exact reviewed pull-request head.",mission:"Collect the missing evidence identified by the canonical reasons. If repair is necessary, report that fact and stop for a fresh canonical decision.",scope:"Inspection, safe validation, and evidence collection only. No repository, file, commit, workflow, schema, test, documentation, or behavior modification is authorized.",validation:"Run only safe read-only or test commands needed to resolve the canonical verification reasons.",output:"Report canonical action_kind=verify, evidence obtained, commands and results, unresolved limitations, and modification_performed=false."};
