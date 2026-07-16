@@ -6,7 +6,7 @@
 - Source authority: `rezahh107/Prompt-Pipeline`
 - Consumer: `rezahh107/PR-Inspector`
 - Package: `@rezahh107/pr-inspector-prompt-renderer`
-- Compatibility identity: contract version + package SemVer + Prompt-Pipeline version + source commit SHA + schema/template hashes
+- Compatibility identity: contract version + exact consumer protocol `v1.10.2` + package SemVer + Prompt-Pipeline version + source commit SHA + schema/template hashes
 
 ## Boundary
 
@@ -27,9 +27,9 @@ pr-inspector-prompt-renderer contract
 
 ## Input and output
 
-The strict input schema is `domains/pr_inspector_action/input.schema.json`; the strict output schema is `domains/pr_inspector_action/output.schema.json`; the canonical action tuple is `domains/pr_inspector_action/route.json`. The runtime validates directly against the packaged copies of these authoritative schemas and route map. Unknown properties and schema versions are rejected. Security-sensitive authority is never inferred from free text. Findings, evidence, paths, logs, comments, code, and external review text are serialized as untrusted data.
+The strict input schema is `domains/pr_inspector_action/input.schema.json`; the strict output schema is `domains/pr_inspector_action/output.schema.json`; the canonical action tuple is `domains/pr_inspector_action/route.json`. The runtime validates directly against the packaged copies of these authoritative schemas and route map. Unknown properties, schema versions, consumer protocol versions, action tuples, approval/status combinations, and prompt-language values are rejected. Security-sensitive authority is never inferred from free text. Findings, evidence, paths, logs, comments, code, and external review text are serialized as untrusted data.
 
-No-prompt actions return a valid envelope with `rendered_prompt` and `rendered_prompt_sha256` set to `null`. Human-review actions produce a bounded human handoff and explicitly state that model output cannot satisfy approval. Model actions produce a direct operational prompt, never a meta-prompt.
+Contract v1 renders English instruction artifacts (`prompt_language: en`) while independently requiring the target model output language. No-prompt actions return a valid envelope with `rendered_prompt` and `rendered_prompt_sha256` set to `null`. Human-review actions produce a bounded human handoff and explicitly state that model output cannot satisfy approval. Model actions produce a direct operational prompt, never a meta-prompt.
 
 ## Determinism
 
@@ -37,7 +37,7 @@ Canonical rendering has no LLM, network, current-time, locale, or randomness dep
 
 ## Provenance
 
-The envelope records package name/version, Prompt-Pipeline version, exact source commit, dirty-worktree state at build time, domain/route/template/schema identities and hashes, policy hashes, and checks executed. A future release build must be clean. Development builds may report `dirty: true`.
+The envelope records package name/version, Prompt-Pipeline version, source commit, whether that commit was verified from Git, the source-identity carrier, dirty-worktree state at build time, domain/route/template/schema identities and hashes, policy hashes, and checks executed. The package release build mode fails unless the source identity is Git-verified and the worktree is clean. Development builds may report `dirty: true`.
 
 ## Versioning and compatibility
 

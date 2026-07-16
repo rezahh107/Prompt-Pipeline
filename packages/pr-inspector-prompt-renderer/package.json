@@ -4,16 +4,33 @@
   "description": "Deterministic offline renderer for canonical PR-Inspector next-action prompts and human handoffs.",
   "type": "module",
   "license": "UNLICENSED",
-  "engines": {"node": ">=20.20.0"},
-  "bin": {"pr-inspector-prompt-renderer": "dist/cli.js"},
-  "exports": {".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"}, "./contract": "./dist/assets/input.schema.json"},
-  "files": ["dist/**", "README.md"],
+  "engines": {
+    "node": ">=20.20.0"
+  },
+  "bin": {
+    "pr-inspector-prompt-renderer": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contract": "./dist/assets/input.schema.json"
+  },
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "build": "node scripts/build.mjs",
     "test": "npm run build && node --test tests/*.test.mjs",
     "pack:check": "npm run build && node scripts/check-package.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "build:release": "node scripts/build.mjs --release",
+    "prepublishOnly": "npm run build:release && node scripts/check-package.mjs"
   },
-  "publishConfig": {"access": "public"}
+  "publishConfig": {
+    "access": "public"
+  }
 }

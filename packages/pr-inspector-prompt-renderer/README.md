@@ -11,6 +11,6 @@ pr-inspector-prompt-renderer version
 pr-inspector-prompt-renderer contract
 ```
 
-Success is one JSON object on stdout. Diagnostics use stderr. No-prompt actions return `rendered_prompt: null`.
+Contract v1 accepts `prompt_language: en` and carries the required target-output language separately. Success is one JSON object on stdout. Diagnostics use stderr. No-prompt actions return `rendered_prompt: null`.
 
-Development version: `0.1.0`. Publication is intentionally out of scope for this change.
+Release builds require a Git-verified clean worktree. Development version: `0.1.0`. Publication is intentionally out of scope for this change.

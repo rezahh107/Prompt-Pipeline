@@ -16,37 +16,48 @@ function typeOk(value:unknown,type:string):boolean{
   return typeof value===type;
 }
 export function validateSchema(root:Schema,value:unknown):SchemaError[]{
-  const errors:SchemaError[]=[];
-  const visit=(schema:Schema,current:unknown,path:string):void=>{
-    if(typeof schema.$ref==="string"){const resolved=resolveRef(root,schema.$ref);if(!resolved){errors.push({path,message:`unresolved schema reference ${schema.$ref}`});return;}visit(resolved,current,path);return;}
-    if("const" in schema&&!same(current,schema.const))errors.push({path,message:`must equal ${JSON.stringify(schema.const)}`});
-    if(Array.isArray(schema.enum)&&!schema.enum.some((candidate)=>same(current,candidate)))errors.push({path,message:"must be an allowed enum value"});
+  const collect=(schema:Schema,current:unknown,path:string):SchemaError[]=>{
+    const errors:SchemaError[]=[];
+    const push=(message:string,target=path)=>errors.push({path:target,message});
+    if(typeof schema.$ref==="string"){
+      const resolved=resolveRef(root,schema.$ref);
+      if(!resolved){push(`unresolved schema reference ${schema.$ref}`);return errors;}
+      return collect(resolved,current,path);
+    }
+    if(Array.isArray(schema.anyOf)){
+      const branches=schema.anyOf.filter(isObject);
+      if(!branches.some((branch)=>collect(branch,current,path).length===0))push("must satisfy at least one anyOf branch");
+      return errors;
+    }
+    if("const" in schema&&!same(current,schema.const))push(`must equal ${JSON.stringify(schema.const)}`);
+    if(Array.isArray(schema.enum)&&!schema.enum.some((candidate)=>same(current,candidate)))push("must be an allowed enum value");
     const types=typeof schema.type==="string"?[schema.type]:Array.isArray(schema.type)?schema.type.filter((x):x is string=>typeof x==="string"):[];
-    if(types.length&&!types.some((type)=>typeOk(current,type))){errors.push({path,message:`must be ${types.join(" or ")}`});return;}
+    if(types.length&&!types.some((type)=>typeOk(current,type))){push(`must be ${types.join(" or ")}`);return errors;}
     if(typeof current==="string"){
-      if(typeof schema.minLength==="number"&&current.length<schema.minLength)errors.push({path,message:`must have length >= ${schema.minLength}`});
-      if(typeof schema.pattern==="string"&&!new RegExp(schema.pattern).test(current))errors.push({path,message:`must match ${schema.pattern}`});
+      if(typeof schema.minLength==="number"&&current.length<schema.minLength)push(`must have length >= ${schema.minLength}`);
+      if(typeof schema.maxLength==="number"&&current.length>schema.maxLength)push(`must have length <= ${schema.maxLength}`);
+      if(typeof schema.pattern==="string"&&!new RegExp(schema.pattern).test(current))push(`must match ${schema.pattern}`);
     }
     if(typeof current==="number"){
-      if(typeof schema.minimum==="number"&&current<schema.minimum)errors.push({path,message:`must be >= ${schema.minimum}`});
-      if(typeof schema.maximum==="number"&&current>schema.maximum)errors.push({path,message:`must be <= ${schema.maximum}`});
+      if(typeof schema.minimum==="number"&&current<schema.minimum)push(`must be >= ${schema.minimum}`);
+      if(typeof schema.maximum==="number"&&current>schema.maximum)push(`must be <= ${schema.maximum}`);
     }
     if(Array.isArray(current)){
-      if(typeof schema.minItems==="number"&&current.length<schema.minItems)errors.push({path,message:`must contain at least ${schema.minItems} item(s)`});
-      if(schema.uniqueItems===true){const seen=new Set<string>();for(const [index,item] of current.entries()){const key=JSON.stringify(item);if(seen.has(key))errors.push({path:`${path}/${index}`,message:"must be unique"});seen.add(key);}}
-      if(isObject(schema.items))current.forEach((item,index)=>visit(schema.items as Schema,item,`${path}/${index}`));
+      if(typeof schema.minItems==="number"&&current.length<schema.minItems)push(`must contain at least ${schema.minItems} item(s)`);
+      if(schema.uniqueItems===true){const seen=new Set<string>();for(const [index,item] of current.entries()){const key=JSON.stringify(item);if(seen.has(key))push("must be unique",`${path}/${index}`);seen.add(key);}}
+      if(isObject(schema.items))current.forEach((item,index)=>errors.push(...collect(schema.items as Schema,item,`${path}/${index}`)));
     }
     if(isObject(current)){
       const properties=isObject(schema.properties)?schema.properties:{};
-      if(Array.isArray(schema.required))for(const key of schema.required)if(typeof key==="string"&&!(key in current))errors.push({path:`${path}/${key}`,message:"is required"});
+      if(Array.isArray(schema.required))for(const key of schema.required)if(typeof key==="string"&&!(key in current))push("is required",`${path}/${key}`);
       for(const [key,item] of Object.entries(current)){
         const child=properties[key];
-        if(isObject(child))visit(child,item,`${path}/${key}`);
-        else if(schema.additionalProperties===false)errors.push({path:`${path}/${key}`,message:"is not allowed"});
-        else if(isObject(schema.additionalProperties))visit(schema.additionalProperties as Schema,item,`${path}/${key}`);
+        if(isObject(child))errors.push(...collect(child,item,`${path}/${key}`));
+        else if(schema.additionalProperties===false)push("is not allowed",`${path}/${key}`);
+        else if(isObject(schema.additionalProperties))errors.push(...collect(schema.additionalProperties as Schema,item,`${path}/${key}`));
       }
     }
+    return errors;
   };
-  visit(root,value,"$");
-  return errors;
+  return collect(root,value,"$");
 }

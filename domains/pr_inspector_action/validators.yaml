@@ -5,6 +5,10 @@ static_checks:
     type: compiled_validator
   - id: canonical_action_route
     type: compiled_validator
+  - id: approval_status_route
+    type: compiled_validator
+  - id: cross_reference_integrity
+    type: compiled_validator
   - id: context_profile_budget
     type: compiled_validator
   - id: required_fixed_sections
@@ -17,3 +21,5 @@ static_checks:
     type: fixture_test
   - id: package_allowlist
     type: pack_content_test
+  - id: release_provenance
+    type: build_precondition
