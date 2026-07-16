@@ -1,2 +1,29 @@
-import { spawnSync } from "node:child_process"; import { rmSync } from "node:fs";
-const result=spawnSync("npm",["pack","--dry-run","--json","--ignore-scripts"],{cwd:new URL("..",import.meta.url),encoding:"utf8"}); if(result.status!==0){process.stderr.write(result.stderr);process.exit(result.status??1);} const payload=JSON.parse(result.stdout)[0]; const paths=payload.files.map((item)=>item.path).sort(); const allowed=["README.md","package.json","dist/canonical.d.ts","dist/canonical.js","dist/cli.d.ts","dist/cli.js","dist/errors.d.ts","dist/errors.js","dist/index.d.ts","dist/index.js","dist/provenance.json","dist/render.d.ts","dist/render.js","dist/routes.d.ts","dist/routes.js","dist/schema.d.ts","dist/schema.js","dist/types.d.ts","dist/types.js","dist/validate.d.ts","dist/validate.js","dist/assets/evals.yaml","dist/assets/input.schema.json","dist/assets/output.schema.json","dist/assets/route.json","dist/assets/rules.yaml","dist/assets/templates/human_handoff.md","dist/assets/templates/model_action.md","dist/assets/templates/no_prompt.md","dist/assets/validators.yaml"].sort(); const unexpected=paths.filter((p)=>!allowed.includes(p)); const missing=allowed.filter((p)=>!paths.includes(p)); const cli=payload.files.find((item)=>item.path==="dist/cli.js"); const badCliMode=!cli||cli.mode!==493; if(unexpected.length||missing.length||badCliMode){console.error(JSON.stringify({unexpected,missing,bad_cli_mode:cli?.mode??null,paths},null,2));process.exit(1);} console.log(JSON.stringify({ok:true,filename:payload.filename,file_count:paths.length,unpacked_size:payload.unpackedSize,integrity:payload.integrity,files:paths},null,2)); if(payload.filename) rmSync(new URL(`../${payload.filename}`,import.meta.url),{force:true});
+import { createHash } from "node:crypto";
+import { readFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const cwd=new URL("..",import.meta.url);
+const result=spawnSync("npm",["pack","--json","--ignore-scripts"],{cwd,encoding:"utf8"});
+if(result.status!==0){process.stderr.write(result.stderr);process.exit(result.status??1);}
+const payload=JSON.parse(result.stdout)[0];
+const paths=payload.files.map((item)=>item.path).sort();
+const allowed=["README.md","package.json","dist/canonical.d.ts","dist/canonical.js","dist/cli.d.ts","dist/cli.js","dist/errors.d.ts","dist/errors.js","dist/index.d.ts","dist/index.js","dist/provenance.json","dist/render.d.ts","dist/render.js","dist/routes.d.ts","dist/routes.js","dist/schema.d.ts","dist/schema.js","dist/types.d.ts","dist/types.js","dist/validate.d.ts","dist/validate.js","dist/assets/evals.yaml","dist/assets/input.schema.json","dist/assets/output.schema.json","dist/assets/route.json","dist/assets/rules.yaml","dist/assets/templates/human_handoff.md","dist/assets/templates/model_action.md","dist/assets/templates/no_prompt.md","dist/assets/validators.yaml"].sort();
+const unexpected=paths.filter((path)=>!allowed.includes(path));
+const missing=allowed.filter((path)=>!paths.includes(path));
+const cli=payload.files.find((item)=>item.path==="dist/cli.js");
+const archivePath=new URL(`../${payload.filename}`,import.meta.url);
+const archiveList=spawnSync("tar",["-tzf",archivePath.pathname],{encoding:"utf8"});
+const archiveModes=spawnSync("tar",["-tvzf",archivePath.pathname],{encoding:"utf8"});
+if(archiveList.status!==0||archiveModes.status!==0){process.stderr.write(archiveList.stderr||archiveModes.stderr);rmSync(archivePath,{force:true});process.exit(1);}
+const archivedPaths=archiveList.stdout.trim().split("\n").filter(Boolean).map((path)=>path.replace(/^package\//,"")).sort();
+const cliModeLine=archiveModes.stdout.split("\n").find((line)=>line.endsWith(" package/dist/cli.js"));
+const badCliMode=!cli||cli.mode!==493||!cliModeLine?.startsWith("-rwx");
+const archiveMismatch=JSON.stringify(archivedPaths)!==JSON.stringify(paths);
+const sha256=createHash("sha256").update(readFileSync(archivePath)).digest("hex");
+if(unexpected.length||missing.length||badCliMode||archiveMismatch){
+  console.error(JSON.stringify({unexpected,missing,bad_cli_mode:cli?.mode??null,cli_archive_mode:cliModeLine??null,archive_mismatch:archiveMismatch,paths,archived_paths:archivedPaths},null,2));
+  rmSync(archivePath,{force:true});
+  process.exit(1);
+}
+console.log(JSON.stringify({ok:true,filename:payload.filename,file_count:paths.length,package_size:payload.size,unpacked_size:payload.unpackedSize,shasum:payload.shasum,sha256,integrity:payload.integrity,cli_mode:cli.mode,archive_cli_mode:cliModeLine,files:paths},null,2));
+rmSync(archivePath,{force:true});
