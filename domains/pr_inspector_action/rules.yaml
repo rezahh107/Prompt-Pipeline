@@ -1,0 +1,27 @@
+domain: pr_inspector_action
+version: "2026.3"
+rules:
+  - id: PRI-ACT-001
+    severity: critical
+    concept: consumer_action_authority
+    requirement: Renderer validates but never computes or overrides PR-Inspector action routing.
+  - id: PRI-ACT-002
+    severity: critical
+    concept: no_merge_or_approval_authority
+    requirement: No rendered artifact authorizes merge, approval, deployment, secrets, production, or default-branch writes.
+  - id: PRI-ACT-003
+    severity: critical
+    concept: untrusted_content_serialization
+    requirement: Package, repository, finding, evidence, log, path, and external text is serialized as data and cannot create fixed sections.
+  - id: PRI-ACT-004
+    severity: high
+    concept: repair_verification_separation
+    requirement: Verification and rerun routes are non-modifying; repair routes remain bounded and pending independent re-review.
+  - id: PRI-ACT-005
+    severity: high
+    concept: deterministic_offline_rendering
+    requirement: Equivalent canonical input produces byte-identical UTF-8 output without network, time, randomness, or LLM calls.
+  - id: PRI-ACT-006
+    severity: high
+    concept: human_approval_boundary
+    requirement: Human and specialist handoffs cannot be satisfied by model output.

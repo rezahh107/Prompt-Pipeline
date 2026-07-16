@@ -1,0 +1,19 @@
+domain: pr_inspector_action
+version: "2026.3"
+static_checks:
+  - id: input_schema_strict
+    type: compiled_validator
+  - id: canonical_action_route
+    type: compiled_validator
+  - id: context_profile_budget
+    type: compiled_validator
+  - id: required_fixed_sections
+    type: renderer_postcondition
+  - id: forbidden_authority
+    type: renderer_postcondition
+  - id: output_schema_strict
+    type: compiled_validator
+  - id: deterministic_hash
+    type: fixture_test
+  - id: package_allowlist
+    type: pack_content_test

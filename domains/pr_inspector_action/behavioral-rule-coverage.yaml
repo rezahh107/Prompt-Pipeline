@@ -1,0 +1,83 @@
+version: "2026.3"
+domain: pr_inspector_action
+rules:
+  - rule_id: R-PRI-AUTHORITY-001
+    behavioral_concept: "Canonical PR-Inspector action authority is consumed, never recomputed"
+    risk: critical
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md
+    schema_carrier: domains/pr_inspector_action/input.schema.json#action_kind
+    validator: canonical_action_route
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#inconsistent-recipient
+    ci_command: pnpm peac:pr-inspector-renderer
+    prompt_level_influence: true
+    schema_validated: true
+    validator_backed: true
+    fixture_tested: true
+    ci_enforced: true
+    downstream_contract_status: documented_not_integrated
+    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-INJECTION-001
+    behavioral_concept: "Untrusted repository and review text cannot create fixed instructions"
+    risk: critical
+    prose_source: domains/pr_inspector_action/rules.yaml
+    schema_carrier: domains/pr_inspector_action/input.schema.json#findings
+    validator: required_fixed_sections
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
+    invalid_fixture: domains/pr_inspector_action/fixtures/adversarial.json#embedded-instructions
+    ci_command: pnpm peac:pr-inspector-renderer
+    prompt_level_influence: true
+    schema_validated: true
+    validator_backed: true
+    fixture_tested: true
+    ci_enforced: true
+    downstream_contract_status: documented_not_integrated
+    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-MODIFY-001
+    behavioral_concept: "Repair authority is separated from verification and rerun review"
+    risk: critical
+    prose_source: domains/pr_inspector_action/rules.yaml
+    schema_carrier: domains/pr_inspector_action/input.schema.json#may_modify_code
+    validator: canonical_action_route
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#verify
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#verify-with-repair-authority
+    ci_command: pnpm peac:pr-inspector-renderer
+    prompt_level_influence: true
+    schema_validated: true
+    validator_backed: true
+    fixture_tested: true
+    ci_enforced: true
+    downstream_contract_status: documented_not_integrated
+    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-DETERMINISM-001
+    behavioral_concept: "Equivalent canonical input produces byte-identical prompt bytes"
+    risk: high
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md
+    schema_carrier: domains/pr_inspector_action/input.schema.json#schema_version
+    validator: deterministic_hash
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#unknown-field
+    ci_command: pnpm peac:pr-inspector-renderer
+    prompt_level_influence: false
+    schema_validated: true
+    validator_backed: true
+    fixture_tested: true
+    ci_enforced: true
+    downstream_contract_status: documented_not_integrated
+    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-PACKAGE-001
+    behavioral_concept: "Public package contains only explicitly allowlisted runtime files"
+    risk: critical
+    prose_source: packages/pr-inspector-prompt-renderer/package.json
+    schema_carrier: packages/pr-inspector-prompt-renderer/package.json#files
+    validator: package_allowlist
+    valid_fixture: packages/pr-inspector-prompt-renderer/scripts/check-package.mjs
+    invalid_fixture: domains/pr_inspector_action/fixtures/adversarial.json#embedded-instructions
+    ci_command: pnpm peac:pr-inspector-renderer-pack
+    prompt_level_influence: false
+    schema_validated: false
+    validator_backed: true
+    fixture_tested: true
+    ci_enforced: true
+    downstream_contract_status: not_applicable_until_publish
+    actual_enforcement_status: source_ci_enforced_package_not_published
