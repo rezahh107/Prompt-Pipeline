@@ -91,8 +91,7 @@
       "approval_requirement": null,
       "allowed_technical_statuses": [
         "GREEN_TECHNICALLY_READY",
-        "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED",
-        "RED_DO_NOT_MERGE"
+        "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED"
       ],
       "allowed_review_validities": [
         "CURRENT"
@@ -123,7 +122,6 @@
       "template": "model_action.md",
       "approval_requirement": null,
       "allowed_technical_statuses": [
-        "GREEN_TECHNICALLY_READY",
         "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED",
         "RED_DO_NOT_MERGE"
       ],
