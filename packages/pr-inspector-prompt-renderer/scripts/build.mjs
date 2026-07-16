@@ -12,17 +12,11 @@ const run = (cmd, args) => execFileSync(cmd, args, { cwd: repoDir, encoding: "ut
 const hash = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const shaPattern = /^[0-9a-f]{40}$/;
 
-rmSync(dist, { recursive: true, force: true });
-const repoTsc = join(repoDir, "node_modules/typescript/bin/tsc");
-if (existsSync(repoTsc)) execFileSync(process.execPath, [repoTsc, "-p", join(pkgDir, "tsconfig.json")], { cwd: pkgDir, stdio: "inherit" });
-else execFileSync("tsc", ["-p", join(pkgDir, "tsconfig.json")], { cwd: pkgDir, stdio: "inherit" });
-chmodSync(join(dist, "cli.js"), 0o755);
-mkdirSync(join(dist, "assets", "templates"), { recursive: true });
-
 const packageJson = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
 const peac = readFileSync(join(repoDir, "peac.config.yaml"), "utf8");
 const pipelineVersion = /^version:\s*["']?([^"'\n]+)["']?/m.exec(peac)?.[1]?.trim() ?? "UNKNOWN";
 const suppliedSource = process.env.PROMPT_PIPELINE_SOURCE_COMMIT;
+const releaseBuild = process.argv.includes("--release");
 let source_commit_sha = "UNKNOWN";
 let source_commit_verified = false;
 let source_identity_source = "unknown";
@@ -34,7 +28,7 @@ if (gitSource && shaPattern.test(gitSource)) {
   source_commit_sha = gitSource;
   source_commit_verified = true;
   source_identity_source = "git";
-  dirty = run("git", ["status", "--porcelain", "--untracked-files=no"]).length > 0;
+  dirty = run("git", ["status", "--porcelain=v1", "--untracked-files=all"]).length > 0;
 } else if (suppliedSource) {
   if (!shaPattern.test(suppliedSource)) throw new Error("PROMPT_PIPELINE_SOURCE_COMMIT must be a 40-character lowercase Git SHA");
   source_commit_sha = suppliedSource;
@@ -42,8 +36,14 @@ if (gitSource && shaPattern.test(gitSource)) {
   source_commit_verified = false;
   dirty = true;
 }
-const releaseBuild = process.argv.includes("--release");
 if (releaseBuild && (!source_commit_verified || dirty)) throw new Error("release build requires a Git-verified source commit and a clean worktree");
+
+rmSync(dist, { recursive: true, force: true });
+const repoTsc = join(repoDir, "node_modules/typescript/bin/tsc");
+if (existsSync(repoTsc)) execFileSync(process.execPath, [repoTsc, "-p", join(pkgDir, "tsconfig.json")], { cwd: pkgDir, stdio: "inherit" });
+else execFileSync("tsc", ["-p", join(pkgDir, "tsconfig.json")], { cwd: pkgDir, stdio: "inherit" });
+chmodSync(join(dist, "cli.js"), 0o755);
+mkdirSync(join(dist, "assets", "templates"), { recursive: true });
 
 const assetFiles = ["input.schema.json", "output.schema.json", "route.json", "rules.yaml", "validators.yaml", "evals.yaml", "templates/model_action.md", "templates/human_handoff.md", "templates/no_prompt.md"];
 for (const name of assetFiles) { const target = join(dist, "assets", name); mkdirSync(dirname(target), { recursive: true }); cpSync(join(domainDir, name), target); }
