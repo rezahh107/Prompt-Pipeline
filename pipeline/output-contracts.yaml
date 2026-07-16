@@ -39,6 +39,17 @@ output_contracts:
       - inputs
       - expected
 
+  pr_inspector_action_renderer:
+    input_contract: domains/pr_inspector_action/input.schema.json
+    output_contract: domains/pr_inspector_action/output.schema.json
+    route_contract: domains/pr_inspector_action/route.json
+    success_stdout: one_complete_json_envelope
+    failure_stdout: empty
+    diagnostics_stream: stderr
+    deterministic_prompt_hash: sha256_final_utf8_bytes
+    no_prompt_value: null
+    action_authority: consumer_supplied_and_validated
+
   bundle:
     required_files:
       - README.md

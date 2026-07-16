@@ -31,5 +31,7 @@ stages:
     description: Mark high-risk artifacts as requiring human review before use.
   - id: emit_artifact
     description: Emit a versioned YAML artifact with provenance.
+  - id: build_consumer_package
+    description: Build bounded public-ready packages from one authoritative domain asset set and verify npm package contents.
   - id: build_bundle
     description: Build a portable knowledge bundle for ChatGPT Projects or similar systems.

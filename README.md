@@ -21,6 +21,7 @@ Starter and extended domains:
 - `image`
 - `multimodal`
 - `ai_workflow_design`
+- `pr_inspector_action` (explicitly pinned deterministic consumer domain)
 
 The image domain remains a worked example, while the newer knowledge-pipeline domains let the repository operate as a reusable prompt production system.
 
@@ -75,9 +76,21 @@ pnpm peac:sync -- --check
 # Build portable knowledge bundle for project knowledge upload
 pnpm peac:bundle
 
+# Validate the PR-Inspector renderer and public package boundary
+pnpm peac:pr-inspector-renderer
+pnpm peac:pr-inspector-renderer-pack
+
 # Full local CI
 pnpm ci
 ```
+
+## PR-Inspector action renderer package
+
+`packages/pr-inspector-prompt-renderer` prepares the public package `@rezahh107/pr-inspector-prompt-renderer@0.1.0`. It is an offline deterministic renderer for canonical `PR-Inspector` action data. It does not decide the action, call an LLM, modify repositories, approve, merge, or publish itself.
+
+The authoritative contract, schemas, route map, templates, policies, fixtures, and behavioral coverage live under `domains/pr_inspector_action/`. The package build copies only the allowlisted runtime assets from that domain. See `docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md`.
+
+This repository does not publish the package automatically and does not contain an npm token or publication workflow.
 
 ## Repository layout
 
@@ -85,11 +98,12 @@ pnpm ci
 kb/                 Human-readable PEaC knowledge base with stable rule anchors
 policies/           Global non-overridable policies
 domains/            Domain modules: contracts, rules, templates, validators, cases
+packages/           Public-ready bounded runtime packages sourced from authoritative domains
 pipeline/           Pipeline manifest, routing, intake, quality gates, artifact schema, bundle manifest
 scripts/            CLI entrypoints
 src/                TypeScript implementation
 evals/              Local rubric checks for generated artifacts
-docs/               Master reference and hardening notes
+docs/               Master reference, architecture decisions, and hardening notes
 outputs/            Generated artifacts; ignored by Git except .gitkeep
 dist/               Generated bundles; ignored by Git
 ```
