@@ -72,6 +72,18 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload exact-head renderer evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-head-renderer-evidence
+          path: |
+            exact-head-ci-identity.txt
+            renderer-required-validation.log
+            peac-ci.log
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload PEaC knowledge bundle
         uses: actions/upload-artifact@v4
         with:
