@@ -64,8 +64,8 @@ test("canonical ordering is locale-independent code-unit ordering",()=>{
   const expected=[...new Set(values)].sort(compareCodeUnits);
   assert.deepEqual(sortedUnique([...values].reverse()),expected);
   const a=fixture("valid","repair"),b=structuredClone(a);
-  a.required_actions=values;
-  b.required_actions=[...values].reverse();
+  a.required_actions=[...new Set(values)];
+  b.required_actions=[...a.required_actions].reverse();
   a.success_criteria=["Ω","A","é","ا"];
   b.success_criteria=[...a.success_criteria].reverse();
   a.context_items=[
