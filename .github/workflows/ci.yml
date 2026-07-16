@@ -15,17 +15,28 @@ concurrency:
 
 jobs:
   peac-ci:
-    name: PEaC canonical CI
+    name: PEaC canonical exact-head CI
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout
+      - name: Checkout exact tested commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+          printf 'tested_commit_sha=%s\n' "$actual_sha" | tee exact-head-ci-identity.txt
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.x
 
       - name: Enable Corepack
         run: |
@@ -34,6 +45,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+
+      - name: Run required renderer validation commands
+        run: |
+          set -o pipefail
+          pnpm typecheck 2>&1 | tee renderer-required-validation.log
+          pnpm peac:pr-inspector-renderer 2>&1 | tee -a renderer-required-validation.log
+          pnpm peac:pr-inspector-renderer-pack 2>&1 | tee -a renderer-required-validation.log
 
       - name: Run canonical CI script
         run: |
@@ -45,6 +63,15 @@ jobs:
           test -d dist
           test -n "$(find dist -maxdepth 1 -type f -name 'Prompt-Pipeline-KB-Bundle-v*.zip' -print -quit)"
 
+      - name: Upload exact-head identity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-head-ci-identity
+          path: exact-head-ci-identity.txt
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload PEaC knowledge bundle
         uses: actions/upload-artifact@v4
         with:
@@ -53,11 +80,66 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload CI log on failure
+      - name: Upload CI logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: peac-ci-log
-          path: peac-ci.log
+          path: |
+            peac-ci.log
+            renderer-required-validation.log
           if-no-files-found: ignore
+          retention-days: 14
+
+  renderer-node-matrix:
+    name: Renderer Node ${{ matrix.node-version }} exact-head
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 20.x
+          - 22.x
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+          printf 'tested_commit_sha=%s\nnode_version=%s\n' "$actual_sha" "${{ matrix.node-version }}" | tee exact-head-node-identity.txt
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.13.1 --activate
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run package validation
+        run: |
+          pnpm typecheck
+          npm --prefix packages/pr-inspector-prompt-renderer test
+          npm --prefix packages/pr-inspector-prompt-renderer run pack:check
+
+      - name: Upload exact-head matrix identity
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-head-node-${{ matrix.node-version }}
+          path: exact-head-node-identity.txt
+          if-no-files-found: error
           retention-days: 14
