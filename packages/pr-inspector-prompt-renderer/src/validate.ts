@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { compareCodeUnits } from "./canonical.js";
 import { ACTION_ROUTES } from "./routes.js";
 import { invalid, policy, unsupported } from "./errors.js";
 import { validateSchema } from "./schema.js";
@@ -13,8 +14,9 @@ const isObj=(value:unknown):value is Record<string,unknown>=>value!==null&&typeo
 const prop=(name:string):Record<string,unknown>=>((inputSchema.properties as Record<string,Record<string,unknown>>)[name] ?? {});
 const enumValues=(name:string):unknown[]=>Array.isArray(prop(name).enum)?prop(name).enum as unknown[]:[];
 const contextLimits=(inputSchema["x-context-profile-limits"]??{}) as Record<string,{max_context_items:number;max_context_tokens:number}>;
+const repairActions=new Set<ActionKind>(["repair","repair_and_verify"]);
 function schemaDetails(schema:Schema,value:unknown):string[]{return validateSchema(schema,value).map((error)=>`${error.path}: ${error.message}`)}
-function duplicateValues(values:string[]):string[]{const seen=new Set<string>(), duplicates=new Set<string>();for(const value of values){if(seen.has(value))duplicates.add(value);seen.add(value);}return [...duplicates].sort();}
+function duplicateValues(values:string[]):string[]{const seen=new Set<string>(), duplicates=new Set<string>();for(const value of values){if(seen.has(value))duplicates.add(value);seen.add(value);}return [...duplicates].sort(compareCodeUnits);}
 export function validateInput(raw:unknown):RendererInput{
   if(!isObj(raw))throw invalid("input must be a JSON object");
   if(raw.schema_version!==prop("schema_version").const)throw unsupported("unsupported schema_version",[String(raw.schema_version)]);
@@ -25,7 +27,8 @@ export function validateInput(raw:unknown):RendererInput{
   if(raw.prompt_language!==prop("prompt_language").const)throw unsupported("unsupported prompt_language",[String(raw.prompt_language)]);
   if(raw.evaluation_suite_id!==prop("evaluation_suite_id").const)throw unsupported("unsupported evaluation_suite_id",[String(raw.evaluation_suite_id)]);
   const errors=schemaDetails(inputSchema,raw);
-  const route=ACTION_ROUTES[raw.action_kind as ActionKind];
+  const action=raw.action_kind as ActionKind;
+  const route=ACTION_ROUTES[action];
   if(!route)throw unsupported("unsupported action_kind",[String(raw.action_kind)]);
   if(raw.recipient!==route.recipient)errors.push(`$.recipient: must be ${route.recipient}`);
   if(raw.may_modify_code!==route.may_modify_code)errors.push(`$.may_modify_code: must be ${route.may_modify_code}`);
@@ -34,7 +37,8 @@ export function validateInput(raw:unknown):RendererInput{
   if(route.approval_requirement!==null&&raw.approval_requirement!==route.approval_requirement)errors.push(`$.approval_requirement: must be ${route.approval_requirement}`);
   if(!route.allowed_technical_statuses.includes(raw.technical_status as never))errors.push(`$.technical_status: incompatible with ${raw.action_kind}`);
   if(!route.allowed_review_validities.includes(raw.review_validity as never))errors.push(`$.review_validity: incompatible with ${raw.action_kind}`);
-  if((raw.action_kind==="repair"||raw.action_kind==="repair_and_verify")&&(!Array.isArray(raw.findings)||raw.findings.length===0))errors.push("$.findings: repair route requires at least one canonical finding");
+  if(!repairActions.has(action)&&raw.repair_handoff!==null)errors.push(`$.repair_handoff: ${action} must not carry repair authority`);
+  if(repairActions.has(action)&&(!Array.isArray(raw.findings)||raw.findings.length===0))errors.push("$.findings: repair route requires at least one canonical finding");
   const limit=contextLimits[String(raw.context_policy_profile)];
   if(limit&&isObj(raw.context_budget)){
     if(Number(raw.context_budget.max_context_items)>limit.max_context_items)errors.push(`$.context_budget/max_context_items: exceeds ${raw.context_policy_profile} profile`);
