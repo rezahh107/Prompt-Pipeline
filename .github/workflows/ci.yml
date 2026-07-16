@@ -14,6 +14,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lockfile-bootstrap:
+    name: Generate pnpm lockfile for immutable CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.x
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.13.1 --activate
+
+      - name: Generate lockfile
+        run: pnpm install --lockfile-only --no-frozen-lockfile
+
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: generated-pnpm-lockfile
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 2
+
   peac-ci:
     name: PEaC canonical exact-head CI
     runs-on: ubuntu-latest
@@ -22,10 +62,11 @@ jobs:
       TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact tested commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ env.TESTED_SHA }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify exact tested commit identity
         run: |
@@ -34,7 +75,7 @@ jobs:
           printf 'tested_commit_sha=%s\n' "$actual_sha" | tee exact-head-ci-identity.txt
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22.x
 
@@ -65,7 +106,7 @@ jobs:
 
       - name: Upload exact-head identity
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: exact-head-ci-identity
           path: exact-head-ci-identity.txt
@@ -74,7 +115,7 @@ jobs:
 
       - name: Upload exact-head renderer evidence
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: exact-head-renderer-evidence
           path: |
@@ -85,7 +126,7 @@ jobs:
           retention-days: 14
 
       - name: Upload PEaC knowledge bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: prompt-pipeline-kb-bundle
           path: dist/Prompt-Pipeline-KB-Bundle-v*.zip
@@ -94,7 +135,7 @@ jobs:
 
       - name: Upload CI logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: peac-ci-log
           path: |
@@ -117,10 +158,11 @@ jobs:
       TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact tested commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ env.TESTED_SHA }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Verify exact tested commit identity
         run: |
@@ -129,7 +171,7 @@ jobs:
           printf 'tested_commit_sha=%s\nnode_version=%s\n' "$actual_sha" "${{ matrix.node-version }}" | tee exact-head-node-identity.txt
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -149,7 +191,7 @@ jobs:
 
       - name: Upload exact-head matrix identity
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: exact-head-node-${{ matrix.node-version }}
           path: exact-head-node-identity.txt
