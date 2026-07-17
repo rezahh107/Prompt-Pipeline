@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import yaml from 'js-yaml';
 
 interface PEaCConfig { version?: string }
@@ -135,15 +135,14 @@ function buildZip(entries: ZipEntry[]): Buffer {
 
 const config = yaml.load(readFileSync('peac.config.yaml', 'utf8')) as PEaCConfig | null;
 const version = config?.version ?? 'dev';
-const files = [...new Set(INCLUDED_ROOTS.flatMap(walk))]
-  .map(normalizePath)
-  .filter(isPortableBundlePath)
-  .sort();
-const forbidden = files.filter((file) => !isPortableBundlePath(file));
+const candidates = [...new Set(INCLUDED_ROOTS.flatMap(walk))].map(normalizePath).sort();
+const excluded = candidates.filter((file) => !isPortableBundlePath(file));
+const files = candidates.filter(isPortableBundlePath);
+const forbidden = files.filter((file) => PORTABLE_BUNDLE_EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix)));
 if (forbidden.length > 0) throw new Error(`Portable bundle denylist failure: ${forbidden.join(', ')}`);
 const entries = files.map((file) => ({ name: file, data: readFileSync(file) }));
 const outputPath = join('dist', `Prompt-Pipeline-KB-Bundle-v${version}.zip`);
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, buildZip(entries));
 console.log(`Built ${outputPath} with ${entries.length} file(s).`);
-console.log(`Portable bundle exclusions: ${PORTABLE_BUNDLE_EXCLUDED_PREFIXES.join(', ')}`);
+console.log(`Excluded ${excluded.length} historical PR-Inspector file(s) using: ${PORTABLE_BUNDLE_EXCLUDED_PREFIXES.join(', ')}`);
