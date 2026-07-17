@@ -21,7 +21,7 @@ Starter and extended domains:
 - `image`
 - `multimodal`
 - `ai_workflow_design`
-- `pr_inspector_action` (explicitly pinned deterministic consumer domain)
+- `pr_inspector_action` (historical, non-authoritative compatibility snapshots only)
 
 The image domain remains a worked example, while the newer knowledge-pipeline domains let the repository operate as a reusable prompt production system.
 
@@ -76,7 +76,7 @@ pnpm peac:sync -- --check
 # Build portable knowledge bundle for project knowledge upload
 pnpm peac:bundle
 
-# Validate the PR-Inspector renderer and public package boundary
+# Validate the PR-Inspector historical fail-closed boundary
 pnpm peac:pr-inspector-renderer
 pnpm peac:pr-inspector-renderer-pack
 
@@ -84,21 +84,25 @@ pnpm peac:pr-inspector-renderer-pack
 pnpm ci
 ```
 
-## PR-Inspector action renderer package
+## PR-Inspector compatibility package
 
-`packages/pr-inspector-prompt-renderer` prepares the public package `@rezahh107/pr-inspector-prompt-renderer@0.1.0`. It is an offline deterministic renderer for canonical `PR-Inspector` action data. It does not decide the action, call an LLM, modify repositories, approve, merge, or publish itself.
+`packages/pr-inspector-prompt-renderer` is a private historical compatibility sentinel for the retired `PR-Inspector v1.11.0` projection renderer. It is not an active renderer, a published npm package, or a downstream integration.
 
-The authoritative contract, schemas, route map, templates, policies, fixtures, and behavioral coverage live under `domains/pr_inspector_action/`. The package build copies only the allowlisted runtime assets from that domain. See `docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md`.
+The active consumer identity is `rezahh107/PR-Inspector@80bc105d924d7c7dd566e76a9d8d919368655cfa` using protocol `v1.11.1`. Active prompt-required owner output must come from a genuine `VerifiedReviewCompletion` through `official_owner_delivery` inside `PR-Inspector`.
 
-This repository does not publish the package automatically and does not contain an npm token or publication workflow.
+Because the pinned active repository exposes no supported serialized or cross-repository official-byte interface, this package uses `historical_fail_closed_compatibility`. Projection objects, dictionaries, serialized capability lookalikes, and the retired `render()` path all fail with `PR_INSPECTOR_V1_11_1_OFFICIAL_OUTPUT_REQUIRED`.
+
+Historical schemas and compatibility snapshots remain under `domains/pr_inspector_action/` for diagnostics only. Package archives exclude prompt templates and active rendering policy assets. See `docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md`.
+
+Publication status is `NOT_PUBLISHED`; downstream integration status is `NOT_INTEGRATED`.
 
 ## Repository layout
 
 ```text
 kb/                 Human-readable PEaC knowledge base with stable rule anchors
 policies/           Global non-overridable policies
-domains/            Domain modules: contracts, rules, templates, validators, cases
-packages/           Public-ready bounded runtime packages sourced from authoritative domains
+domains/            Domain modules; PR-Inspector assets are historical snapshots only
+packages/           Bounded private compatibility packages and runtime packages
 pipeline/           Pipeline manifest, routing, intake, quality gates, artifact schema, bundle manifest
 scripts/            CLI entrypoints
 src/                TypeScript implementation
