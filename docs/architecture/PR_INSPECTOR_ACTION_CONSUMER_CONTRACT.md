@@ -7,7 +7,8 @@
 - Historical protocol snapshot: `PR-Inspector v1.11.0`
 - Active consumer protocol: `PR-Inspector v1.11.1`
 - Active consumer identity: `rezahh107/PR-Inspector@80bc105d924d7c7dd566e76a9d8d919368655cfa`
-- Route identity: `pr_inspector_action.historical.v1`
+- Lifecycle route identity: `pr_inspector_action.historical.v1`
+- Legacy snapshot route contract: `pr_inspector_action.v2`
 - Legacy input schema identity: `pr_inspector_action.v2.historical_snapshot`
 - Legacy output schema identity: `pr_inspector_action_output.v2.historical_snapshot`
 - Publication status: `NOT_PUBLISHED`
