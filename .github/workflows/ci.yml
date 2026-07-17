@@ -15,12 +15,12 @@ concurrency:
 
 jobs:
   consumer-compatibility:
-    name: PR-Inspector v1.11.0 compatibility source
+    name: PR-Inspector v1.11.1 official-output boundary
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-      INSPECTOR_SHA: f0f74bba89e4c85f4a4b10c706a2be2980d71c25
+      INSPECTOR_SHA: 80bc105d924d7c7dd566e76a9d8d919368655cfa
     steps:
       - name: Checkout exact tested commit
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -56,25 +56,25 @@ jobs:
           corepack prepare pnpm@10.13.1 --activate
       - name: Install authoritative dependency graph
         run: pnpm install --frozen-lockfile
-      - name: Verify pinned consumer source identities
+      - name: Verify pinned official-output source identities
         run: |
           set -euo pipefail
-          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml")" = "ba50e4eb2bf2918ed3a46535c1e3490566cdc7c5"
-          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/decision_projection.py")" = "0c7790d807a661a9dc73eaf0d8605b52b9041aa9"
-          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/decision_projection_core.py")" = "f8de3cf9f650100277c30189dd01b960d33deefc"
-          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/constants.py")" = "35ae1e09e527652ec0fbb98721d4d9772148fb2b"
-      - name: Verify pinned consumer source transformation
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:CURRENT_VERSION")" = "65b4811dfe3d9c621a19a9b2e0695e9ef8e28cc3"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/official_review.py")" = "c2a1094352febbe9f48c6acc2c088aca42052be9"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/owner_delivery.py")" = "7eb4f6a434f63e55714df4533282c2061d8ccce5"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:docs/CANONICAL_OUTPUT_ENFORCEMENT.md")" = "939e4a519efe2460779f69d86df5340b0568a23a"
+      - name: Verify active official-output boundary
         run: |
           set -o pipefail
           node packages/pr-inspector-prompt-renderer/scripts/verify-consumer-source.mjs \
-            inspector-source/protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml \
-            inspector-source/pr_inspector/decision_projection.py \
-            inspector-source/pr_inspector/decision_projection_core.py \
-            inspector-source/pr_inspector/constants.py 2>&1 | tee consumer-compatibility.log
-      - name: Upload consumer compatibility evidence
+            inspector-source/CURRENT_VERSION \
+            inspector-source/pr_inspector/official_review.py \
+            inspector-source/pr_inspector/owner_delivery.py \
+            inspector-source/docs/CANONICAL_OUTPUT_ENFORCEMENT.md 2>&1 | tee consumer-compatibility.log
+      - name: Upload official-output boundary evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: consumer-compatibility-evidence
+          name: official-output-boundary-evidence
           path: |
             consumer-compatibility-identity.txt
             consumer-compatibility.log
