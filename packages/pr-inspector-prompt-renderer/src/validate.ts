@@ -1,55 +1,66 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compareCodeUnits } from "./canonical.js";
+import { compareCodeUnits, sortedUnique } from "./canonical.js";
 import { ACTION_ROUTES } from "./routes.js";
 import { invalid } from "./errors.js";
 import { validateSchema } from "./schema.js";
-import { validateInput as validateLegacyInput, validateOutput as validateLegacyOutput } from "./validate-legacy.js";
-import type { ActionKind, CanonicalReason, ReasonSnapshot, RendererInput, RendererOutput, TechnicalStatus } from "./types.js";
+import { validateActiveInputSemantics, validateOutput as validateSemanticOutput } from "./validate-semantics.js";
+import type { ActionKind, CanonicalReason, CanonicalReasonCode, ReasonDetail, ReasonSnapshot, RendererInput, RendererOutput, TechnicalStatus } from "./types.js";
 
 type Obj=Record<string,unknown>;
+type Schema=Record<string,unknown>;
 const HERE=dirname(fileURLToPath(import.meta.url));
-const schema=JSON.parse(readFileSync(join(HERE,"assets/input.schema.json"),"utf8")) as Obj;
+const schema=JSON.parse(readFileSync(join(HERE,"assets/input.schema.json"),"utf8")) as Schema;
 const snapshot=JSON.parse(readFileSync(join(HERE,"assets/reason-compatibility.v1.11.0.json"),"utf8")) as ReasonSnapshot;
-const byCode=new Map(snapshot.canonical_reasons.map((x)=>[x.reason_code,x]));
-const order=new Map(snapshot.canonical_reasons.map((x,i)=>[x.reason_code,i]));
-const candidateMap=new Map(snapshot.candidate_reason_by_canonical.map((x)=>[x.canonical_reason_code,x.candidate_reason_code]));
-const candidateStatus=new Map(snapshot.candidate_status_by_technical_status.map((x)=>[x.technical_status,x.candidate_status]));
-const isObj=(x:unknown):x is Obj=>x!==null&&typeof x==="object"&&!Array.isArray(x);
-const strings=(x:unknown):string[]=>Array.isArray(x)?x.filter((v):v is string=>typeof v==="string"):[];
-const same=(a:string[],b:string[])=>a.length===b.length&&a.every((v,i)=>v===b[i]);
-const duplicates=(xs:string[])=>{const seen=new Set<string>(),out=new Set<string>();for(const x of xs){if(seen.has(x))out.add(x);seen.add(x);}return [...out].sort(compareCodeUnits);};
-const ordered=(xs:string[])=>[...xs].sort((a,b)=>(order.get(a)??Number.MAX_SAFE_INTEGER)-(order.get(b)??Number.MAX_SAFE_INTEGER));
-function status(reasons:CanonicalReason[]):TechnicalStatus{if(reasons.some((x)=>x.technical_status_effect==="RED"))return "RED_DO_NOT_MERGE";if(reasons.some((x)=>x.technical_status_effect==="YELLOW"))return "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED";return "GREEN_TECHNICALLY_READY";}
-function statusCodes(reasons:CanonicalReason[]):string[]{const effect=reasons.some((x)=>x.technical_status_effect==="RED")?"RED":reasons.some((x)=>x.technical_status_effect==="YELLOW")?"YELLOW":"NONE";return reasons.filter((x)=>x.technical_status_effect===effect&&effect!=="NONE").map((x)=>x.reason_code);}
-function candidateCodes(codes:string[]):string[]{const out:string[]=[];for(const code of codes){const mapped=candidateMap.get(code);if(mapped&&!out.includes(mapped))out.push(mapped);}return out;}
-function schemaView(raw:Obj,statusCarrier:string[],actionCarrier:string[]):Obj{const view=structuredClone(raw);delete view.reason_codes;view.technical_status_reason_codes=statusCarrier;view.next_action_reason_codes=actionCarrier;return view;}
-function legacyView(raw:Obj,actionCarrier:string[]):Obj{const out=structuredClone(raw);delete out.reason_codes;out.technical_status_reason_codes=actionCarrier;out.next_action_reason_codes=actionCarrier;const details=Array.isArray(raw.reason_details)?raw.reason_details:[];const detailMap=new Map(details.filter(isObj).map((x)=>[x.reason_code,x]));out.reason_details=actionCarrier.map((x)=>detailMap.get(x)).filter(Boolean);const reasons=actionCarrier.map((x)=>byCode.get(x)).filter((x):x is CanonicalReason=>Boolean(x));const computed=status(reasons);out.technical_status=computed;if(isObj(out.technical_decision)){out.technical_decision.status=candidateStatus.get(computed);out.technical_decision.reason_codes=candidateCodes(ordered(actionCarrier));}if(isObj(out.overall_recommendation))out.overall_recommendation.technical_ready=computed==="GREEN_TECHNICALLY_READY";Object.defineProperty(out,"reason_codes",{value:actionCarrier,enumerable:false});return out;}
+const byCode=new Map(snapshot.canonical_reasons.map((item)=>[item.reason_code,item]));
+const order=new Map(snapshot.canonical_reasons.map((item,index)=>[item.reason_code,index]));
+const candidateMap=new Map(snapshot.candidate_reason_by_canonical.map((item)=>[item.canonical_reason_code,item.candidate_reason_code]));
+const candidateStatus=new Map(snapshot.candidate_status_by_technical_status.map((item)=>[item.technical_status,item.candidate_status]));
+const isObj=(value:unknown):value is Obj=>value!==null&&typeof value==="object"&&!Array.isArray(value);
+const same=(a:string[],b:string[]):boolean=>a.length===b.length&&a.every((value,index)=>value===b[index]);
+const duplicates=(values:string[]):string[]=>{const seen=new Set<string>(),out=new Set<string>();for(const value of values){if(seen.has(value))out.add(value);seen.add(value);}return [...out].sort(compareCodeUnits);};
+const ordered=(values:CanonicalReasonCode[]):CanonicalReasonCode[]=>[...values].sort((a,b)=>(order.get(a)??Number.MAX_SAFE_INTEGER)-(order.get(b)??Number.MAX_SAFE_INTEGER)||compareCodeUnits(a,b));
+function status(reasons:CanonicalReason[]):TechnicalStatus{if(reasons.some((item)=>item.technical_status_effect==="RED"))return "RED_DO_NOT_MERGE";if(reasons.some((item)=>item.technical_status_effect==="YELLOW"))return "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED";return "GREEN_TECHNICALLY_READY";}
+function statusCodes(reasons:CanonicalReason[]):CanonicalReasonCode[]{const effect=reasons.some((item)=>item.technical_status_effect==="RED")?"RED":reasons.some((item)=>item.technical_status_effect==="YELLOW")?"YELLOW":"NONE";return reasons.filter((item)=>item.technical_status_effect===effect&&effect!=="NONE").map((item)=>item.reason_code);}
+function candidateCodes(codes:CanonicalReasonCode[]):string[]{const out:string[]=[];for(const code of codes){const mapped=candidateMap.get(code);if(mapped&&!out.includes(mapped))out.push(mapped);}return out;}
+function normalizeDetails(details:ReasonDetail[]):ReasonDetail[]{return [...details].sort((a,b)=>(order.get(a.reason_code)??Number.MAX_SAFE_INTEGER)-(order.get(b.reason_code)??Number.MAX_SAFE_INTEGER)||compareCodeUnits(a.reason_code,b.reason_code)).map((detail)=>({...detail,subjects:sortedUnique(detail.subjects)}));}
 export function validateInput(raw:unknown):RendererInput{
- if(!isObj(raw))return validateLegacyInput(raw);
- const errors:string[]=[];
- const details=Array.isArray(raw.reason_details)?raw.reason_details:[];
- const completeRaw=details.map((x)=>isObj(x)&&typeof x.reason_code==="string"?x.reason_code:"").filter(Boolean);
- for(const code of duplicates(completeRaw))errors.push(`$.reason_details: duplicate reason detail ${code}`);
- const complete=ordered(completeRaw);
- const completeSet=new Set(complete);
- const legacy=Array.isArray(raw.reason_codes)?strings(raw.reason_codes):null;
- const explicitStatus=Array.isArray(raw.technical_status_reason_codes)?strings(raw.technical_status_reason_codes):null;
- const explicitAction=Array.isArray(raw.next_action_reason_codes)?strings(raw.next_action_reason_codes):null;
- if((explicitStatus===null)!==(explicitAction===null))errors.push("$.technical_status_reason_codes: explicit status and action carriers must be supplied together");
- const reasons:CanonicalReason[]=[];for(const code of complete){const reason=byCode.get(code);if(!reason)errors.push(`$.reason_details: unregistered reason ${code}`);else reasons.push(reason);}
- const expectedStatusCodes=statusCodes(reasons),statusCarrier=ordered(explicitStatus??expectedStatusCodes),actionCarrier=ordered(explicitAction??legacy??[]);
- for(const [codes,path] of [[statusCarrier,"$.technical_status_reason_codes"],[actionCarrier,"$.next_action_reason_codes"]] as const){for(const code of duplicates(codes))errors.push(`${path}: duplicate reason ${code}`);for(const code of codes)if(!completeSet.has(code))errors.push(`${path}: ${code} is absent from complete reason_details`);}
- if(!same(statusCarrier,expectedStatusCodes))errors.push(`$.technical_status_reason_codes: must exactly equal active _technical_status reason projection ${JSON.stringify(expectedStatusCodes)}`);
- if(legacy&&explicitAction&&!same(ordered(legacy),actionCarrier))errors.push("$.reason_codes: legacy action alias must equal next_action_reason_codes");
- const computed=status(reasons);if(raw.action_kind!=="blocked_internal_error"&&raw.technical_status!==computed)errors.push(`$.technical_status: complete canonical reasons require ${computed}`);
- const technical=isObj(raw.technical_decision)?raw.technical_decision:null;if(technical&&raw.action_kind!=="blocked_internal_error"){const expectedCandidate=candidateCodes(complete);if(technical.status!==candidateStatus.get(computed))errors.push(`$.technical_decision/status: must be ${String(candidateStatus.get(computed))}`);if(!same(strings(technical.reason_codes),expectedCandidate))errors.push(`$.technical_decision/reason_codes: must exactly equal all-canonical active projection ${JSON.stringify(expectedCandidate)}`);}
- const route=ACTION_ROUTES[raw.action_kind as ActionKind];if(route){const actionReasons=actionCarrier.map((x)=>byCode.get(x)).filter((x):x is CanonicalReason=>Boolean(x));for(const reason of actionReasons)if(!route.allowed_reason_effects.includes(reason.action_effect))errors.push(`$.next_action_reason_codes: ${reason.reason_code} action effect ${reason.action_effect} is incompatible with ${String(raw.action_kind)}`);}
- if(raw.review_validity!=="CURRENT"){if(raw.may_modify_code!==false)errors.push("$.may_modify_code: historical review cannot modify code");if(raw.repair_handoff!==null)errors.push("$.repair_handoff: historical review cannot carry repair authority");if(raw.action_kind!=="blocked_internal_error"){if(raw.action_kind!=="rerun_review")errors.push("$.action_kind: STALE or UNKNOWN review must route only to rerun_review");if(!same(actionCarrier,["RSN-REVIEW-NOT-CURRENT"]))errors.push("$.next_action_reason_codes: historical review action must contain only RSN-REVIEW-NOT-CURRENT");}}
- for(const e of validateSchema(schema,schemaView(raw,statusCarrier,actionCarrier)))errors.push(`${e.path}: ${e.message}`);
- if(errors.length)throw invalid("projection reason-carrier validation failed",errors);
- validateLegacyInput(legacyView(raw,actionCarrier));
- return {...raw,reason_codes:actionCarrier,technical_status_reason_codes:statusCarrier,next_action_reason_codes:actionCarrier} as unknown as RendererInput;
+  if(!isObj(raw))throw invalid("input must be a JSON object");
+  const rawSchemaErrors=validateSchema(schema,raw).map((error)=>`${error.path}: ${error.message}`);
+  if(rawSchemaErrors.length)throw invalid("raw active-v2 input schema validation failed",rawSchemaErrors);
+  const input=structuredClone(raw) as unknown as RendererInput;
+  input.technical_status_reason_codes=ordered(input.technical_status_reason_codes);
+  input.next_action_reason_codes=ordered(input.next_action_reason_codes);
+  input.reason_details=normalizeDetails(input.reason_details);
+  const errors:string[]=[];
+  const completeCodes=input.reason_details.map((detail)=>detail.reason_code);
+  for(const code of duplicates(completeCodes))errors.push(`$.reason_details: duplicate reason detail ${code}`);
+  const completeSet=new Set(completeCodes);
+  const reasons:CanonicalReason[]=[];
+  for(const code of completeCodes){const reason=byCode.get(code);if(!reason)errors.push(`$.reason_details: unregistered reason ${code}`);else reasons.push(reason);}
+  for(const [codes,path] of [[input.technical_status_reason_codes,"$.technical_status_reason_codes"],[input.next_action_reason_codes,"$.next_action_reason_codes"]] as const){for(const code of duplicates(codes))errors.push(`${path}: duplicate reason ${code}`);for(const code of codes)if(!completeSet.has(code))errors.push(`${path}: ${code} is absent from complete reason_details`);}
+  const expectedStatusCodes=statusCodes(reasons);
+  if(!same(input.technical_status_reason_codes,expectedStatusCodes))errors.push(`$.technical_status_reason_codes: must exactly equal active _technical_status reason projection ${JSON.stringify(expectedStatusCodes)}`);
+  const computed=status(reasons);
+  if(input.action_kind!=="blocked_internal_error"&&input.technical_status!==computed)errors.push(`$.technical_status: complete canonical reasons require ${computed}`);
+  if(input.action_kind!=="blocked_internal_error"){
+    const expectedCandidate=candidateCodes(completeCodes);
+    if(input.technical_decision.status!==candidateStatus.get(computed))errors.push(`$.technical_decision/status: must be ${String(candidateStatus.get(computed))}`);
+    if(!same(input.technical_decision.reason_codes,expectedCandidate))errors.push(`$.technical_decision/reason_codes: must exactly equal all-canonical active projection ${JSON.stringify(expectedCandidate)}`);
+  }
+  const route=ACTION_ROUTES[input.action_kind as ActionKind];
+  for(const code of input.next_action_reason_codes){const reason=byCode.get(code);if(reason&&!route.allowed_reason_effects.includes(reason.action_effect))errors.push(`$.next_action_reason_codes: ${reason.reason_code} action effect ${reason.action_effect} is incompatible with ${input.action_kind}`);}
+  if(input.review_validity!=="CURRENT"){
+    if(input.may_modify_code!==false)errors.push("$.may_modify_code: historical review cannot modify code");
+    if(input.repair_handoff!==null)errors.push("$.repair_handoff: historical review cannot carry repair authority");
+    if(input.action_kind!=="blocked_internal_error"){
+      if(input.action_kind!=="rerun_review")errors.push("$.action_kind: STALE or UNKNOWN review must route only to rerun_review");
+      if(!same(input.next_action_reason_codes,["RSN-REVIEW-NOT-CURRENT"]))errors.push("$.next_action_reason_codes: historical review action must contain only RSN-REVIEW-NOT-CURRENT");
+    }
+  }
+  if(errors.length)throw invalid("projection reason-carrier validation failed",errors);
+  validateActiveInputSemantics(input);
+  return input;
 }
-export function validateOutput(output:RendererOutput):void{validateLegacyOutput(output);}
+export function validateOutput(output:RendererOutput):void{validateSemanticOutput(output);}
