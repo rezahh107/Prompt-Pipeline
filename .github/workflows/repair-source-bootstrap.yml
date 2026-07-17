@@ -43,6 +43,7 @@ jobs:
           cp .repair-inspector/protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml repair-source/inspector/
           cp .repair-inspector/pr_inspector/decision_projection.py repair-source/inspector/
           cp .repair-inspector/pr_inspector/decision_projection_core.py repair-source/inspector/
+          cp .repair-inspector/pr_inspector/constants.py repair-source/inspector/
           printf 'target_sha=%s\ninspector_sha=%s\n' "$TESTED_SHA" "$INSPECTOR_SHA" > repair-source/identity.txt
           tar --exclude=.git --exclude=.repair-inspector --exclude=repair-source -czf repair-source/prompt-pipeline.tar.gz .
           sha256sum repair-source/prompt-pipeline.tar.gz repair-source/inspector/* > repair-source/sha256.txt
