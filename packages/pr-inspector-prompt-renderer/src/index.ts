@@ -1,4 +1,14 @@
-export { render,getProvenance,getCompatibility } from "./render.js";
-export { validateInput,validateOutput } from "./validate.js";
-export { ACTION_ROUTES } from "./routes.js";
-export type { RendererInput,RendererInputV2,RendererOutput,ActionKind,PromptKind,Recipient,CanonicalReasonCode,ReasonDetail } from "./types.js";
+export {
+  ACTIVE_INSPECTOR,
+  MIGRATION_ERROR_CODE,
+  getCompatibility,
+  getLifecycle,
+  getProvenance,
+  rejectActiveRendering,
+} from "./render.js";
+export { RendererError } from "./errors.js";
+export type {
+  HistoricalCompatibilityMetadata,
+  LifecycleMetadata,
+  PackageProvenance,
+} from "./render.js";
