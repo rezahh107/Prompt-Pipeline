@@ -21,7 +21,7 @@ Starter and extended domains:
 - `image`
 - `multimodal`
 - `ai_workflow_design`
-- `pr_inspector_action` (historical, non-authoritative compatibility snapshots only)
+- `pr_inspector_action` (historical source snapshots only; excluded from active routing and every portable consumption artifact)
 
 The image domain remains a worked example, while the newer knowledge-pipeline domains let the repository operate as a reusable prompt production system.
 
@@ -73,8 +73,9 @@ pnpm peac:eval
 # Check KB/rule drift
 pnpm peac:sync -- --check
 
-# Build portable knowledge bundle for project knowledge upload
+# Build and inspect the portable knowledge bundle
 pnpm peac:bundle
+pnpm peac:bundlecheck
 
 # Validate the PR-Inspector historical fail-closed boundary
 pnpm peac:pr-inspector-renderer
@@ -92,22 +93,21 @@ The active consumer identity is `rezahh107/PR-Inspector@80bc105d924d7c7dd566e76a
 
 Because the pinned active repository exposes no supported serialized or cross-repository official-byte interface, this package uses `historical_fail_closed_compatibility`. Projection objects, dictionaries, serialized capability lookalikes, and the retired `render()` path all fail with `PR_INSPECTOR_V1_11_1_OFFICIAL_OUTPUT_REQUIRED`.
 
-Historical schemas and compatibility snapshots remain under `domains/pr_inspector_action/` for diagnostics only. Package archives exclude prompt templates and active rendering policy assets. See `docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md`.
+Historical source snapshots may remain under `domains/pr_inspector_action/` for local regression diagnostics. They are excluded by an exact prefix denylist from npm archives, portable KB bundles, project-knowledge exports, and generated active artifacts. The active router cannot select the domain, and a case-file attempt fails closed with the same deterministic migration error. No PR-Inspector prompt template, action route, schema, validator, fixture, compatibility mapping, or renderer is distributed through a portable bundle.
 
-Publication status is `NOT_PUBLISHED`; downstream integration status is `NOT_INTEGRATED`.
+Publication status is `NOT_PUBLISHED`; downstream integration status is `NOT_INTEGRATED`. See `docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md`.
 
 ## Repository layout
 
 ```text
 kb/                 Human-readable PEaC knowledge base with stable rule anchors
 policies/           Global non-overridable policies
-domains/            Domain modules; PR-Inspector assets are historical snapshots only
+domains/            Active domains plus isolated historical source snapshots
 packages/           Bounded private compatibility packages and runtime packages
 pipeline/           Pipeline manifest, routing, intake, quality gates, artifact schema, bundle manifest
 scripts/            CLI entrypoints
 src/                TypeScript implementation
 evals/              Local rubric checks for generated artifacts
-docs/               Master reference, architecture decisions, and hardening notes
 outputs/            Generated artifacts; ignored by Git except .gitkeep
 dist/               Generated bundles; ignored by Git
 ```
@@ -118,7 +118,7 @@ dist/               Generated bundles; ignored by Git
 KB -> Policies/Rules -> Domain Contract -> Template -> Static Validation -> Eval -> Artifact -> Bundle
 ```
 
-The language model should not receive the full KB as raw context by default. It should receive the rendered prompt artifact produced by the pipeline, or the compiled ZIP bundle when operating inside a project knowledge base.
+The language model should not receive the full KB as raw context by default. It should receive the rendered prompt artifact produced by the pipeline, or the compiled ZIP bundle when operating inside a project knowledge base. The portable compiler removes the complete historical `domains/pr_inspector_action/` tree before writing the ZIP.
 
 ## Source of truth
 
