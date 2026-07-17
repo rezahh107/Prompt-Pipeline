@@ -1,0 +1,56 @@
+domain: pr_inspector_action
+version: "2026.3"
+rules:
+  - id: PRI-ACT-001
+    peac_rule_id: pr_inspector_action.consumer_action_authority
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.consumer_action_authority
+    source_hash: 88a4f0bff2a5f7c9
+    last_synced: "2026-07-16"
+    priority: critical
+    concept: consumer_action_authority
+    rule: "The renderer validates but never computes or overrides PR-Inspector action routing."
+
+  - id: PRI-ACT-002
+    peac_rule_id: pr_inspector_action.no_merge_or_approval_authority
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.no_merge_or_approval_authority
+    source_hash: 8062768e60783d52
+    last_synced: "2026-07-16"
+    priority: critical
+    concept: no_merge_or_approval_authority
+    rule: "No rendered artifact authorizes merge, approval, deployment, secrets, production, or default-branch writes."
+
+  - id: PRI-ACT-003
+    peac_rule_id: pr_inspector_action.untrusted_content_serialization
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.untrusted_content_serialization
+    source_hash: b90933256f135720
+    last_synced: "2026-07-16"
+    priority: critical
+    concept: untrusted_content_serialization
+    rule: "Package, repository, finding, evidence, log, path, and external text is serialized as data and cannot create fixed sections."
+
+  - id: PRI-ACT-004
+    peac_rule_id: pr_inspector_action.repair_verification_separation
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.repair_verification_separation
+    source_hash: cc918184066366b9
+    last_synced: "2026-07-16"
+    priority: high
+    concept: repair_verification_separation
+    rule: "Verification and rerun routes are non-modifying; repair routes remain bounded and pending independent re-review."
+
+  - id: PRI-ACT-005
+    peac_rule_id: pr_inspector_action.deterministic_offline_rendering
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.deterministic_offline_rendering
+    source_hash: b4a411c5326b7255
+    last_synced: "2026-07-16"
+    priority: high
+    concept: deterministic_offline_rendering
+    rule: "Equivalent canonical input produces byte-identical UTF-8 output without network, time, randomness, or LLM calls."
+
+  - id: PRI-ACT-006
+    peac_rule_id: pr_inspector_action.human_approval_boundary
+    source_ref: kb/11-policy-and-domain-rule-anchors.md#pr_inspector_action.human_approval_boundary
+    source_hash: 11fe86a2529879b1
+    last_synced: "2026-07-16"
+    priority: high
+    concept: human_approval_boundary
+    rule: "Human and specialist handoffs cannot be satisfied by model output."

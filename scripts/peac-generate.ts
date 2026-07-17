@@ -1,9 +1,11 @@
 #!/usr/bin/env tsx
+import { assertCaseFileDomainAllowed } from '../src/pr-inspector-boundary.js';
 import { generateArtifact, parseArgs } from '../src/peac.js';
 
 const args = parseArgs(process.argv.slice(2));
 
 try {
+  assertCaseFileDomainAllowed(args.case);
   const { artifact, outputPath } = generateArtifact(args);
   console.log(`PEaC artifact generated: ${outputPath}`);
   console.log('');

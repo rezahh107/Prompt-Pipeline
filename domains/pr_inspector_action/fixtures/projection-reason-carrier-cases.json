@@ -1,0 +1,32 @@
+{
+  "valid": {
+    "stale_high": {
+      "technical_status": "YELLOW_CHANGES_OR_VERIFICATION_REQUIRED",
+      "complete_reason_codes": ["RSN-REVIEW-NOT-CURRENT", "RSN-HIGH-CODE-SUPPORTED-FINDING"],
+      "technical_status_reason_codes": ["RSN-REVIEW-NOT-CURRENT", "RSN-HIGH-CODE-SUPPORTED-FINDING"],
+      "next_action_reason_codes": ["RSN-REVIEW-NOT-CURRENT"],
+      "candidate_reason_codes": ["stale_technical_review_identity", "unresolved_valid_bot_finding"],
+      "action_kind": "rerun_review",
+      "may_modify_code": false
+    },
+    "stale_critical": {
+      "technical_status": "RED_DO_NOT_MERGE",
+      "complete_reason_codes": ["RSN-REVIEW-NOT-CURRENT", "RSN-CRITICAL-SUPPORTED-FINDING"],
+      "technical_status_reason_codes": ["RSN-CRITICAL-SUPPORTED-FINDING"],
+      "next_action_reason_codes": ["RSN-REVIEW-NOT-CURRENT"],
+      "candidate_reason_codes": ["stale_technical_review_identity", "critical_supported_finding"],
+      "action_kind": "rerun_review",
+      "may_modify_code": false
+    }
+  },
+  "invalid": {
+    "missing_historical_candidate_reason": "drop mapped historical candidate reason",
+    "forged_technical_color": "represent Red complete reasons as Yellow",
+    "action_reason_not_in_complete_reasons": "add an action reason absent from reason_details",
+    "complete_reason_detail_omitted": "remove a complete historical reason detail",
+    "technical_status_reason_subset_mismatch": "drop a dominant status-bearing reason",
+    "historical_repair_escalation": "convert stale history into repair action authority",
+    "historical_repair_handoff": "attach repair handoff to stale history",
+    "historical_may_modify_code": "set may_modify_code on stale history"
+  }
+}

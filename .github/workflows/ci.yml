@@ -14,50 +14,196 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  peac-ci:
-    name: PEaC canonical CI
+  consumer-compatibility:
+    name: PR-Inspector v1.11.1 official-output boundary
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      INSPECTOR_SHA: 80bc105d924d7c7dd566e76a9d8d919368655cfa
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Checkout exact tested commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
-          node-version: 22
-
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+          printf 'tested_commit_sha=%s\n' "$actual_sha" | tee consumer-compatibility-identity.txt
+      - name: Checkout pinned PR-Inspector source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: rezahh107/PR-Inspector
+          ref: ${{ env.INSPECTOR_SHA }}
+          path: inspector-source
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify pinned inspector identity
+        run: |
+          actual_inspector_sha="$(git -C inspector-source rev-parse HEAD)"
+          test "$actual_inspector_sha" = "$INSPECTOR_SHA"
+          printf 'inspector_commit=%s\n' "$actual_inspector_sha" | tee -a consumer-compatibility-identity.txt
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.x
       - name: Enable Corepack
         run: |
           corepack enable
           corepack prepare pnpm@10.13.1 --activate
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Verify pinned official-output source identities
+        run: |
+          set -euo pipefail
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:CURRENT_VERSION")" = "65b4811dfe3d9c621a19a9b2e0695e9ef8e28cc3"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/official_review.py")" = "c2a1094352febbe9f48c6acc2c088aca42052be9"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/owner_delivery.py")" = "7eb4f6a434f63e55714df4533282c2061d8ccce5"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:docs/CANONICAL_OUTPUT_ENFORCEMENT.md")" = "939e4a519efe2460779f69d86df5340b0568a23a"
+      - name: Verify active official-output boundary
+        run: |
+          set -o pipefail
+          node packages/pr-inspector-prompt-renderer/scripts/verify-consumer-source.mjs \
+            inspector-source/CURRENT_VERSION \
+            inspector-source/pr_inspector/official_review.py \
+            inspector-source/pr_inspector/owner_delivery.py \
+            inspector-source/docs/CANONICAL_OUTPUT_ENFORCEMENT.md 2>&1 | tee consumer-compatibility.log
+      - name: Upload official-output boundary evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: official-output-boundary-evidence
+          path: |
+            consumer-compatibility-identity.txt
+            consumer-compatibility.log
+          if-no-files-found: error
+          retention-days: 14
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
+  peac-ci:
+    name: PEaC canonical exact-head CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+          printf 'tested_commit_sha=%s\n' "$actual_sha" | tee exact-head-ci-identity.txt
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.x
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.13.1 --activate
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Run required renderer validation commands
+        run: |
+          set -o pipefail
+          pnpm typecheck 2>&1 | tee renderer-required-validation.log
+          pnpm peac:pr-inspector-renderer 2>&1 | tee -a renderer-required-validation.log
+          pnpm peac:pr-inspector-renderer-pack 2>&1 | tee -a renderer-required-validation.log
       - name: Run canonical CI script
         run: |
           set -o pipefail
           pnpm run ci 2>&1 | tee peac-ci.log
-
       - name: Verify bundle output
         run: |
           test -d dist
           test -n "$(find dist -maxdepth 1 -type f -name 'Prompt-Pipeline-KB-Bundle-v*.zip' -print -quit)"
-
+      - name: Upload exact-head identity
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-head-ci-identity
+          path: exact-head-ci-identity.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload exact-head renderer evidence
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-head-renderer-evidence
+          path: |
+            exact-head-ci-identity.txt
+            renderer-required-validation.log
+            peac-ci.log
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload PEaC knowledge bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: prompt-pipeline-kb-bundle
           path: dist/Prompt-Pipeline-KB-Bundle-v*.zip
           if-no-files-found: error
           retention-days: 14
-
-      - name: Upload CI log on failure
+      - name: Upload CI logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: peac-ci-log
-          path: peac-ci.log
+          path: |
+            peac-ci.log
+            renderer-required-validation.log
           if-no-files-found: ignore
+          retention-days: 14
+
+  renderer-node-matrix:
+    name: Renderer Node ${{ matrix.node-version }} exact-head
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version:
+          - 20.x
+          - 22.x
+    env:
+      TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact tested commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ env.TESTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact tested commit identity
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$TESTED_SHA"
+          printf 'tested_commit_sha=%s\nnode_version=%s\n' "$actual_sha" "${{ matrix.node-version }}" | tee exact-head-node-identity.txt
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.13.1 --activate
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Run package validation
+        run: |
+          pnpm typecheck
+          npm --prefix packages/pr-inspector-prompt-renderer test
+          npm --prefix packages/pr-inspector-prompt-renderer run pack:check
+      - name: Upload exact-head matrix identity
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-head-node-${{ matrix.node-version }}
+          path: exact-head-node-identity.txt
+          if-no-files-found: error
           retention-days: 14

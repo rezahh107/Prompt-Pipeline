@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import yaml from 'js-yaml';
 
 interface PEaCConfig { version?: string }
@@ -8,6 +8,16 @@ interface ZipEntry { name: string; data: Buffer }
 
 const INCLUDED_ROOTS = ['README.md', 'peac.config.yaml', 'docs', 'kb', 'policies', 'pipeline', 'domains', 'evals'];
 const INCLUDED_EXTENSIONS = new Set(['.md', '.yaml', '.yml', '.json', '.j2']);
+const PORTABLE_BUNDLE_EXCLUDED_PREFIXES = ['domains/pr_inspector_action/'] as const;
+
+function normalizePath(path: string): string {
+  return path.replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function isPortableBundlePath(path: string): boolean {
+  const normalized = normalizePath(path);
+  return !PORTABLE_BUNDLE_EXCLUDED_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
 
 function extensionOf(path: string): string {
   const index = path.lastIndexOf('.');
@@ -110,7 +120,7 @@ function buildZip(entries: ZipEntry[]): Buffer {
   const centralParts: Buffer[] = [];
   let offset = 0;
   for (const entry of entries) {
-    const name = Buffer.from(entry.name.replaceAll('\\', '/'), 'utf8');
+    const name = Buffer.from(normalizePath(entry.name), 'utf8');
     const crc = crc32(entry.data);
     const local = localHeader(name, entry.data, crc, stamp);
     localParts.push(local, entry.data);
@@ -125,9 +135,14 @@ function buildZip(entries: ZipEntry[]): Buffer {
 
 const config = yaml.load(readFileSync('peac.config.yaml', 'utf8')) as PEaCConfig | null;
 const version = config?.version ?? 'dev';
-const files = [...new Set(INCLUDED_ROOTS.flatMap(walk))].sort();
-const entries = files.map((file) => ({ name: relative('.', file).replaceAll('\\', '/'), data: readFileSync(file) }));
+const candidates = [...new Set(INCLUDED_ROOTS.flatMap(walk))].map(normalizePath).sort();
+const excluded = candidates.filter((file) => !isPortableBundlePath(file));
+const files = candidates.filter(isPortableBundlePath);
+const forbidden = files.filter((file) => PORTABLE_BUNDLE_EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix)));
+if (forbidden.length > 0) throw new Error(`Portable bundle denylist failure: ${forbidden.join(', ')}`);
+const entries = files.map((file) => ({ name: file, data: readFileSync(file) }));
 const outputPath = join('dist', `Prompt-Pipeline-KB-Bundle-v${version}.zip`);
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, buildZip(entries));
 console.log(`Built ${outputPath} with ${entries.length} file(s).`);
+console.log(`Excluded ${excluded.length} historical PR-Inspector file(s) using: ${PORTABLE_BUNDLE_EXCLUDED_PREFIXES.join(', ')}`);

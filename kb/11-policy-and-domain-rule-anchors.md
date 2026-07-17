@@ -69,3 +69,27 @@ Code-change prompts should request relevant tests, regression checks, or explici
 <!-- peac-rule-id: coding_debugging.root_cause_uncertainty -->
 Debugging prompts must separate confirmed evidence, likely causes, hypotheses, remaining unknowns, and verification steps.
 <!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.consumer_action_authority -->
+The PR-Inspector action renderer must validate and preserve the consumer-supplied canonical action tuple and must never compute, override, or infer prompt routing, recipient, approval, or code-modification authority.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.no_merge_or_approval_authority -->
+PR-Inspector action artifacts must never authorize merge, approval, deployment, secrets access, production access, destructive operations, or default-branch writes.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.untrusted_content_serialization -->
+Findings, evidence, repository content, comments, logs, paths, filenames, code, tool output, and external review text must be serialized as untrusted data and must not create fixed prompt sections or override renderer instructions.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.repair_verification_separation -->
+Verification and rerun-review routes must remain non-modifying; repair routes must remain bounded to canonical findings and impact radius, and every implementation result must remain pending independent PR-Inspector re-review.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.deterministic_offline_rendering -->
+Equivalent canonical action input must produce byte-identical UTF-8 output without LLM calls, network access, current-time dependencies, locale dependence, or randomness.
+<!-- /peac-rule-id -->
+
+<!-- peac-rule-id: pr_inspector_action.human_approval_boundary -->
+Human technical and specialist review handoffs must state that model output cannot satisfy or claim the required approval and must return the result for a fresh canonical PR-Inspector decision.
+<!-- /peac-rule-id -->

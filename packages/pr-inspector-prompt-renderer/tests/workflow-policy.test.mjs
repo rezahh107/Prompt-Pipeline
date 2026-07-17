@@ -1,0 +1,43 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { existsSync,readFileSync } from "node:fs";
+import { dirname,join,resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here=dirname(fileURLToPath(import.meta.url));
+const repo=resolve(here,"../../..");
+const workflowPath=join(repo,".github/workflows/ci.yml");
+
+function violations(text,lockExists=true){
+  const errors=[];
+  if(!/^permissions:\n  contents: read$/m.test(text))errors.push("permissions");
+  for(const ref of text.matchAll(/^\s*uses:\s*([^\s]+)$/gm))if(!/@[0-9a-f]{40}$/.test(ref[1]))errors.push(`mutable:${ref[1]}`);
+  const checkoutBlocks=text.split(/(?=^\s*- name: Checkout)/m).slice(1);
+  for(const block of checkoutBlocks)if(!/uses:\s*actions\/checkout@[0-9a-f]{40}/.test(block)||!/persist-credentials:\s*false/.test(block))errors.push("checkout-credentials");
+  if(!/git rev-parse HEAD/.test(text)||!/test "?\$actual_sha"? = "?\$TESTED_SHA"?/.test(text))errors.push("exact-head");
+  if(/--no-frozen-lockfile/.test(text))errors.push("mutable-install");
+  const installs=[...text.matchAll(/^\s*run:\s*(pnpm install[^\n]*)$/gm)].map((m)=>m[1]);
+  if(installs.length===0||installs.some((line)=>!line.includes("--frozen-lockfile")))errors.push("frozen-install");
+  if(!lockExists)errors.push("lockfile");
+  if(/lockfile-bootstrap|Generate lockfile|generated-pnpm-lockfile/.test(text))errors.push("disconnected-lockfile-bootstrap");
+  if(!text.includes("80bc105d924d7c7dd566e76a9d8d919368655cfa"))errors.push("active-inspector-pin");
+  for(const required of ["CURRENT_VERSION","pr_inspector/official_review.py","pr_inspector/owner_delivery.py","docs/CANONICAL_OUTPUT_ENFORCEMENT.md"])if(!text.includes(required))errors.push(`missing-official-boundary:${required}`);
+  if(/f0f74bba89e4c85f4a4b10c706a2be2980d71c25/.test(text))errors.push("stale-inspector-pin");
+  return errors;
+}
+
+const source=readFileSync(workflowPath,"utf8");
+test("workflow policy accepts immutable exact-head frozen-lockfile CI",()=>assert.deepEqual(violations(source,existsSync(join(repo,"pnpm-lock.yaml"))),[]));
+const mutations={
+  mutable_action:source.replace(/actions\/checkout@[0-9a-f]{40}/,"actions/checkout@v4"),
+  missing_credentials:source.replace(/\n\s*persist-credentials: false/,""),
+  true_credentials:source.replace("persist-credentials: false","persist-credentials: true"),
+  broad_permissions:source.replace("permissions:\n  contents: read","permissions:\n  contents: write"),
+  missing_assertion:source.replaceAll("git rev-parse HEAD","git status").replaceAll("test \"$actual_sha\" = \"$TESTED_SHA\"","true"),
+  mutable_install:source.replace("pnpm install --frozen-lockfile","pnpm install --no-frozen-lockfile"),
+  missing_owner_delivery:source.replaceAll("pr_inspector/owner_delivery.py","not-owner-delivery.py"),
+  stale_pin:source.replace("80bc105d924d7c7dd566e76a9d8d919368655cfa","f0f74bba89e4c85f4a4b10c706a2be2980d71c25"),
+  disconnected_bootstrap:source.replace("jobs:\n","jobs:\n  lockfile-bootstrap:\n    runs-on: ubuntu-latest\n    steps: []\n"),
+};
+for(const [name,value] of Object.entries(mutations))test(`workflow policy rejects ${name}`,()=>assert.ok(violations(value,true).length>0));
+test("workflow policy rejects missing authoritative lockfile",()=>assert.ok(violations(source,false).includes("lockfile")));

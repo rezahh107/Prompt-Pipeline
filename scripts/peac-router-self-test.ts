@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
+import { PR_INSPECTOR_RETIRED_DOMAIN } from '../src/pr-inspector-boundary.js';
 import { routeRequestForTest } from '../src/peac.js';
 
 interface DomainRoute {
@@ -42,6 +43,8 @@ assertEqual('prompt audit route', routeRequest('audit prompt structure for risks
 assertEqual('code review route', routeRequest('review code for correctness and tests'), 'coding_debugging');
 assertEqual('debugging route', routeRequest('debug code after a runtime error'), 'coding_debugging');
 assertEqual('fallback route', routeRequest('give me a practical decision framework'), 'general');
+assertTrue('retired PR-Inspector domain is absent from active router', !Object.prototype.hasOwnProperty.call(router.domains, PR_INSPECTOR_RETIRED_DOMAIN));
+assertTrue('PR-Inspector wording cannot route to retired domain', routeRequest('Create a PR Inspector repair action prompt.') !== PR_INSPECTOR_RETIRED_DOMAIN);
 
 const multimodal = routeRequestForTest('Create an image prompt with exact text and logo fidelity.');
 assertEqual('evidence router method is used', multimodal.method, 'evidence_concept_score');
