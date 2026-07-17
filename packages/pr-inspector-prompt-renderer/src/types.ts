@@ -5,21 +5,52 @@ export type TechnicalStatus = "GREEN_TECHNICALLY_READY" | "YELLOW_CHANGES_OR_VER
 export type ApprovalRequirement = "NO_ADDITIONAL_TECHNICAL_APPROVAL" | "PROJECT_OWNER_CONFIRMATION" | "HUMAN_TECHNICAL_REVIEW_REQUIRED" | "SECURITY_OR_DOMAIN_SPECIALIST_REQUIRED";
 export type ReviewValidity = "CURRENT" | "STALE" | "UNKNOWN";
 export type InspectionProfile = "minimal" | "strict";
+export type CanonicalReasonCode =
+  | "RSN-REVIEW-NOT-CURRENT"
+  | "RSN-RED-GATE-FLAG"
+  | "RSN-REQUIRED-CHECK-FAILED"
+  | "RSN-CRITICAL-SUPPORTED-FINDING"
+  | "RSN-HIGH-REPRODUCED-FINDING"
+  | "RSN-REQUIRED-CHECK-UNRESOLVED"
+  | "RSN-HIGH-CODE-SUPPORTED-FINDING"
+  | "RSN-HIGH-HYPOTHESIS-FINDING"
+  | "RSN-BLOCKING-MEDIUM-SUPPORTED"
+  | "RSN-BLOCKING-MEDIUM-UNVERIFIED"
+  | "RSN-BLOCKING-HYPOTHESIS"
+  | "RSN-NOT-ASSESSABLE-FINDING"
+  | "RSN-PARTIAL-REVIEW"
+  | "RSN-HIGH-RISK-AREA-UNREVIEWED"
+  | "RSN-COVERAGE-INCOMPLETE"
+  | "RSN-UNVERIFIED-AREA"
+  | "RSN-INTENT-MISSING"
+  | "RSN-INTENT-UNSATISFIED"
+  | "RSN-INTENT-UNSUPPORTED-CLAIM"
+  | "RSN-REPAIR-HANDOFF-PRESENT"
+  | "RSN-EXTERNAL-REPAIR-ACCEPTED"
+  | "RSN-REQUIRED-ACTION-PENDING"
+  | "RSN-OWNER-CONFIRMATION-REQUIRED"
+  | "RSN-HUMAN-TECHNICAL-REVIEW-REQUIRED"
+  | "RSN-SPECIALIST-REVIEW-REQUIRED"
+  | "RSN-MERGE-ENFORCEMENT-MINIMUM-MISSING"
+  | "RSN-REPOSITORY-HOSTED-ENFORCEMENT-REQUIRED"
+  | "RSN-REPOSITORY-SETTINGS-CLAIM-UNVERIFIED"
+  | "RSN-MERGE-AUTHORIZATION-CLAIM-UNVERIFIED";
 export interface CandidateDecision { status:string; reason_codes:string[] }
 export interface GovernanceFollowUp { kind:"none"|"informational_gap"|"access_limitation"; may_modify_code:false; prompt_required:false }
 export interface ExternalReviewReconciliation { collection_status:"COMPLETE"|"INCOMPLETE"|"NOT_AVAILABLE"; open_bot_sources_total:number; inspected_total:number; counts:Record<string,number>; uninspected_source_ids:string[]; valid_blocking_finding_ids:string[]; suggestion_results:Array<{source_id:string;classification:string;linked_finding_ids:string[];repair_authorized:boolean;duplicate_confirmed:boolean}> }
-export interface ReasonDetail { reason_code:string; subjects:string[]; recovery_action:string }
+export interface ReasonDetail { reason_code:CanonicalReasonCode; subjects:string[]; recovery_action:string }
 export interface Finding { finding_id:string; severity:"CRITICAL"|"HIGH"|"MEDIUM"|"LOW"; evidence_label:"REPRODUCED"|"CODE_SUPPORTED"|"HYPOTHESIS"|"NOT_ASSESSABLE"; blocking:boolean; file_location:string; symbol:string|null; relevant_code:string; issue:string; failure_scenario:string; recommended_fix:string; recommended_test:string; evidence_refs:string[]; rule_ids:string[] }
 export interface EvidenceRecord { evidence_id:string; evidence_type:"CODE"|"EXECUTION"|"CI"|"DOCUMENTATION"|"USER_REPORT"|"METADATA"; source:string; reviewed_head_sha:string; result:"PASS"|"FAIL"|"UNKNOWN"|"NOT_APPLICABLE"; excerpt:string; reference:string|null; sha256:string|null; redactions:string[]; limitations:string[] }
 export interface ContextItem { id:string; source:string; trust_label:"authoritative"|"verified"|"untrusted"|"historical"; content:string }
 export interface RepairHandoffFinding { finding_id:string; affected_rule_ids:string[]; repair_objective:string; smallest_safe_repair:string[]; do_not_change:string[]; required_validation:string[]; overclaim_guards:string[] }
 export interface RepairHandoff { intended_recipient:"implementer_model"; repair_scope:"same_pull_request"; affected_findings:RepairHandoffFinding[] }
-export interface RendererInput { schema_version:"pr_inspector_action.v2"; target_repository:string; pull_request_number:number; reviewed_head_sha:string; base_sha:string; pr_inspector_protocol_version:"v1.11.0"; canonical_review_package_sha256:string; review_validity:ReviewValidity; inspection_profile:InspectionProfile; technical_decision:CandidateDecision; governance_decision:CandidateDecision; overall_recommendation:{technical_ready:boolean;merge_governance_verified:boolean}; governance_follow_up:GovernanceFollowUp; external_review_reconciliation:ExternalReviewReconciliation; action_kind:ActionKind; prompt_kind:PromptKind; prompt_required:boolean; recipient:Recipient; may_modify_code:boolean; technical_status:TechnicalStatus; approval_requirement:ApprovalRequirement; reason_codes:string[]; reason_details:ReasonDetail[]; required_actions:string[]; findings:Finding[]; repair_handoff:RepairHandoff|null; evidence_records:EvidenceRecord[]; evidence_limitations:string[]; sensitive_domains:string[]; target_environment:string; target_model_profile:"gpt"|"claude"|"gemini"|"local_small"; context_policy_profile:"minimal"|"standard"|"deep"; context_budget:{max_context_items:number;max_context_tokens:number}; context_items:ContextItem[]; prompt_language:"en"; required_target_output_language:string; success_criteria:string[]; failure_modes:string[]; evaluation_suite_id:"pr_inspector_action.v2" }
+export interface RendererInputV2 { schema_version:"pr_inspector_action.v2"; target_repository:string; pull_request_number:number; reviewed_head_sha:string; base_sha:string; pr_inspector_protocol_version:"v1.11.0"; canonical_review_package_sha256:string; review_validity:ReviewValidity; inspection_profile:InspectionProfile; technical_decision:CandidateDecision; governance_decision:CandidateDecision; overall_recommendation:{technical_ready:boolean;merge_governance_verified:boolean}; governance_follow_up:GovernanceFollowUp; external_review_reconciliation:ExternalReviewReconciliation; action_kind:ActionKind; prompt_kind:PromptKind; prompt_required:boolean; recipient:Recipient; may_modify_code:boolean; technical_status:TechnicalStatus; approval_requirement:ApprovalRequirement; technical_status_reason_codes:CanonicalReasonCode[]; next_action_reason_codes:CanonicalReasonCode[]; reason_details:ReasonDetail[]; required_actions:string[]; findings:Finding[]; repair_handoff:RepairHandoff|null; evidence_records:EvidenceRecord[]; evidence_limitations:string[]; sensitive_domains:string[]; target_environment:string; target_model_profile:"gpt"|"claude"|"gemini"|"local_small"; context_policy_profile:"minimal"|"standard"|"deep"; context_budget:{max_context_items:number;max_context_tokens:number}; context_items:ContextItem[]; prompt_language:"en"; required_target_output_language:string; success_criteria:string[]; failure_modes:string[]; evaluation_suite_id:"pr_inspector_action.v2" }
+export type RendererInput = RendererInputV2;
 export interface Provenance { package_name:string; package_version:string; prompt_pipeline_version:string; source_commit_sha:string; source_commit_verified:boolean; source_identity_source:"git"|"build_context"|"unknown"; dirty:boolean; domain:string; contract_version:string; asset_hashes:Record<string,string> }
 export interface RendererOutput { schema_version:"pr_inspector_action_output.v2"; identity:{target_repository:string;pull_request_number:number;reviewed_head_sha:string;base_sha:string;review_validity:ReviewValidity;identity_sha256:string}; consumer_compatibility:{protocol_version:"v1.11.0";inspector_repository:"rezahh107/PR-Inspector";inspector_commit:"f0f74bba89e4c85f4a4b10c706a2be2980d71c25";reason_snapshot_sha256:string;consumer_snapshot_sha256:string}; prompt_required:boolean; action_kind:ActionKind; prompt_kind:PromptKind; recipient:Recipient; may_modify_code:boolean; technical_status:TechnicalStatus; approval_requirement:ApprovalRequirement; review_validity:ReviewValidity; rendered_prompt:string|null; rendered_prompt_sha256:string|null; canonical_input_sha256:string; generator:Record<string,unknown>; human_review:{required:boolean;approval_satisfied:false;boundary:string}; risk_metadata:{technical_status:TechnicalStatus;sensitive_domains:string[];inspection_profile:InspectionProfile;technical_decision:CandidateDecision;governance_decision:CandidateDecision} }
-export interface CanonicalReason { reason_code:string; technical_status_effect:"RED"|"YELLOW"|"NONE"; action_effect:string; recipient:string; may_modify_code:boolean; prompt_kind:string|null; recovery_action:string }
+export interface CanonicalReason { reason_code:CanonicalReasonCode; technical_status_effect:"RED"|"YELLOW"|"NONE"; action_effect:string; recipient:string; may_modify_code:boolean; prompt_kind:string|null; recovery_action:string }
 export interface CandidateReason { reason_code:string; decision_domain:"technical"|"governance"; status_effect:string; recipient:string; recovery_action:string; authority:string }
-export interface CandidateReasonMapping { canonical_reason_code:string; candidate_reason_code:string }
+export interface CandidateReasonMapping { canonical_reason_code:CanonicalReasonCode; candidate_reason_code:string }
 export interface CandidateStatusMapping { technical_status:TechnicalStatus; candidate_status:"GREEN"|"YELLOW"|"RED" }
 export interface CanonicalStatusMapping { technical_status_effect:"RED"|"YELLOW"|"NONE"; technical_status:TechnicalStatus }
 export interface CompatibilitySource { path:string; git_blob_sha:string; content_sha256:string; [key:string]:string }
