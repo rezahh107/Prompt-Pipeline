@@ -1,41 +1,47 @@
 domain: pr_inspector_action
-version: "2026.3"
+version: '2026.3'
 static_checks:
-  - id: input_schema_strict
-    type: compiled_validator
-  - id: active_consumer_identity
-    type: compiled_validator
-  - id: reason_registry_identity
-    type: compiled_validator
-  - id: reason_action_compatibility
-    type: compiled_validator
-  - id: canonical_all_reason_status
-    type: compiled_validator
-  - id: exact_candidate_reason_derivation
-    type: compiled_validator
-  - id: current_exact_head
-    type: compiled_validator
-  - id: external_review_reconciliation
-    type: compiled_validator
-  - id: canonical_action_route
-    type: compiled_validator
-  - id: approval_status_route
-    type: compiled_validator
-  - id: cross_reference_integrity
-    type: compiled_validator
-  - id: context_profile_budget
-    type: compiled_validator
-  - id: required_fixed_sections
-    type: renderer_postcondition
-  - id: forbidden_authority
-    type: renderer_postcondition
-  - id: output_schema_strict
-    type: compiled_validator
-  - id: deterministic_hash
-    type: fixture_test
-  - id: package_allowlist
-    type: pack_content_test
-  - id: release_provenance
-    type: build_precondition
-  - id: workflow_supply_chain
-    type: static_workflow_policy_test
+- id: input_schema_strict
+  type: compiled_validator
+- id: active_consumer_identity
+  type: compiled_validator
+- id: reason_registry_identity
+  type: compiled_validator
+- id: reason_action_compatibility
+  type: compiled_validator
+- id: canonical_all_reason_status
+  type: compiled_validator
+- id: exact_candidate_reason_derivation
+  type: compiled_validator
+- id: stale_historical_non_authority
+  type: compiled_validator
+- id: technical_status_reason_subset
+  type: compiled_validator
+- id: projection_reason_carrier_separation
+  type: compiled_validator
+- id: current_exact_head
+  type: compiled_validator
+- id: external_review_reconciliation
+  type: compiled_validator
+- id: canonical_action_route
+  type: compiled_validator
+- id: approval_status_route
+  type: compiled_validator
+- id: cross_reference_integrity
+  type: compiled_validator
+- id: context_profile_budget
+  type: compiled_validator
+- id: required_fixed_sections
+  type: renderer_postcondition
+- id: forbidden_authority
+  type: renderer_postcondition
+- id: output_schema_strict
+  type: compiled_validator
+- id: deterministic_hash
+  type: fixture_test
+- id: package_allowlist
+  type: pack_content_test
+- id: release_provenance
+  type: build_precondition
+- id: workflow_supply_chain
+  type: static_workflow_policy_test

@@ -95,4 +95,17 @@ for(const [sourceKey,functionName,hashKey] of blockChecks){const actual=sha(func
 const constantsHash=sha(stable(constants));if(constantsHash!==snapshot.sources.constants.selected_constants_sha256)throw new Error(`status constants mismatch: ${constantsHash}`);
 if(snapshot.canonical_reasons.some((item)=>Object.hasOwn(item,"decision_domain")))throw new Error("canonical snapshot contains non-source decision_domain authority");
 if(sourceText.projection.includes("governanceCanonical"))throw new Error("manual canonical governance classification is forbidden");
-console.log(JSON.stringify({ok:true,source_content_sha256:Object.fromEntries(Object.entries(sourceBytes).map(([key,value])=>[key,sha(value)])),canonical_reason_count:parsed.canonical.length,candidate_reason_count:parsed.candidate.length,candidate_mapping_count:mapping.length,selected_fields_sha256:expectedSelectedHash}));
+const projectBlock=functionBlock(sourceText.projection,"project_decision");
+const chooseActionBlock=functionBlock(sourceText.projection_core,"_choose_action");
+for(const required of [
+  'reason_instances = _canonical_reason_instances(pkg, assessment)',
+  'all_codes = [item["reason_code"] for item in reason_instances]',
+  '_core._technical_status(all_codes)',
+  '_core._choose_action(pkg, technical_status, all_codes)',
+  '_candidate_technical_reasons(all_codes)',
+  '"technical_status_reason_codes": technical_codes',
+  '"reason_codes": action_codes',
+  '"reason_details": reason_instances',
+])if(!projectBlock.includes(required))throw new Error(`project_decision carrier separation drift: ${required}`);
+if(!chooseActionBlock.includes('return "rerun_review", ["RSN-REVIEW-NOT-CURRENT"]'))throw new Error("stale action reason separation drift");
+console.log(JSON.stringify({ok:true,separation_verified:true,source_content_sha256:Object.fromEntries(Object.entries(sourceBytes).map(([key,value])=>[key,sha(value)])),canonical_reason_count:parsed.canonical.length,candidate_reason_count:parsed.candidate.length,candidate_mapping_count:mapping.length,selected_fields_sha256:expectedSelectedHash}));

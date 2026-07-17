@@ -42,11 +42,21 @@ The snapshot records exact Git blob identities, raw SHA-256 values, normalized s
 
 Canonical reasons do not carry an invented `decision_domain`. Canonical technical status is validated from every registered canonical reason in registry order using `technical_status_effect`, with Red precedence over Yellow and Yellow over Green. Security-profile reasons therefore affect canonical status exactly as they do in active PR-Inspector.
 
-Every accepted canonical reason must be registered, have a matching detail record, carry the source-defined recovery action, and be compatible with the supplied action. `repair_and_verify` requires both a registered repair effect and a registered verification effect. Unknown, duplicate, orphan, wrong-action, wrong-recipient, wrong-authority, wrong-prompt-kind, and recovery-action drift fail closed.
+Every accepted canonical reason must be registered and represented in the complete `reason_details` carrier with its source-defined recovery action. Action compatibility is checked only against the routed `next_action_reason_codes` subset. `repair_and_verify` requires both a registered repair effect and a registered verification effect in that action subset. Unknown, duplicate, absent-from-complete, wrong-action, wrong-recipient, wrong-authority, wrong-prompt-kind, and recovery-action drift fail closed.
+
+## Projection reason-carrier separation
+
+The input preserves the three distinct active `DECISION_PROJECTION.json` reason domains:
+
+- `reason_details`: every complete canonical reason instance, including historical and security-profile reasons;
+- `technical_status_reason_codes`: exactly the dominant status-effect subset returned by `_technical_status(all_codes)`;
+- `next_action_reason_codes`: exactly the routed action subset returned by `_choose_action(pkg, technical_status, all_codes)`.
+
+Every status or action reason must exist in the complete carrier. Complete reasons may remain outside the selected action subset. For `STALE` or `UNKNOWN`, the action remains `rerun_review` with only `RSN-REVIEW-NOT-CURRENT`; historical High or Critical reasons remain visible in the complete and candidate representations but cannot authorize repair, a repair handoff, or code modification.
 
 ## Cross-representation derivation
 
-`technical_decision.status` must equal the active candidate status corresponding to canonical `technical_status`. `technical_decision.reason_codes` must exactly equal the ordered, first-occurrence-deduplicated projection of canonical `reason_codes` through the pinned `_CANDIDATE_REASON_BY_CANONICAL` mapping. An extra, missing, substituted, or reordered candidate reason is rejected even when it has the same final color.
+`technical_decision.status` must equal the active candidate status corresponding to canonical `technical_status`. `technical_decision.reason_codes` must exactly equal the ordered, first-occurrence-deduplicated projection of all complete canonical `reason_details` through the pinned `_CANDIDATE_REASON_BY_CANONICAL` mapping. An extra, missing, substituted, or reordered candidate reason is rejected even when it has the same final color.
 
 A non-Green canonical status may legitimately have an empty candidate reason list when its canonical cause has no active candidate mapping. In particular, a minimal-profile security reason can produce canonical Yellow and candidate Yellow with `reason_codes: []`. This is validated without converting security-profile reasons into governance-only data.
 
