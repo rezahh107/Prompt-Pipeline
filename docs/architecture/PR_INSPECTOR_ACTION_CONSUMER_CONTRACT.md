@@ -63,9 +63,27 @@ PR_INSPECTOR_V1_11_1_OFFICIAL_OUTPUT_REQUIRED
 
 It cannot return authoritative or non-authoritative prompt bytes.
 
-## Historical assets
+## Historical source isolation
 
-The `v1.11.0` route, schemas, reason snapshot, and consumer snapshot remain available only as historical diagnostics. Their route metadata marks them non-authoritative and disables active rendering. Package archives exclude prompt templates and rendering policy assets, preventing the historical archive from being used as a copied active renderer.
+The `v1.11.0` route, schemas, templates, rules, validators, evals, compatibility mappings, and fixtures may remain in the Git repository only as isolated local regression source. They are not an active domain and are never a portable consumer surface.
+
+The exact portable boundary is:
+
+```text
+exclude domains/pr_inspector_action/**
+```
+
+No tombstone exception is retained. Therefore the complete `domains/pr_inspector_action/` entry list in every generated portable KB ZIP is empty.
+
+The same reconstructive asset set is excluded from:
+
+- npm archives;
+- portable KB bundles produced by `pnpm peac:bundle`;
+- GitHub Actions `prompt-pipeline-kb-bundle` artifacts;
+- project-knowledge exports derived from that bundle;
+- generated active prompt artifacts.
+
+The active router contains no `pr_inspector_action` key. `scripts/peac-generate.ts` inspects case-file domain selection before generation and fails with `PR_INSPECTOR_V1_11_1_OFFICIAL_OUTPUT_REQUIRED` when the retired domain is requested. This is an explicit deny boundary, not an inference from missing route files or file extensions.
 
 ## Authority separation
 
@@ -80,6 +98,18 @@ This package never:
 - claims repository-settings enforcement;
 - publishes itself;
 - claims downstream integration.
+
+## Verification
+
+`pnpm peac:bundlecheck` opens the actual generated ZIP central directory and proves that:
+
+- the bundle exists and contains normal knowledge files;
+- no `domains/pr_inspector_action/` entry remains;
+- no historical template, route, rule, validator, eval, schema, compatibility mapping, or fixture is distributed;
+- the active router cannot select the retired domain;
+- a real CLI case-file selection attempt exits non-zero with the deterministic migration error.
+
+Existing npm package and workflow-policy tests continue to prove that the package root does not export `render()`, internal `render()` always rejects active rendering, the archive remains private and fail-closed, Actions use immutable full SHAs, checkouts disable credential persistence, workflow permissions are read-only, exact-head identity is asserted, and dependency installation uses the frozen lockfile.
 
 ## Supply-chain controls
 
@@ -101,4 +131,4 @@ A successful implementation remains:
 implemented_pending_rereview
 ```
 
-It does not close `PRF-010`, authorize merge, establish active integration, or replace a fresh independent PR-Inspector review of the exact resulting head.
+It does not close `PRF-011`, authorize merge, establish active integration, or replace a fresh independent PR-Inspector review of the exact resulting head.
