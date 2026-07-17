@@ -14,12 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lockfile-bootstrap:
-    name: Generate pnpm lockfile for immutable CI
+  consumer-compatibility:
+    name: PR-Inspector v1.11.0 compatibility source
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      INSPECTOR_SHA: f0f74bba89e4c85f4a4b10c706a2be2980d71c25
     steps:
       - name: Checkout exact tested commit
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -27,32 +28,47 @@ jobs:
           ref: ${{ env.TESTED_SHA }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Verify exact tested commit identity
         run: |
           actual_sha="$(git rev-parse HEAD)"
           test "$actual_sha" = "$TESTED_SHA"
-
+          printf 'tested_commit_sha=%s\n' "$actual_sha" | tee consumer-compatibility-identity.txt
+      - name: Checkout pinned PR-Inspector source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: rezahh107/PR-Inspector
+          ref: ${{ env.INSPECTOR_SHA }}
+          path: inspector-source
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify pinned inspector identity
+        run: |
+          actual_inspector_sha="$(git -C inspector-source rev-parse HEAD)"
+          test "$actual_inspector_sha" = "$INSPECTOR_SHA"
+          printf 'inspector_commit=%s\n' "$actual_inspector_sha" | tee -a consumer-compatibility-identity.txt
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22.x
-
       - name: Enable Corepack
         run: |
           corepack enable
           corepack prepare pnpm@10.13.1 --activate
-
-      - name: Generate lockfile
-        run: pnpm install --lockfile-only --no-frozen-lockfile
-
-      - name: Upload generated lockfile
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Verify pinned consumer source transformation
+        run: |
+          set -o pipefail
+          node packages/pr-inspector-prompt-renderer/scripts/verify-consumer-source.mjs inspector-source/protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml 2>&1 | tee consumer-compatibility.log
+      - name: Upload consumer compatibility evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: generated-pnpm-lockfile
-          path: pnpm-lock.yaml
+          name: consumer-compatibility-evidence
+          path: |
+            consumer-compatibility-identity.txt
+            consumer-compatibility.log
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 14
 
   peac-ci:
     name: PEaC canonical exact-head CI
@@ -67,43 +83,35 @@ jobs:
           ref: ${{ env.TESTED_SHA }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Verify exact tested commit identity
         run: |
           actual_sha="$(git rev-parse HEAD)"
           test "$actual_sha" = "$TESTED_SHA"
           printf 'tested_commit_sha=%s\n' "$actual_sha" | tee exact-head-ci-identity.txt
-
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22.x
-
       - name: Enable Corepack
         run: |
           corepack enable
           corepack prepare pnpm@10.13.1 --activate
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
       - name: Run required renderer validation commands
         run: |
           set -o pipefail
           pnpm typecheck 2>&1 | tee renderer-required-validation.log
           pnpm peac:pr-inspector-renderer 2>&1 | tee -a renderer-required-validation.log
           pnpm peac:pr-inspector-renderer-pack 2>&1 | tee -a renderer-required-validation.log
-
       - name: Run canonical CI script
         run: |
           set -o pipefail
           pnpm run ci 2>&1 | tee peac-ci.log
-
       - name: Verify bundle output
         run: |
           test -d dist
           test -n "$(find dist -maxdepth 1 -type f -name 'Prompt-Pipeline-KB-Bundle-v*.zip' -print -quit)"
-
       - name: Upload exact-head identity
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -112,7 +120,6 @@ jobs:
           path: exact-head-ci-identity.txt
           if-no-files-found: error
           retention-days: 14
-
       - name: Upload exact-head renderer evidence
         if: success()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -124,7 +131,6 @@ jobs:
             peac-ci.log
           if-no-files-found: error
           retention-days: 14
-
       - name: Upload PEaC knowledge bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -132,7 +138,6 @@ jobs:
           path: dist/Prompt-Pipeline-KB-Bundle-v*.zip
           if-no-files-found: error
           retention-days: 14
-
       - name: Upload CI logs on failure
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -163,32 +168,26 @@ jobs:
           ref: ${{ env.TESTED_SHA }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Verify exact tested commit identity
         run: |
           actual_sha="$(git rev-parse HEAD)"
           test "$actual_sha" = "$TESTED_SHA"
           printf 'tested_commit_sha=%s\nnode_version=%s\n' "$actual_sha" "${{ matrix.node-version }}" | tee exact-head-node-identity.txt
-
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ matrix.node-version }}
-
       - name: Enable Corepack
         run: |
           corepack enable
           corepack prepare pnpm@10.13.1 --activate
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
+      - name: Install authoritative dependency graph
+        run: pnpm install --frozen-lockfile
       - name: Run package validation
         run: |
           pnpm typecheck
           npm --prefix packages/pr-inspector-prompt-renderer test
           npm --prefix packages/pr-inspector-prompt-renderer run pack:check
-
       - name: Upload exact-head matrix identity
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
