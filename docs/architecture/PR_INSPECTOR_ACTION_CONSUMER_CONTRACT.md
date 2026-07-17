@@ -1,85 +1,103 @@
-# PR Inspector Action Renderer Consumer Contract
+# PR-Inspector Action Compatibility Boundary
 
 ## Identity
 
-- Active contract: `pr_inspector_action.v2`
-- Active output contract: `pr_inspector_action_output.v2`
-- Evaluation suite: `pr_inspector_action.v2`
-- Active consumer protocol: `PR-Inspector v1.11.0`
-- Pinned consumer identity: `rezahh107/PR-Inspector@f0f74bba89e4c85f4a4b10c706a2be2980d71c25`
 - Package: `@rezahh107/pr-inspector-prompt-renderer@0.2.0`
-- Publication state: `NOT_PUBLISHED`
-- Downstream state: `PR_INSPECTOR_NOT_YET_INTEGRATED`
+- Selected architecture: `historical_fail_closed_compatibility`
+- Historical protocol snapshot: `PR-Inspector v1.11.0`
+- Active consumer protocol: `PR-Inspector v1.11.1`
+- Active consumer identity: `rezahh107/PR-Inspector@80bc105d924d7c7dd566e76a9d8d919368655cfa`
+- Route identity: `pr_inspector_action.historical.v1`
+- Legacy input schema identity: `pr_inspector_action.v2.historical_snapshot`
+- Legacy output schema identity: `pr_inspector_action_output.v2.historical_snapshot`
+- Publication status: `NOT_PUBLISHED`
+- Downstream integration status: `NOT_INTEGRATED`
 
-The previous unpublished `pr_inspector_action.v1` / `v1.10.2` boundary is historical. The active package entry point rejects it as unsupported; it cannot masquerade as current compatibility.
+## Decision
 
-## Boundary
+The previous JavaScript renderer is not a supported active consumer for `v1.11.1`.
 
-The package is a deterministic renderer and consumer-side conformance validator. It consumes an already-authoritative PR-Inspector projection. It derives only the source-pinned expected status and cross-representation relations needed to validate that supplied projection; it does not select reasons or actions, approve, merge, publish, deploy, or verify repository settings.
+At the pinned Inspector commit, active owner-facing output requires a genuine in-process Python `VerifiedReviewCompletion` that is reverified by `official_owner_delivery`. The repository does not define a verifiable serialized capability or cross-repository official-byte transport that this JavaScript package can safely accept.
 
-## Active consumer compatibility
+Consequently, this package does not implement an `official-byte adapter`. It fails closed instead.
 
-The v2 input consumes the fields required to render or safely reject the operational action artifact:
+## Official active chain
 
-- exact review identity and canonical action tuple;
-- `inspection_profile`;
-- separated `technical_decision` and `governance_decision`;
-- `overall_recommendation` and `governance_follow_up`;
-- `external_review_reconciliation` summary and independently valid linked finding IDs.
+```text
+review-package.json
+→ official decision projection
+→ official derived outputs
+→ complete validation
+→ VerifiedReviewCompletion
+→ official_owner_delivery
+```
 
-The profile, separated decisions, recommendation, governance follow-up, and reconciliation are validated but not converted into new authority. Governance reasons cannot authorize technical repair. `OWNER_PROFILE_COMMANDS.fa.txt`, owner-delivery atomicity, repository-setting verification, merge authorization, publication, and downstream adapter behavior are outside this package boundary.
+Only the output returned by that chain is authoritative. Projection objects, plain dictionaries, JSON serialization, copied capability-shaped values, compatibility snapshots, templates, or independent JavaScript rendering are not official output sources.
 
-## Reason authority
+## Public API boundary
 
-`domains/pr_inspector_action/reason-compatibility.v1.11.0.json` is a deterministic compatibility snapshot derived from four pinned active-consumer sources at inspector commit `f0f74bba89e4c85f4a4b10c706a2be2980d71c25`:
+The package root exports only:
 
-- `protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml`;
-- `pr_inspector/decision_projection.py`;
-- `pr_inspector/decision_projection_core.py`;
-- `pr_inspector/constants.py`.
+- active Inspector identity;
+- lifecycle metadata;
+- historical compatibility metadata;
+- build provenance;
+- `rejectActiveRendering()`;
+- the deterministic migration error type and code.
 
-The snapshot records exact Git blob identities, raw SHA-256 values, normalized source-block hashes, all 29 canonical `RSN-*` entries, all 17 candidate-domain entries, the active status mappings, and the exact ordered `_CANDIDATE_REASON_BY_CANONICAL` relation. CI checks out the pinned inspector commit and reproduces the transformation. Runtime rendering remains offline.
+The package root does not export:
 
-Canonical reasons do not carry an invented `decision_domain`. Canonical technical status is validated from every registered canonical reason in registry order using `technical_status_effect`, with Red precedence over Yellow and Yellow over Green. Security-profile reasons therefore affect canonical status exactly as they do in active PR-Inspector.
+- `render()`;
+- `validateInput()` or `validateOutput()`;
+- active action routes;
+- renderer input/output types;
+- a contract/schema subpath;
+- a CLI executable bin.
 
-Every accepted canonical reason must be registered and represented in the complete `reason_details` carrier with its source-defined recovery action. Action compatibility is checked only against the routed `next_action_reason_codes` subset. `repair_and_verify` requires both a registered repair effect and a registered verification effect in that action subset. Unknown, duplicate, absent-from-complete, wrong-action, wrong-recipient, wrong-authority, wrong-prompt-kind, and recovery-action drift fail closed.
+The internal legacy `render()` symbol exists only as a regression target and always throws:
 
-## Projection reason-carrier separation
+```text
+PR_INSPECTOR_V1_11_1_OFFICIAL_OUTPUT_REQUIRED
+```
 
-The input preserves the three distinct active `DECISION_PROJECTION.json` reason domains:
+It cannot return authoritative or non-authoritative prompt bytes.
 
-- `reason_details`: every complete canonical reason instance, including historical and security-profile reasons;
-- `technical_status_reason_codes`: exactly the dominant status-effect subset returned by `_technical_status(all_codes)`;
-- `next_action_reason_codes`: exactly the routed action subset returned by `_choose_action(pkg, technical_status, all_codes)`.
+## Historical assets
 
-Every status or action reason must exist in the complete carrier. Complete reasons may remain outside the selected action subset. For `STALE` or `UNKNOWN`, the action remains `rerun_review` with only `RSN-REVIEW-NOT-CURRENT`; historical High or Critical reasons remain visible in the complete and candidate representations but cannot authorize repair, a repair handoff, or code modification.
+The `v1.11.0` route, schemas, reason snapshot, and consumer snapshot remain available only as historical diagnostics. Their route metadata marks them non-authoritative and disables active rendering. Package archives exclude prompt templates and rendering policy assets, preventing the historical archive from being used as a copied active renderer.
 
-## Cross-representation derivation
+## Authority separation
 
-`technical_decision.status` must equal the active candidate status corresponding to canonical `technical_status`. `technical_decision.reason_codes` must exactly equal the ordered, first-occurrence-deduplicated projection of all complete canonical `reason_details` through the pinned `_CANDIDATE_REASON_BY_CANONICAL` mapping. An extra, missing, substituted, or reordered candidate reason is rejected even when it has the same final color.
+This package never:
 
-A non-Green canonical status may legitimately have an empty candidate reason list when its canonical cause has no active candidate mapping. In particular, a minimal-profile security reason can produce canonical Yellow and candidate Yellow with `reason_codes: []`. This is validated without converting security-profile reasons into governance-only data.
+- selects technical status or action kinds;
+- grants modification authority;
+- satisfies human or specialist review;
+- mints or imitates `VerifiedReviewCompletion`;
+- reconstructs `official_owner_delivery`;
+- authorizes merge;
+- claims repository-settings enforcement;
+- publishes itself;
+- claims downstream integration.
 
-Candidate technical and governance domains remain separate. For `inspection_profile: minimal`, governance must be exactly `NOT_REQUESTED` with no reasons. Strict governance accepts only relations emitted by the pinned implementation; the renderer does not infer repository enforcement or merge authorization.
+## Supply-chain controls
 
-## Exact review identity
+CI remains exact-head and least-privilege:
 
-`review_validity: CURRENT` requires exact lowercase 40-character `reviewed_head_sha` and `base_sha`. Every current evidence record must carry the same reviewed head. No modifying output can be produced unless the review is CURRENT and both commit identities are exact. STALE and UNKNOWN review routes remain non-modifying.
-
-The output repeats the exact identity in a structured object, records its SHA-256, and verifies that rendered identity text matches the validated input exactly.
-
-## Determinism and trust
-
-Rendering has no LLM, runtime network, current-time, locale, or randomness dependency. Object keys use explicit Unicode/code-unit ordering, set-like arrays are sorted, line endings normalize to LF, and final bytes are hashed. Repository content, findings, evidence, paths, comments, logs, and external review text remain serialized data and cannot create fixed instructions.
-
-## Supply chain
-
-`pnpm-lock.yaml` is committed. Every validation job uses `pnpm install --frozen-lockfile`. Workflow actions are pinned to full commit SHAs, checkout credentials are disabled, permissions remain `contents: read`, and each job asserts `git rev-parse HEAD == TESTED_SHA` before validation.
-
-## Provenance and packaging
-
-Package provenance records source identity, clean/dirty state, contract and schema identities, templates, policy hashes, and both compatibility asset hashes. The actual npm archive is inspected against a strict allowlist and verifies executable CLI metadata. The package remains `UNLICENSED` and must not be published in this stage.
+- every Action is pinned to a full commit SHA;
+- every checkout uses `persist-credentials: false`;
+- workflow permissions remain `contents: read`;
+- every job asserts `git rev-parse HEAD == TESTED_SHA`;
+- every install uses `pnpm install --frozen-lockfile`;
+- the active Inspector source is pinned to `80bc105d924d7c7dd566e76a9d8d919368655cfa`;
+- CI verifies `CURRENT_VERSION`, `official_review.py`, `owner_delivery.py`, and `CANONICAL_OUTPUT_ENFORCEMENT.md` before package validation.
 
 ## Lifecycle
 
-A successful implementation remains `implemented_pending_rereview`. It does not close findings, satisfy independent review, authorize merge, or claim downstream integration.
+A successful implementation remains:
+
+```text
+implemented_pending_rereview
+```
+
+It does not close `PRF-010`, authorize merge, establish active integration, or replace a fresh independent PR-Inspector review of the exact resulting head.
