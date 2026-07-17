@@ -9,9 +9,11 @@ static_checks:
     type: compiled_validator
   - id: reason_action_compatibility
     type: compiled_validator
-  - id: current_exact_head
+  - id: canonical_all_reason_status
     type: compiled_validator
-  - id: candidate_decision_domains
+  - id: exact_candidate_reason_derivation
+    type: compiled_validator
+  - id: current_exact_head
     type: compiled_validator
   - id: external_review_reconciliation
     type: compiled_validator

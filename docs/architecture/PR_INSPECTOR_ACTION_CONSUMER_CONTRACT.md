@@ -15,7 +15,7 @@ The previous unpublished `pr_inspector_action.v1` / `v1.10.2` boundary is histor
 
 ## Boundary
 
-The package is a deterministic renderer and consumer-side conformance validator. It consumes an already-authoritative PR-Inspector projection and does not select reasons, recompute status, choose an action, approve, merge, publish, deploy, or verify repository settings.
+The package is a deterministic renderer and consumer-side conformance validator. It consumes an already-authoritative PR-Inspector projection. It derives only the source-pinned expected status and cross-representation relations needed to validate that supplied projection; it does not select reasons or actions, approve, merge, publish, deploy, or verify repository settings.
 
 ## Active consumer compatibility
 
@@ -31,11 +31,26 @@ The profile, separated decisions, recommendation, governance follow-up, and reco
 
 ## Reason authority
 
-`domains/pr_inspector_action/reason-compatibility.v1.11.0.json` is a deterministic compatibility snapshot of the authority-bearing fields from `protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml` at inspector commit `f0f74bba89e4c85f4a4b10c706a2be2980d71c25`.
+`domains/pr_inspector_action/reason-compatibility.v1.11.0.json` is a deterministic compatibility snapshot derived from four pinned active-consumer sources at inspector commit `f0f74bba89e4c85f4a4b10c706a2be2980d71c25`:
 
-The snapshot records the raw source SHA-256, Git blob identity, selected-field transformation hash, all 29 canonical `RSN-*` reasons, and all 17 candidate technical/governance reason-domain entries. CI checks out the pinned inspector commit and verifies the raw source and deterministic transformation. Runtime rendering is offline and validates only the packaged snapshot.
+- `protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml`;
+- `pr_inspector/decision_projection.py`;
+- `pr_inspector/decision_projection_core.py`;
+- `pr_inspector/constants.py`.
 
-Every accepted canonical reason must be registered, have a matching detail record, carry the correct decision domain and recovery action, and be compatible with the supplied action. `repair_and_verify` requires both a registered repair effect and a registered verification effect. Unknown, duplicate, orphan, wrong-domain, wrong-action, wrong-recipient, wrong-authority, wrong-prompt-kind, and recovery-action drift fail closed.
+The snapshot records exact Git blob identities, raw SHA-256 values, normalized source-block hashes, all 29 canonical `RSN-*` entries, all 17 candidate-domain entries, the active status mappings, and the exact ordered `_CANDIDATE_REASON_BY_CANONICAL` relation. CI checks out the pinned inspector commit and reproduces the transformation. Runtime rendering remains offline.
+
+Canonical reasons do not carry an invented `decision_domain`. Canonical technical status is validated from every registered canonical reason in registry order using `technical_status_effect`, with Red precedence over Yellow and Yellow over Green. Security-profile reasons therefore affect canonical status exactly as they do in active PR-Inspector.
+
+Every accepted canonical reason must be registered, have a matching detail record, carry the source-defined recovery action, and be compatible with the supplied action. `repair_and_verify` requires both a registered repair effect and a registered verification effect. Unknown, duplicate, orphan, wrong-action, wrong-recipient, wrong-authority, wrong-prompt-kind, and recovery-action drift fail closed.
+
+## Cross-representation derivation
+
+`technical_decision.status` must equal the active candidate status corresponding to canonical `technical_status`. `technical_decision.reason_codes` must exactly equal the ordered, first-occurrence-deduplicated projection of canonical `reason_codes` through the pinned `_CANDIDATE_REASON_BY_CANONICAL` mapping. An extra, missing, substituted, or reordered candidate reason is rejected even when it has the same final color.
+
+A non-Green canonical status may legitimately have an empty candidate reason list when its canonical cause has no active candidate mapping. In particular, a minimal-profile security reason can produce canonical Yellow and candidate Yellow with `reason_codes: []`. This is validated without converting security-profile reasons into governance-only data.
+
+Candidate technical and governance domains remain separate. For `inspection_profile: minimal`, governance must be exactly `NOT_REQUESTED` with no reasons. Strict governance accepts only relations emitted by the pinned implementation; the renderer does not infer repository enforcement or merge authorization.
 
 ## Exact review identity
 

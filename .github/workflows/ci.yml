@@ -56,10 +56,21 @@ jobs:
           corepack prepare pnpm@10.13.1 --activate
       - name: Install authoritative dependency graph
         run: pnpm install --frozen-lockfile
+      - name: Verify pinned consumer source identities
+        run: |
+          set -euo pipefail
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml")" = "ba50e4eb2bf2918ed3a46535c1e3490566cdc7c5"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/decision_projection.py")" = "0c7790d807a661a9dc73eaf0d8605b52b9041aa9"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/decision_projection_core.py")" = "f8de3cf9f650100277c30189dd01b960d33deefc"
+          test "$(git -C inspector-source rev-parse "$INSPECTOR_SHA:pr_inspector/constants.py")" = "35ae1e09e527652ec0fbb98721d4d9772148fb2b"
       - name: Verify pinned consumer source transformation
         run: |
           set -o pipefail
-          node packages/pr-inspector-prompt-renderer/scripts/verify-consumer-source.mjs inspector-source/protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml 2>&1 | tee consumer-compatibility.log
+          node packages/pr-inspector-prompt-renderer/scripts/verify-consumer-source.mjs \
+            inspector-source/protocols/v1.11.0/registries/DECISION_REASON_REGISTRY.yaml \
+            inspector-source/pr_inspector/decision_projection.py \
+            inspector-source/pr_inspector/decision_projection_core.py \
+            inspector-source/pr_inspector/constants.py 2>&1 | tee consumer-compatibility.log
       - name: Upload consumer compatibility evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

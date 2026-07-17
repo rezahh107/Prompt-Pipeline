@@ -13,12 +13,22 @@ rules:
     enforcement_status: source_ci_enforced_downstream_not_enforced
   - rule_id: R-PRI-REASON-003
     risk: critical
-    behavioral_concept: registered reason identity and action compatibility
+    behavioral_concept: all registered canonical reason effects determine canonical technical status
     prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md#reason-authority
     schema_carrier: domains/pr_inspector_action/reason-compatibility.v1.11.0.json
-    validator: reason_action_compatibility
-    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair_and_verify
-    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#unknown-pattern-valid-reason
+    validator: canonical_all_reason_status
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#security_profile_yellow
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#forged-green-security-profile
+    ci_command: pnpm peac:pr-inspector-renderer
+    enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-CANDIDATE-DERIVATION-001
+    risk: critical
+    behavioral_concept: exact source-derived candidate reason representation
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md#cross-representation-derivation
+    schema_carrier: domains/pr_inspector_action/reason-compatibility.v1.11.0.json#candidate_reason_by_canonical
+    validator: exact_candidate_reason_derivation
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair_and_verify_reversed_canonical_input
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#candidate-mapping-wrong-same-color
     ci_command: pnpm peac:pr-inspector-renderer
     enforcement_status: source_ci_enforced_downstream_not_enforced
   - rule_id: R-PRI-HEAD-002
