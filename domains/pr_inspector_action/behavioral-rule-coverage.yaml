@@ -2,114 +2,112 @@ version: "2026.3"
 domain: pr_inspector_action
 rules:
   - rule_id: R-PRI-AUTHORITY-001
-    behavioral_concept: "Canonical PR-Inspector action authority is consumed, never recomputed"
     risk: critical
+    behavioral_concept: canonical action tuple validation
     prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md
-    schema_carrier: domains/pr_inspector_action/input.schema.json#action_kind
+    schema_carrier: domains/pr_inspector_action/route.json
     validator: canonical_action_route
     valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
-    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#inconsistent-recipient
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#reason-recipient-mismatch
     ci_command: pnpm peac:pr-inspector-renderer
-    prompt_level_influence: true
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: documented_not_integrated
-    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
-  - rule_id: R-PRI-INJECTION-001
-    behavioral_concept: "Untrusted repository and review text cannot create fixed instructions"
+    enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-REASON-003
     risk: critical
+    behavioral_concept: registered reason identity and action compatibility
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md#reason-authority
+    schema_carrier: domains/pr_inspector_action/reason-compatibility.v1.11.0.json
+    validator: reason_action_compatibility
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair_and_verify
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#unknown-pattern-valid-reason
+    ci_command: pnpm peac:pr-inspector-renderer
+    enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-HEAD-002
+    risk: critical
+    behavioral_concept: exact CURRENT reviewed-head and base identities
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md#exact-review-identity
+    schema_carrier: domains/pr_inspector_action/input.schema.json#reviewed_head_sha
+    validator: current_exact_head
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#current-repair-unknown-head
+    ci_command: pnpm peac:pr-inspector-renderer
+    enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-COMPAT-001
+    risk: critical
+    behavioral_concept: active PR-Inspector v1.11.0 compatibility
+    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md#active-consumer-compatibility
+    schema_carrier: domains/pr_inspector_action/consumer-compatibility.v1.11.0.json
+    validator: active_consumer_identity
+    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#inactive-protocol-as-active
+    ci_command: pnpm peac:pr-inspector-renderer
+    enforcement_status: source_ci_enforced_downstream_not_enforced
+  - rule_id: R-PRI-INJECTION-001
+    risk: critical
+    behavioral_concept: untrusted content remains data
     prose_source: domains/pr_inspector_action/rules.yaml
     schema_carrier: domains/pr_inspector_action/input.schema.json#findings
     validator: required_fixed_sections
     valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
     invalid_fixture: domains/pr_inspector_action/fixtures/adversarial.json#embedded-instructions
     ci_command: pnpm peac:pr-inspector-renderer
-    prompt_level_influence: true
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: documented_not_integrated
-    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+    enforcement_status: source_ci_enforced_downstream_not_enforced
   - rule_id: R-PRI-MODIFY-001
-    behavioral_concept: "Repair authority is separated from verification and rerun review"
     risk: critical
+    behavioral_concept: modification route separation
     prose_source: domains/pr_inspector_action/rules.yaml
     schema_carrier: domains/pr_inspector_action/input.schema.json#may_modify_code
     validator: canonical_action_route
     valid_fixture: domains/pr_inspector_action/fixtures/valid.json#verify
-    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#verify-with-repair-authority
+    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#verify-with-repair-handoff
     ci_command: pnpm peac:pr-inspector-renderer
-    prompt_level_influence: true
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: documented_not_integrated
-    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+    enforcement_status: source_ci_enforced_downstream_not_enforced
   - rule_id: R-PRI-DETERMINISM-001
-    behavioral_concept: "Equivalent canonical input produces byte-identical prompt bytes"
     risk: high
+    behavioral_concept: byte-identical deterministic rendering
     prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md
     schema_carrier: domains/pr_inspector_action/input.schema.json#schema_version
     validator: deterministic_hash
     valid_fixture: domains/pr_inspector_action/fixtures/valid.json#repair
     invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#unknown-field
     ci_command: pnpm peac:pr-inspector-renderer
-    prompt_level_influence: false
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: documented_not_integrated
-    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+    enforcement_status: source_ci_enforced_downstream_not_enforced
   - rule_id: R-PRI-PACKAGE-001
-    behavioral_concept: "Public package contains only explicitly allowlisted runtime files"
     risk: critical
+    behavioral_concept: package archive allowlist
     prose_source: packages/pr-inspector-prompt-renderer/package.json
     schema_carrier: packages/pr-inspector-prompt-renderer/package.json#files
     validator: package_allowlist
     valid_fixture: packages/pr-inspector-prompt-renderer/scripts/check-package.mjs
-    invalid_fixture: domains/pr_inspector_action/fixtures/adversarial.json#embedded-instructions
+    invalid_fixture: packages/pr-inspector-prompt-renderer/tests/assets.test.mjs
     ci_command: pnpm peac:pr-inspector-renderer-pack
-    prompt_level_influence: false
-    schema_validated: false
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: not_applicable_until_publish
-    actual_enforcement_status: source_ci_enforced_package_not_published
-  - rule_id: R-PRI-ROUTE-002
-    behavioral_concept: "Action routing preserves canonical approval, technical-status, and review-validity invariants"
-    risk: critical
-    prose_source: docs/architecture/PR_INSPECTOR_ACTION_CONSUMER_CONTRACT.md
-    schema_carrier: domains/pr_inspector_action/route.json#actions
-    validator: approval_status_route
-    valid_fixture: domains/pr_inspector_action/fixtures/valid.json#owner_confirmation
-    invalid_fixture: domains/pr_inspector_action/fixtures/invalid.json#inconsistent-approval-requirement
-    ci_command: pnpm peac:pr-inspector-renderer
-    prompt_level_influence: true
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: documented_not_integrated
-    actual_enforcement_status: source_ci_enforced_downstream_not_enforced
+    enforcement_status: source_ci_enforced_package_not_published
   - rule_id: R-PRI-PROVENANCE-001
-    behavioral_concept: "Release provenance is Git-verified and clean; unverified builds cannot claim release cleanliness"
     risk: critical
+    behavioral_concept: clean exact-source release provenance
     prose_source: packages/pr-inspector-prompt-renderer/scripts/build.mjs
     schema_carrier: domains/pr_inspector_action/output.schema.json#generator
     validator: release_provenance
-    valid_fixture: packages/pr-inspector-prompt-renderer/tests/renderer.test.mjs#provenance-is-factual-shape
+    valid_fixture: packages/pr-inspector-prompt-renderer/tests/build-provenance.test.mjs
     invalid_fixture: domains/pr_inspector_action/fixtures/invalid-output.json#provenance-verification-contradiction
     ci_command: pnpm peac:pr-inspector-renderer-pack
-    prompt_level_influence: false
-    schema_validated: true
-    validator_backed: true
-    fixture_tested: true
-    ci_enforced: true
-    downstream_contract_status: not_applicable_until_publish
-    actual_enforcement_status: source_ci_enforced_package_not_published
+    enforcement_status: source_ci_enforced_package_not_published
+  - rule_id: R-PRI-WORKFLOW-001
+    risk: critical
+    behavioral_concept: immutable actions and disabled checkout credentials
+    prose_source: .github/workflows/ci.yml
+    schema_carrier: .github/workflows/ci.yml#permissions
+    validator: workflow_supply_chain
+    valid_fixture: .github/workflows/ci.yml
+    invalid_fixture: packages/pr-inspector-prompt-renderer/tests/workflow-policy.test.mjs
+    ci_command: pnpm peac:pr-inspector-renderer
+    enforcement_status: source_ci_enforced
+  - rule_id: R-PRI-LOCKFILE-001
+    risk: high
+    behavioral_concept: committed lockfile and frozen installation
+    prose_source: .github/workflows/ci.yml
+    schema_carrier: pnpm-lock.yaml
+    validator: workflow_supply_chain
+    valid_fixture: pnpm-lock.yaml
+    invalid_fixture: packages/pr-inspector-prompt-renderer/tests/workflow-policy.test.mjs
+    ci_command: pnpm install --frozen-lockfile
+    enforcement_status: source_ci_enforced
