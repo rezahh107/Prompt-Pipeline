@@ -30,23 +30,23 @@ export function validateInput(raw:unknown):RendererInput{
  if(!isObj(raw))return validateLegacyInput(raw);
  const errors:string[]=[];
  const details=Array.isArray(raw.reason_details)?raw.reason_details:[];
- const complete=details.map((x)=>isObj(x)&&typeof x.reason_code==="string"?x.reason_code:"").filter(Boolean);
- for(const code of duplicates(complete))errors.push(`$.reason_details: duplicate reason detail ${code}`);
- const completeOrdered=ordered(complete);if(!same(complete,completeOrdered))errors.push(`$.reason_details: must preserve active registry order ${JSON.stringify(completeOrdered)}`);
+ const completeRaw=details.map((x)=>isObj(x)&&typeof x.reason_code==="string"?x.reason_code:"").filter(Boolean);
+ for(const code of duplicates(completeRaw))errors.push(`$.reason_details: duplicate reason detail ${code}`);
+ const complete=ordered(completeRaw);
  const completeSet=new Set(complete);
  const legacy=Array.isArray(raw.reason_codes)?strings(raw.reason_codes):null;
  const explicitStatus=Array.isArray(raw.technical_status_reason_codes)?strings(raw.technical_status_reason_codes):null;
  const explicitAction=Array.isArray(raw.next_action_reason_codes)?strings(raw.next_action_reason_codes):null;
  if((explicitStatus===null)!==(explicitAction===null))errors.push("$.technical_status_reason_codes: explicit status and action carriers must be supplied together");
  const reasons:CanonicalReason[]=[];for(const code of complete){const reason=byCode.get(code);if(!reason)errors.push(`$.reason_details: unregistered reason ${code}`);else reasons.push(reason);}
- const expectedStatusCodes=statusCodes(reasons),statusCarrier=explicitStatus??expectedStatusCodes,actionCarrier=explicitAction??legacy??[];
- for(const [codes,path] of [[statusCarrier,"$.technical_status_reason_codes"],[actionCarrier,"$.next_action_reason_codes"]] as const){for(const code of duplicates(codes))errors.push(`${path}: duplicate reason ${code}`);for(const code of codes)if(!completeSet.has(code))errors.push(`${path}: ${code} is absent from complete reason_details`);const canonical=ordered(codes);if(!same(codes,canonical))errors.push(`${path}: must preserve active registry order ${JSON.stringify(canonical)}`);}
+ const expectedStatusCodes=statusCodes(reasons),statusCarrier=ordered(explicitStatus??expectedStatusCodes),actionCarrier=ordered(explicitAction??legacy??[]);
+ for(const [codes,path] of [[statusCarrier,"$.technical_status_reason_codes"],[actionCarrier,"$.next_action_reason_codes"]] as const){for(const code of duplicates(codes))errors.push(`${path}: duplicate reason ${code}`);for(const code of codes)if(!completeSet.has(code))errors.push(`${path}: ${code} is absent from complete reason_details`);}
  if(!same(statusCarrier,expectedStatusCodes))errors.push(`$.technical_status_reason_codes: must exactly equal active _technical_status reason projection ${JSON.stringify(expectedStatusCodes)}`);
- if(legacy&&explicitAction&&!same(legacy,explicitAction))errors.push("$.reason_codes: legacy action alias must equal next_action_reason_codes");
+ if(legacy&&explicitAction&&!same(ordered(legacy),actionCarrier))errors.push("$.reason_codes: legacy action alias must equal next_action_reason_codes");
  const computed=status(reasons);if(raw.action_kind!=="blocked_internal_error"&&raw.technical_status!==computed)errors.push(`$.technical_status: complete canonical reasons require ${computed}`);
  const technical=isObj(raw.technical_decision)?raw.technical_decision:null;if(technical&&raw.action_kind!=="blocked_internal_error"){const expectedCandidate=candidateCodes(complete);if(technical.status!==candidateStatus.get(computed))errors.push(`$.technical_decision/status: must be ${String(candidateStatus.get(computed))}`);if(!same(strings(technical.reason_codes),expectedCandidate))errors.push(`$.technical_decision/reason_codes: must exactly equal all-canonical active projection ${JSON.stringify(expectedCandidate)}`);}
  const route=ACTION_ROUTES[raw.action_kind as ActionKind];if(route){const actionReasons=actionCarrier.map((x)=>byCode.get(x)).filter((x):x is CanonicalReason=>Boolean(x));for(const reason of actionReasons)if(!route.allowed_reason_effects.includes(reason.action_effect))errors.push(`$.next_action_reason_codes: ${reason.reason_code} action effect ${reason.action_effect} is incompatible with ${String(raw.action_kind)}`);}
- if(raw.review_validity!=="CURRENT"){if(raw.action_kind!=="rerun_review")errors.push("$.action_kind: STALE or UNKNOWN review must route only to rerun_review");if(raw.may_modify_code!==false)errors.push("$.may_modify_code: historical review cannot modify code");if(raw.repair_handoff!==null)errors.push("$.repair_handoff: historical review cannot carry repair authority");if(!same(actionCarrier,["RSN-REVIEW-NOT-CURRENT"]))errors.push("$.next_action_reason_codes: historical review action must contain only RSN-REVIEW-NOT-CURRENT");}
+ if(raw.review_validity!=="CURRENT"){if(raw.may_modify_code!==false)errors.push("$.may_modify_code: historical review cannot modify code");if(raw.repair_handoff!==null)errors.push("$.repair_handoff: historical review cannot carry repair authority");if(raw.action_kind!=="blocked_internal_error"){if(raw.action_kind!=="rerun_review")errors.push("$.action_kind: STALE or UNKNOWN review must route only to rerun_review");if(!same(actionCarrier,["RSN-REVIEW-NOT-CURRENT"]))errors.push("$.next_action_reason_codes: historical review action must contain only RSN-REVIEW-NOT-CURRENT");}}
  for(const e of validateSchema(schema,schemaView(raw,statusCarrier,actionCarrier)))errors.push(`${e.path}: ${e.message}`);
  if(errors.length)throw invalid("projection reason-carrier validation failed",errors);
  validateLegacyInput(legacyView(raw,actionCarrier));
