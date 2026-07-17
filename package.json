@@ -29,11 +29,12 @@
     "peac:routertest": "tsx scripts/peac-router-self-test.ts",
     "peac:domaintest": "tsx scripts/peac-domain-self-test.ts",
     "peac:bundle": "tsx scripts/peac-build-bundle.ts",
+    "peac:bundlecheck": "tsx scripts/peac-portable-bundle-self-test.ts",
     "peac:pr-inspector-renderer": "npm --prefix packages/pr-inspector-prompt-renderer test",
     "peac:pr-inspector-renderer-pack": "npm --prefix packages/pr-inspector-prompt-renderer run pack:check",
     "peac:smoke": "pnpm peac:generate -- --case domains/image/cases/academic-portrait.yaml --mode batch",
     "typecheck": "tsc --noEmit",
-    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:behavioral-coverage && pnpm peac:production-gate && pnpm peac:human-review-gate && pnpm peac:model-profile && pnpm peac:context-policy && pnpm peac:context-case && pnpm peac:artifact-metadata && pnpm peac:provenance && pnpm peac:synctest && pnpm peac:sync -- --check && pnpm peac:pr-inspector-renderer && pnpm peac:pr-inspector-renderer-pack && pnpm peac:bundle && pnpm peac:smoke"
+    "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:behavioral-coverage && pnpm peac:production-gate && pnpm peac:human-review-gate && pnpm peac:model-profile && pnpm peac:context-policy && pnpm peac:context-case && pnpm peac:artifact-metadata && pnpm peac:provenance && pnpm peac:synctest && pnpm peac:sync -- --check && pnpm peac:pr-inspector-renderer && pnpm peac:pr-inspector-renderer-pack && pnpm peac:bundle && pnpm peac:bundlecheck && pnpm peac:smoke"
   },
   "dependencies": {
     "ajv": "^8.17.1",
