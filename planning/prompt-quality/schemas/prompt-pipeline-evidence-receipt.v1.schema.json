@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prompt-pipeline-evidence-receipt.v1",
+  "title": "Prompt Pipeline External Evidence Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_hash",
+    "repository",
+    "program_id",
+    "task_id",
+    "event_type",
+    "pull_request",
+    "base_sha",
+    "subject_sha",
+    "scope_revision",
+    "evidence_digest",
+    "source"
+  ],
+  "properties": {
+    "schema_version": {"const": "prompt-pipeline-evidence-receipt.v1"},
+    "receipt_id": {"type": "string", "pattern": "^PROMPT-QUALITY-RECEIPT-[A-Z0-9._-]+$"},
+    "receipt_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "repository": {"const": "rezahh107/Prompt-Pipeline"},
+    "program_id": {"const": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM"},
+    "task_id": {"type": "string", "pattern": "^(PROMPT-QUALITY-PROGRAM-ACTIVATION|PPQR-[0-9]{3})$"},
+    "event_type": {"enum": ["exact_head_validated", "owner_merge", "exact_main_verified"]},
+    "pull_request": {"type": "integer", "minimum": 1},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "subject_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "scope_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "evidence_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "run_id", "job_id", "artifact_id"],
+          "properties": {
+            "kind": {"const": "github_actions_artifact"},
+            "run_id": {"type": "integer", "minimum": 1},
+            "job_id": {"type": "integer", "minimum": 1},
+            "artifact_id": {"type": "integer", "minimum": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {"const": "github_pull_request_merge"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "branch"],
+          "properties": {
+            "kind": {"const": "github_default_branch_head"},
+            "branch": {"const": "main"}
+          }
+        }
+      ]
+    }
+  }
+}
