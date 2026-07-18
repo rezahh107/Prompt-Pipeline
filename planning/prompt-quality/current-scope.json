@@ -1,5 +1,1 @@
-{
-  "schema_version": "prompt-quality-current-scope.v1",
-  "scope_path": "planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json",
-  "scope_revision": "sha256:e32f465fb177f6058b7f397ec9016fcaf199f5d3596c8e3e8733230e4c33d0b7"
-}
+{"schema_version":"prompt-quality-current-scope.v1","scope_path":"planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json","scope_revision":"sha256:15be354d03b6cc10e562d5b993259b234b62f37b791b2ea5cae9555650646b0b"}
