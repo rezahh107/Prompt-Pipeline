@@ -43,6 +43,14 @@ This file is the **single mutable current-status authority** for the Prompt Qual
 
 The governance activation is implemented on a feature branch and remains `candidate_pending_merge`. It carries no quality credit, migration promotion, production-authority change, release-readiness claim, production-readiness claim, or legacy-retirement effect.
 
+## Registered architecture amendment
+
+`Repository Implementation Assurance Lite` is now registered as bounded future work inside the existing `PPQR-001` through `PPQR-015` sequence. It is an adaptive cross-cutting profile, not a new domain, not a sixteenth task, and not a target-repository enforcement platform.
+
+The future pilot is limited to one linked `assurance-lite.yaml` artifact beside the implementation prompt, structural validation inside Prompt-Pipeline, required implementer reporting, and downstream independent review by `PR-Inspector`. It remains non-authoritative and non-blocking until `PPQR-010` demonstrates measurable defect reduction after accounting for token, execution, review, and cycle-time overhead.
+
+This registration implements no Assurance Lite schema, renderer, validator, fixture, routing behavior, model execution, target-repository gate, or substantive `PPQR` deliverable.
+
 ## Exact next executable task
 
 `PPQR-001 — Program Ledger and Legacy Quality Baseline`
