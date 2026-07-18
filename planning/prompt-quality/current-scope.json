@@ -1,0 +1,5 @@
+{
+  "schema_version": "prompt-quality-current-scope.v1",
+  "scope_path": "planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json",
+  "scope_revision": "sha256:d85e0e87334b335d9f0ff87ca0eb1e26029632c27841a169959eacaf66e3e11f"
+}
