@@ -38,7 +38,8 @@
     "validate:prompt-quality-progress": "node scripts/peac-prompt-quality-governance.mjs --progress",
     "validate:prompt-quality-lifecycle": "node scripts/peac-prompt-quality-governance.mjs --lifecycle",
     "test:prompt-quality-governance": "node scripts/peac-prompt-quality-governance.mjs --fixtures",
-    "validate:prompt-quality-governance": "node scripts/peac-prompt-quality-governance.mjs --all",
+    "test:prompt-quality-production": "node scripts/peac-prompt-quality-governance-production-self-test.mjs",
+    "validate:prompt-quality-governance": "node scripts/peac-prompt-quality-governance.mjs --all && pnpm test:prompt-quality-production",
     "typecheck": "tsc --noEmit",
     "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:behavioral-coverage && pnpm peac:production-gate && pnpm peac:human-review-gate && pnpm peac:model-profile && pnpm peac:context-policy && pnpm peac:context-case && pnpm peac:artifact-metadata && pnpm peac:provenance && pnpm peac:synctest && pnpm peac:sync -- --check && pnpm validate:prompt-quality-governance && pnpm peac:pr-inspector-renderer && pnpm peac:pr-inspector-renderer-pack && pnpm peac:bundle && pnpm peac:bundlecheck && pnpm peac:smoke"
   },
