@@ -51,9 +51,35 @@ Exactly one path may be production-authoritative. `Migration Promotion Gate` is 
 ### K. Complexity budgets
 No universal Prompt IR is authorized. Generic semantic containers, arbitrary metadata blobs, unbounded nesting, prompt graphs, role hierarchies, and reasoning-plan trees are prohibited.
 
+### L. Repository Implementation Assurance Lite
+`Repository Implementation Assurance Lite` is a cross-cutting adaptive profile, not a new domain and not a target-repository enforcement platform. It is selected only for repository-modification consumer paths when risk tier or task complexity justifies the overhead. Simple repository requests retain the lightweight default path.
+
+The future bundle shape is intentionally bounded:
+
+```text
+implementation-prompt.md
++
+assurance-lite.yaml
+```
+
+The single linked `assurance-lite.yaml` artifact contains:
+
+- atomic requirements and completion conditions;
+- risks and failure scenarios;
+- acceptance and evidence mappings;
+- an implementation-report contract requiring requirement status, changed files, tests, evidence, and residual risks.
+
+Prompt-Pipeline validation is structural only. It checks schema validity, unique identifiers, complete cross-references, requirement-to-acceptance mappings, High/Critical risk-to-mitigation-and-verification mappings, and forbidden lifecycle claims. It does not resolve target-repository files, execute target commands, prove semantic correctness, or claim implementation completion.
+
+The implementation prompt must explicitly consume the linked artifact and must not treat artifact receipt as implementation proof. Downstream independent review remains the responsibility of `PR-Inspector`. A target-repository validator is not required for the initial pilot.
+
+Assurance Lite begins non-authoritative and non-blocking. Promotion requires held-out evidence showing fewer first-review Critical/High findings or fewer repair/rereview cycles after accounting for token, execution, review, and cycle-time overhead. No benefit, material cross-domain leakage, or disproportionate complexity blocks promotion.
+
 ## Registered task sequence
 
 The exact titles, purposes, dependencies, and state dimensions for `PPQR-001` through `PPQR-015` are normative in the machine-readable program. Eligibility is validator-derived. Immediately after activation, only `PPQR-001` is eligible; all other tasks are dependency-blocked.
+
+`Repository Implementation Assurance Lite` is implemented incrementally through the existing task sequence rather than through a sixteenth task: baseline measurement in `PPQR-001`, adaptive routing in `PPQR-002`, contract and rule semantics in `PPQR-003` and `PPQR-004`, linked rendering in `PPQR-005`, pilot coverage in `PPQR-006`, bounded structural validation in `PPQR-007`, risk-tier activation in `PPQR-009`, Quality Delta decision in `PPQR-010`, cross-domain containment in `PPQR-012`, and fallback protection in `PPQR-015`.
 
 ## Evidence and lifecycle
 
