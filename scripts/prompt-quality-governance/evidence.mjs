@@ -1,4 +1,3 @@
-import {readFileSync} from 'node:fs';
 import {ES,REPO,PID,cp,hash,d,schema} from './core.mjs';
 
 const VERIFIED_INDEX=Symbol('verified-evidence-index');
@@ -6,16 +5,9 @@ const rawDigest=x=>hash(x).slice('sha256:'.length);
 export function receiptHash(r){const x=cp(r);delete x.receipt_hash;return hash(x)}
 
 async function apiGet(apiPath){
-  const fixture=process.env.PQG_EVIDENCE_API_FIXTURE;
-  if(fixture&&process.env.PQG_PRODUCTION_SELF_TEST==='1'){
-    const map=JSON.parse(readFileSync(fixture,'utf8'));
-    if(!(apiPath in map))throw new Error(`fixture response missing: ${apiPath}`);
-    return cp(map[apiPath]);
-  }
-  const base=(process.env.PQG_GITHUB_API_URL||'https://api.github.com').replace(/\/$/,'');
   const headers={'accept':'application/vnd.github+json','user-agent':'Prompt-Pipeline-governance-validator'};
   if(process.env.GH_TOKEN)headers.authorization=`Bearer ${process.env.GH_TOKEN}`;
-  const response=await fetch(`${base}${apiPath}`,{headers});
+  const response=await fetch(`https://api.github.com${apiPath}`,{headers});
   if(!response.ok)throw new Error(`GitHub API ${response.status} for ${apiPath}`);
   return response.json();
 }
