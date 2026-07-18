@@ -31,7 +31,7 @@ else if(c==='exact_main_before_owner_merge'){const x=completeLedger(l,s);x.l.eve
 else if(c==='stale_exact_main'){const x=completeLedger(l,s);z.push(...await validateLifecycle(x.l,s,{head:x.h[0],main:'d'.repeat(40),headDigests:new Set([x.g[0]]),mergeDigests:new Set([x.g[1]]),mainDigests:new Set([x.g[2]])}))}
 else if(c==='event_replay'){l.events[1].event_id=l.events[0].event_id;l.events[2].predecessor_event_id=l.events[1].event_id;reLedger(l);z.push(...await validateLifecycle(l,s))}
 else if(c==='evidence_replay'){l.events[1].evidence[0].sha256=l.events[0].evidence[0].sha256;reLedger(l);z.push(...await validateLifecycle(l,s))}
-else if(c==='non_monotonic_time'){l.events[1].occurred_at='2026-07-18T00:00:00Z';reLedger(l);z.push(...await validateLifecycle(l,s))}
+else if(c==='non_monotonic_time'){l.events[1].occurred_at='2026-07-18T00:00:00Z';reLedger(l);z.push(...await validateLifecycle(l,s));const invalid=cp(a.l);invalid.events[1].occurred_at='not-a-date';reLedger(invalid);z.push(...await validateLifecycle(invalid,s))}
 else if(c==='stale_lifecycle_scope'){l.scope_revision='sha256:'+'2'.repeat(64);for(const e of l.events)e.scope_revision=l.scope_revision;reLedger(l);z.push(...await validateLifecycle(l,s))}
 else if(c==='feature_branch_completion'){l.completion_claim=true;reLedger(l);z.push(...await validateLifecycle(l,s))}
 return uniq(z.map(x=>x.code))}
