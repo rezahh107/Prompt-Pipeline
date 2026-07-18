@@ -13,12 +13,12 @@ async function main(){
   const reg=json(D);setCodes((reg.entries||[]).map(x=>x.code));
   const p=json(P),selector=json(C),s=json(selector.scope_path),g=gitContext(s),state=discoverRepositoryState(g),z=[...g.errors,...discoveryDiagnostics(state)];
   if(selector.scope_revision!==s.scope_revision)z.push(d('PQG_CURRENT_SCOPE_INVALID','selector',C));
-  const evidence=await buildVerifiedEvidenceIndex(state.receipts);z.push(...evidence.diagnostics);
+  const evidence=await buildVerifiedEvidenceIndex(state.receipts,{currentHead:g.head,ledgers:state.ledgers});z.push(...evidence.diagnostics);
   const implementationTaskIds=new Set(),completionTaskIds=new Set(),lifecycleDiagnostics=[];
   for(const item of state.ledgers){
     const scopeItem=matchingScope(state,item.value.task_id,item.value.scope_revision);
     if(!scopeItem)continue;
-    const found=await validateLifecycle(item.value,scopeItem.value,{source:item.file,evidenceIndex:evidence.index});
+    const found=await validateLifecycle(item.value,scopeItem.value,{source:item.file,head:g.head,evidenceIndex:evidence.index});
     lifecycleDiagnostics.push(...found);
     const derived=lifecycleState(item.value,found);
     if(/^PPQR-[0-9]{3}$/.test(item.value.task_id)&&derived.implemented)implementationTaskIds.add(item.value.task_id);
