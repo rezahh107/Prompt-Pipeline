@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prompt-pipeline-task-scope.v1",
+  "title": "Prompt Pipeline Task Scope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope_id",
+    "program_id",
+    "task_id",
+    "repository",
+    "base_branch",
+    "base_sha",
+    "head_binding",
+    "change_class",
+    "risk_tier",
+    "scope_mode",
+    "initial_scope_revision",
+    "scope_revision",
+    "committed_paths",
+    "allowed_generated_paths",
+    "excluded_work",
+    "deferred_not_deleted",
+    "depends_on",
+    "required_outputs",
+    "completion_evidence",
+    "authorized_operations",
+    "forbidden_changes",
+    "amendments"
+  ],
+  "properties": {
+    "schema_version": {"const": "prompt-pipeline-task-scope.v1"},
+    "scope_id": {"type": "string", "pattern": "^prompt-quality-scope\\.[a-z0-9._-]+$"},
+    "program_id": {"const": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM"},
+    "task_id": {"type": "string", "minLength": 1},
+    "repository": {"const": "rezahh107/Prompt-Pipeline"},
+    "base_branch": {"const": "main"},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "head_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "head_sha"],
+      "properties": {
+        "mode": {"enum": ["ci_runtime_exact_head", "exact_commit"]},
+        "head_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "change_class": {"enum": ["program_activation", "governance_foundation", "architecture_foundation", "quality_content", "migration_promotion", "blocking_defect", "maintenance"]},
+    "risk_tier": {"enum": ["low", "medium", "high", "critical"]},
+    "scope_mode": {"enum": ["exact_files", "allowed_prefixes"]},
+    "initial_scope_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "scope_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "committed_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "allowed_generated_paths": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "excluded_work": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "deferred_not_deleted": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "depends_on": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "required_outputs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "completion_evidence": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "authorized_operations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "forbidden_changes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "amendments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision", "previous_revision", "reason", "authorization_commit_sha", "added_paths"],
+        "properties": {
+          "revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "previous_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "reason": {"type": "string", "minLength": 1},
+          "authorization_commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "added_paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    }
+  }
+}

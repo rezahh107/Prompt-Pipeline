@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prompt-pipeline-lifecycle-ledger.v1",
+  "title": "Prompt Pipeline Lifecycle Ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ledger_id", "ledger_hash", "repository", "program_id", "task_id", "pull_request", "base_sha", "scope_revision", "branch_kind", "completion_claim", "next_required_event", "events"],
+  "properties": {
+    "schema_version": {"const": "prompt-pipeline-lifecycle-ledger.v1"},
+    "ledger_id": {"type": "string", "minLength": 1},
+    "ledger_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "repository": {"const": "rezahh107/Prompt-Pipeline"},
+    "program_id": {"const": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM"},
+    "task_id": {"type": "string", "minLength": 1},
+    "pull_request": {"type": ["integer", "null"], "minimum": 1},
+    "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "scope_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "branch_kind": {"enum": ["feature", "default"]},
+    "completion_claim": {"type": "boolean"},
+    "next_required_event": {"type": ["string", "null"]},
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "event_version", "event_type", "predecessor_event_id", "occurred_at", "repository", "program_id", "task_id", "pull_request", "base_sha", "head_sha", "scope_revision", "evidence", "event_hash"],
+        "properties": {
+          "event_id": {"type": "string", "pattern": "^PROMPT-QUALITY-EVENT-[0-9]{4}$"},
+          "event_version": {"const": 1},
+          "event_type": {"enum": ["start_preflight", "scope_committed", "scope_amended", "scope_disclosed", "implementation_complete", "exact_head_validated", "owner_merge", "exact_main_verified"]},
+          "predecessor_event_id": {"type": ["string", "null"]},
+          "occurred_at": {"type": "string", "minLength": 1},
+          "repository": {"const": "rezahh107/Prompt-Pipeline"},
+          "program_id": {"const": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM"},
+          "task_id": {"type": "string", "minLength": 1},
+          "pull_request": {"type": ["integer", "null"], "minimum": 1},
+          "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "head_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+          "scope_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "reference", "sha256"],
+              "properties": {
+                "kind": {"type": "string", "minLength": 1},
+                "reference": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+              }
+            }
+          },
+          "event_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}
