@@ -1,1 +1,23 @@
-{"schema_version":"prompt-quality-governance-fixtures.v1","kind":"adversarial","fixtures":[{"fixture_id":"adversarial-cycle-hidden-behind-eligible-state","validator":"program","scenario":"dependency_cycle_hidden","expected_diagnostics":["PQG_DEPENDENCY_CYCLE","PQG_DEPENDENCY_MUTATION","PQG_ELIGIBILITY_MISMATCH"]},{"fixture_id":"adversarial-retroactive-scope-authorization","validator":"scope","scenario":"retroactive_amendment","expected_diagnostics":["PQG_SCOPE_RETROACTIVE_AMENDMENT"]},{"fixture_id":"adversarial-quality-credit-on-zero-delta","validator":"progress","scenario":"zero_delta_quality_credit","expected_diagnostics":["PQG_QUALITY_CLAIM_UNSUPPORTED","PQG_ZERO_DELTA_POLICY_INVALID"]},{"fixture_id":"adversarial-production-authority-double-claim","validator":"progress","scenario":"two_authoritative_paths","expected_diagnostics":["PQG_MULTIPLE_PRODUCTION_AUTHORITIES"]},{"fixture_id":"adversarial-owner-merge-fabrication","validator":"lifecycle","scenario":"owner_merge_without_evidence","expected_diagnostics":["PQG_OWNER_MERGE_EVIDENCE_MISSING"]},{"fixture_id":"adversarial-exact-main-stale-head","validator":"lifecycle","scenario":"stale_exact_main","expected_diagnostics":["PQG_EXACT_MAIN_STALE"]}]}
+{
+  "schema_version": "prompt-quality-governance-fixtures.v1",
+  "kind": "adversarial",
+  "fixtures": [
+    {"fixture_id":"adversarial-cycle-hidden-behind-eligible-state","validator":"program","scenario":"dependency_cycle_hidden","expected_diagnostics":["PQG_DEPENDENCY_CYCLE","PQG_DEPENDENCY_MUTATION","PQG_ELIGIBILITY_MISMATCH"]},
+    {"fixture_id":"adversarial-assurance-registration-removed","validator":"program","scenario":"assurance_missing","expected_diagnostics":["PQG_ARCHITECTURE_REQUIRED","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-registration-renamed","validator":"program","scenario":"assurance_renamed","expected_diagnostics":["PQG_ARCHITECTURE_REQUIRED","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-registration-scalar","validator":"program","scenario":"assurance_scalar","expected_diagnostics":["PQG_ARCHITECTURE_REQUIRED","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-unknown-task","validator":"program","scenario":"assurance_unknown_task","expected_diagnostics":["PQG_ARCHITECTURE_TASK_REFERENCE_INVALID","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-required-section-removed","validator":"program","scenario":"assurance_missing_section","expected_diagnostics":["PQG_ARCHITECTURE_POLICY_INVALID"]},
+    {"fixture_id":"adversarial-assurance-duplicate-list-entry","validator":"program","scenario":"assurance_duplicate_list","expected_diagnostics":["PQG_ARCHITECTURE_POLICY_INVALID","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-invalid-status","validator":"program","scenario":"assurance_invalid_status","expected_diagnostics":["PQG_ARCHITECTURE_POLICY_INVALID","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-blocking-authority","validator":"program","scenario":"assurance_blocking_claim","expected_diagnostics":["PQG_ARCHITECTURE_POLICY_INVALID","PQG_SCHEMA_INVALID"]},
+    {"fixture_id":"adversarial-assurance-plan-drift","validator":"memory","scenario":"assurance_plan_drift","expected_diagnostics":["PQG_ARCHITECTURE_AUTHORITY_DRIFT","PQG_ARCHITECTURE_REVISION_MISMATCH"]},
+    {"fixture_id":"adversarial-assurance-next-work-drift","validator":"memory","scenario":"assurance_next_drift","expected_diagnostics":["PQG_ARCHITECTURE_AUTHORITY_DRIFT"]},
+    {"fixture_id":"adversarial-assurance-revision-mismatch","validator":"memory","scenario":"assurance_revision_mismatch","expected_diagnostics":["PQG_ARCHITECTURE_AUTHORITY_DRIFT","PQG_ARCHITECTURE_REVISION_MISMATCH"]},
+    {"fixture_id":"adversarial-retroactive-scope-authorization","validator":"scope","scenario":"retroactive_amendment","expected_diagnostics":["PQG_SCOPE_RETROACTIVE_AMENDMENT"]},
+    {"fixture_id":"adversarial-quality-credit-on-zero-delta","validator":"progress","scenario":"zero_delta_quality_credit","expected_diagnostics":["PQG_QUALITY_CLAIM_UNSUPPORTED","PQG_ZERO_DELTA_POLICY_INVALID"]},
+    {"fixture_id":"adversarial-production-authority-double-claim","validator":"progress","scenario":"two_authoritative_paths","expected_diagnostics":["PQG_MULTIPLE_PRODUCTION_AUTHORITIES"]},
+    {"fixture_id":"adversarial-owner-merge-fabrication","validator":"lifecycle","scenario":"owner_merge_without_evidence","expected_diagnostics":["PQG_OWNER_MERGE_EVIDENCE_MISSING"]},
+    {"fixture_id":"adversarial-exact-main-stale-head","validator":"lifecycle","scenario":"stale_exact_main","expected_diagnostics":["PQG_EXACT_MAIN_STALE"]}
+  ]
+}
