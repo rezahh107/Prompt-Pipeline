@@ -1,0 +1,18 @@
+{
+  "schema_version": "prompt-quality-governance-fixtures.v1",
+  "kind": "valid",
+  "fixtures": [
+    {"fixture_id":"valid-full-activation","validator":"integrated","scenario":"full_activation","expected_diagnostics":[]},
+    {"fixture_id":"valid-dependency-derived-eligibility","validator":"program","scenario":"dependency_derived_eligibility","expected_diagnostics":[]},
+    {"fixture_id":"valid-parallel-branches-after-PPQR-001","validator":"program","scenario":"parallel_after_ppqr001","expected_diagnostics":[]},
+    {"fixture_id":"authorized-but-dependency-blocked-task","validator":"program","scenario":"authorized_dependency_blocked","expected_diagnostics":[]},
+    {"fixture_id":"valid-exact-scope","validator":"scope","scenario":"exact_scope","expected_diagnostics":[]},
+    {"fixture_id":"valid-amended-scope","validator":"scope","scenario":"valid_amendment","expected_diagnostics":[]},
+    {"fixture_id":"valid-program-activation-zero-credit-impact","validator":"progress","scenario":"activation_zero_credit","expected_diagnostics":[]},
+    {"fixture_id":"valid-governance-foundation-progress","validator":"progress","scenario":"governance_progress","expected_diagnostics":[]},
+    {"fixture_id":"valid-blocking-defect-zero-delta","validator":"progress","scenario":"blocking_defect_zero_delta","expected_diagnostics":[]},
+    {"fixture_id":"valid-maintenance-zero-delta","validator":"progress","scenario":"maintenance_zero_delta","expected_diagnostics":[]},
+    {"fixture_id":"valid-pre-merge-activation-sequence","validator":"lifecycle","scenario":"premerge_sequence","expected_diagnostics":[]},
+    {"fixture_id":"valid-complete-post-merge-sequence","validator":"lifecycle","scenario":"postmerge_complete_sequence","expected_diagnostics":[]}
+  ]
+}
