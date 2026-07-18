@@ -16,7 +16,7 @@ else if(c==='complete_incomplete_dependency'){const t=p.tasks.find(x=>x.task_id=
 else if(c==='program_complete_incomplete_task')z.push(...await validateProgram(p,{programComplete:true}));
 else if(c==='unauthorized_eligible'){p.tasks[0].authorization_state='unauthorized';z.push(...await validateProgram(p))}
 else if(c==='exact_scope')z.push(...await validateScope(s));
-else if(c==='valid_amendment'){const old=s.scope_revision,a={revision:'',previous_revision:old,reason:'fixture',authorization_commit_sha:'a'.repeat(40),added_paths:['fixture/path']};a.revision=amendmentHash(a);s.amendments=[a];s.committed_paths.push('fixture/path');s.scope_revision=scopeHash(s);z.push(...await validateScope(s,{actual:s.committed_paths}))}
+else if(c==='valid_amendment'){const previous=s.amendments.at(-1)?.revision||s.initial_scope_revision,a={revision:'',previous_revision:previous,reason:'fixture',authorization_commit_sha:'a'.repeat(40),added_paths:['fixture/path']};a.revision=amendmentHash(a);s.amendments.push(a);s.committed_paths.push('fixture/path');s.scope_revision=scopeHash(s);z.push(...await validateScope(s,{actual:s.committed_paths}))}
 else if(c==='undeclared_changed_path')z.push(...await validateScope(s,{actual:[...s.committed_paths,'x']}));
 else if(c==='declared_unchanged_path')z.push(...await validateScope(s,{actual:s.committed_paths.slice(1)}));
 else if(c==='stale_base')z.push(...await validateScope(s,{base:'f'.repeat(40)}));
