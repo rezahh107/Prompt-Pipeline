@@ -38,10 +38,11 @@ export async function validateLifecycle(l,s,c={}){
     if(e.event_type==='exact_main_verified'){
       const receipt=receiptFor(c.evidenceIndex,l,e),owner=l.events[n-1];
       if(e.pull_request==null||e.pull_request!==l.pull_request)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH','exact-main PR',source));
-      if(owner?.event_type!=='owner_merge')z.push(d('PQG_EXACT_MAIN_ORDER_INVALID','order',source));
+      const ownerOrdered=owner?.event_type==='owner_merge';
+      if(!ownerOrdered)z.push(d('PQG_EXACT_MAIN_ORDER_INVALID','order',source));
       if(c.main&&e.head_sha!==c.main)z.push(d('PQG_EXACT_MAIN_STALE','main',source));
-      if(e.evidence?.[0]?.kind!=='authoritative_exact_main'||!receipt)z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','verified receipt missing or mismatched',source));
-      else if(receipt.facts?.owner_merge_commit_sha!==owner?.head_sha||receipt.facts?.contains_owner_merge!==true||receipt.facts?.branch!==EVIDENCE_POLICY.default_branch)z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','current main does not contain the recorded owner-merge commit',source));
+      if(ownerOrdered&&(e.evidence?.[0]?.kind!=='authoritative_exact_main'||!receipt))z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','verified receipt missing or mismatched',source));
+      else if(ownerOrdered&&(receipt.facts?.owner_merge_commit_sha!==owner.head_sha||receipt.facts?.contains_owner_merge!==true||receipt.facts?.branch!==EVIDENCE_POLICY.default_branch))z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','current main does not contain the recorded owner-merge commit',source));
     }
   }
   if(l.completion_claim&&(l.branch_kind!=='default'||l.events.at(-1)?.event_type!=='exact_main_verified'))z.push(d('PQG_FEATURE_BRANCH_COMPLETION_FORBIDDEN','feature',source));
