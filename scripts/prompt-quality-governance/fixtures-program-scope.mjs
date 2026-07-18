@@ -1,7 +1,7 @@
-import {cp,uniq,d,S} from './core.mjs';
-import {validateProgram} from './program.mjs';
+import {cp,uniq,d,S,txt,N,PLAN} from './core.mjs';
+import {validateProgram,validateMemory,ASSURANCE_KEY} from './program.mjs';
 import {validateScope,scopeHash,amendmentHash} from './scope-progress.mjs';
-export const PROGRAM_SCOPE=new Set(['dependency_derived_eligibility','authorized_dependency_blocked','parallel_after_ppqr001','missing_task','extra_task','duplicate_task','dependency_mutation','self_dependency','dependency_cycle','dependency_cycle_hidden','implemented_incomplete_dependency','complete_incomplete_dependency','program_complete_incomplete_task','unauthorized_eligible','exact_scope','valid_amendment','undeclared_changed_path','declared_unchanged_path','stale_base','stale_revision','wrong_task','wrong_program','silent_deletion','deferred_deleted','forbidden_operation','scope_expansion_same_revision','retroactive_amendment']);
+export const PROGRAM_SCOPE=new Set(['dependency_derived_eligibility','authorized_dependency_blocked','parallel_after_ppqr001','missing_task','extra_task','duplicate_task','dependency_mutation','self_dependency','dependency_cycle','dependency_cycle_hidden','implemented_incomplete_dependency','complete_incomplete_dependency','program_complete_incomplete_task','unauthorized_eligible','assurance_valid','assurance_missing','assurance_renamed','assurance_scalar','assurance_unknown_task','assurance_missing_section','assurance_duplicate_list','assurance_invalid_status','assurance_blocking_claim','assurance_plan_drift','assurance_next_drift','assurance_revision_mismatch','exact_scope','valid_amendment','undeclared_changed_path','declared_unchanged_path','stale_base','stale_revision','wrong_task','wrong_program','silent_deletion','deferred_deleted','forbidden_operation','scope_expansion_same_revision','retroactive_amendment']);
 export async function runProgramScope(c,a){const p=cp(a.p),s=cp(a.s),z=[];
 if(c==='dependency_derived_eligibility'||c==='authorized_dependency_blocked')z.push(...await validateProgram(p));
 else if(c==='parallel_after_ppqr001'){const one=p.tasks.find(x=>x.task_id==='PPQR-001');one.completion_state='complete';one.implementation_state='implemented';for(const id of ['PPQR-002','PPQR-003']){const t=p.tasks.find(x=>x.task_id===id);t.execution_state='eligible';t.blocking_state={blocked:false,blocking_reasons:[]}}z.push(...await validateProgram(p,{implementationTaskIds:new Set(['PPQR-001']),completionTaskIds:new Set(['PPQR-001'])}))}
@@ -15,6 +15,18 @@ else if(c==='implemented_incomplete_dependency'){p.tasks.find(x=>x.task_id==='PP
 else if(c==='complete_incomplete_dependency'){const t=p.tasks.find(x=>x.task_id==='PPQR-002');t.completion_state='complete';t.execution_state='eligible';z.push(...await validateProgram(p))}
 else if(c==='program_complete_incomplete_task')z.push(...await validateProgram(p,{programComplete:true}));
 else if(c==='unauthorized_eligible'){p.tasks[0].authorization_state='unauthorized';z.push(...await validateProgram(p))}
+else if(c==='assurance_valid')z.push(...await validateProgram(p),...validateMemory(p));
+else if(c==='assurance_missing'){delete p.approved_architecture[ASSURANCE_KEY];z.push(...await validateProgram(p))}
+else if(c==='assurance_renamed'){p.approved_architecture.repository_implementation_assurance_light=p.approved_architecture[ASSURANCE_KEY];delete p.approved_architecture[ASSURANCE_KEY];z.push(...await validateProgram(p))}
+else if(c==='assurance_scalar'){p.approved_architecture[ASSURANCE_KEY]='invalid';z.push(...await validateProgram(p))}
+else if(c==='assurance_unknown_task'){const x=p.approved_architecture[ASSURANCE_KEY].task_integration;x['PPQR-999']=x['PPQR-015'];delete x['PPQR-015'];z.push(...await validateProgram(p))}
+else if(c==='assurance_missing_section'){p.approved_architecture[ASSURANCE_KEY].required_sections.pop();z.push(...await validateProgram(p))}
+else if(c==='assurance_duplicate_list'){p.approved_architecture[ASSURANCE_KEY].selection_basis.push('consumer_path');z.push(...await validateProgram(p))}
+else if(c==='assurance_invalid_status'){p.approved_architecture[ASSURANCE_KEY].status='active';z.push(...await validateProgram(p))}
+else if(c==='assurance_blocking_claim'){p.approved_architecture[ASSURANCE_KEY].initial_authority='blocking';z.push(...await validateProgram(p))}
+else if(c==='assurance_plan_drift'){const plan=txt(PLAN).replace('"artifact_name": "assurance-lite.yaml"','"artifact_name": "assurance-lite.yml"');z.push(...validateMemory(p,{planText:plan,nextText:txt(N)}))}
+else if(c==='assurance_next_drift'){const next=txt(N).replace(/<!-- repository-implementation-assurance-lite:start -->[\s\S]*?<!-- repository-implementation-assurance-lite:end -->/,'');z.push(...validateMemory(p,{planText:txt(PLAN),nextText:next}))}
+else if(c==='assurance_revision_mismatch'){const plan=txt(PLAN).replace(/"architecture_revision": "sha256:[0-9a-f]{64}"/,'"architecture_revision": "sha256:'+'0'.repeat(64)+'"');z.push(...validateMemory(p,{planText:plan,nextText:txt(N)}))}
 else if(c==='exact_scope')z.push(...await validateScope(s));
 else if(c==='valid_amendment'){const previous=s.amendments.at(-1)?.revision||s.initial_scope_revision,a={revision:'',previous_revision:previous,reason:'fixture',authorization_commit_sha:'a'.repeat(40),added_paths:['fixture/path']};a.revision=amendmentHash(a);s.amendments.push(a);s.committed_paths.push('fixture/path');s.scope_revision=scopeHash(s);z.push(...await validateScope(s,{actual:s.committed_paths}))}
 else if(c==='undeclared_changed_path')z.push(...await validateScope(s,{actual:[...s.committed_paths,'x']}));
