@@ -5,9 +5,7 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.13.1",
-  "engines": {
-    "node": ">=20.20.0"
-  },
+  "engines": {"node": ">=20.20.0"},
   "scripts": {
     "peac:generate": "tsx scripts/peac-generate.ts",
     "peac:validate": "tsx scripts/peac-validate.ts",
@@ -38,22 +36,11 @@
     "validate:prompt-quality-progress": "node scripts/peac-prompt-quality-governance.mjs --progress",
     "validate:prompt-quality-lifecycle": "node scripts/peac-prompt-quality-governance.mjs --lifecycle",
     "test:prompt-quality-governance": "node scripts/peac-prompt-quality-governance.mjs --fixtures",
-    "test:prompt-quality-production": "node scripts/peac-prompt-quality-governance-production-self-test.mjs",
+    "test:prompt-quality-production": "node scripts/peac-prompt-quality-governance-production-self-test.mjs && node scripts/peac-prompt-quality-reconciliation-self-test.mjs",
     "validate:prompt-quality-governance": "node scripts/peac-prompt-quality-governance.mjs --all && pnpm test:prompt-quality-production",
     "typecheck": "tsc --noEmit",
     "ci": "pnpm typecheck && pnpm peac:selftest && pnpm peac:routertest && pnpm peac:domaintest && pnpm peac:intakecheck && pnpm peac:validate && pnpm peac:eval && pnpm peac:output-contract && pnpm peac:behavioral-coverage && pnpm peac:production-gate && pnpm peac:human-review-gate && pnpm peac:model-profile && pnpm peac:context-policy && pnpm peac:context-case && pnpm peac:artifact-metadata && pnpm peac:provenance && pnpm peac:synctest && pnpm peac:sync -- --check && pnpm validate:prompt-quality-governance && pnpm peac:pr-inspector-renderer && pnpm peac:pr-inspector-renderer-pack && pnpm peac:bundle && pnpm peac:bundlecheck && pnpm peac:smoke"
   },
-  "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
-    "js-yaml": "^4.1.0",
-    "nunjucks": "^3.2.4"
-  },
-  "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^22.0.0",
-    "@types/nunjucks": "^3.2.6",
-    "tsx": "^4.20.0",
-    "typescript": "^5.8.0"
-  }
+  "dependencies": {"ajv": "^8.17.1", "ajv-formats": "^3.0.1", "js-yaml": "^4.1.0", "nunjucks": "^3.2.4"},
+  "devDependencies": {"@types/js-yaml": "^4.0.9", "@types/node": "^22.0.0", "@types/nunjucks": "^3.2.6", "tsx": "^4.20.0", "typescript": "^5.8.0"}
 }
