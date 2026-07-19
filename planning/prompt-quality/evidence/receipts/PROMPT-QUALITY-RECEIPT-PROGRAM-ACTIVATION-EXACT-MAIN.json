@@ -1,0 +1,19 @@
+{
+  "schema_version": "prompt-pipeline-evidence-receipt.v1",
+  "receipt_id": "PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-EXACT-MAIN",
+  "receipt_hash": "sha256:b45899782aa8a955c28b81d4855253c6c4a012f0a844771348895d5761f70241",
+  "repository": "rezahh107/Prompt-Pipeline",
+  "program_id": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
+  "task_id": "PROMPT-QUALITY-PROGRAM-ACTIVATION",
+  "event_type": "exact_main_verified",
+  "pull_request": 29,
+  "base_sha": "25bd3af631c17fbfda76a3cabcaa612dfdc11143",
+  "subject_sha": "e3f98e007bba01ba02310b01377f617c94ca8b09",
+  "scope_revision": "sha256:86b9aef93b9602de6b7e5af019da26340ef82a67c3b0ae1ed450e93d9ab0fb8a",
+  "evidence_digest": "db3e4eb2717aea0d01f08ed88fbb6530d8a502876b7937807f81558172615a9f",
+  "source": {
+    "kind": "github_default_branch_ancestry",
+    "branch": "main",
+    "evidence_source_identity": "github_default_branch_ref_and_compare.v1"
+  }
+}
