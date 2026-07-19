@@ -7,7 +7,7 @@ export function reLedger(l){for(const e of l.events||[])reEvent(e);return rehash
 function order(events){let phase=0;for(const e of events){if(phase===0&&e.event_type==='start_preflight')phase=1;else if(phase===1&&e.event_type==='scope_committed')phase=2;else if(phase===2&&e.event_type==='scope_amended'){}else if(phase===2&&e.event_type==='scope_disclosed')phase=3;else if(phase===3&&e.event_type==='implementation_complete')phase=4;else if(phase===4&&e.event_type==='exact_head_validated')phase=5;else if(phase===5&&e.event_type==='owner_merge')phase=6;else if(phase===6&&e.event_type==='exact_main_verified')phase=7;else return false}return true}
 export async function validateLifecycle(l,s,c={}){
   const source=c.source||L;let z=await schema(LS,l,source);
-  if(l.repository!==REPO||l.program_id!==PID||l.task_id!==s.task_id||l.scope_revision!==s.scope_revision)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH','ledger identity',source));
+  if(l.repository!==REPO||l.program_id!==PID||l.task_id!==s.task_id)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH','ledger identity',source));if(l.scope_revision!==s.scope_revision)z.push(d('PQG_LIFECYCLE_SCOPE_STALE','ledger scope',source));
   if(l.ledger_hash!==ledgerHash(l))z.push(d('PQG_LIFECYCLE_LEDGER_HASH_MISMATCH','hash',source));
   if(!order(l.events||[]))z.push(d('PQG_LIFECYCLE_SEQUENCE_INVALID','order',source));
   const seen=new Set(),ev=new Set();
