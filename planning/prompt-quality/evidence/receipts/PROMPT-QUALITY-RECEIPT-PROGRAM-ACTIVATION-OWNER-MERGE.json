@@ -1,7 +1,7 @@
 {
   "schema_version": "prompt-pipeline-evidence-receipt.v1",
   "receipt_id": "PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-OWNER-MERGE",
-  "receipt_hash": "sha256:fb96fffec7ac67b350182093ac77038a94d74779b0d9cdbe27d29d0038765ae4",
+  "receipt_hash": "sha256:8a6e243e9d2981292ff6fd597b17550a7970121e1ddf448be2a251dad8d05ff6",
   "repository": "rezahh107/Prompt-Pipeline",
   "program_id": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
   "task_id": "PROMPT-QUALITY-PROGRAM-ACTIVATION",
@@ -9,7 +9,7 @@
   "pull_request": 29,
   "base_sha": "25bd3af631c17fbfda76a3cabcaa612dfdc11143",
   "subject_sha": "e3f98e007bba01ba02310b01377f617c94ca8b09",
-  "scope_revision": "sha256:86b9aef93b9602de6b7e5af019da26340ef82a67c3b0ae1ed450e93d9ab0fb8a",
+  "scope_revision": "sha256:9774c4c88d428342106f0b2a959ed73b061b5557c3ad434e3b8ae707d80ef6e9",
   "evidence_digest": "016fd797ede433e7cadffc78106ea48ab2b65390dc5cb0db82bf3fc5d964770f",
   "source": {
     "kind": "github_pull_request_merge_payload",
