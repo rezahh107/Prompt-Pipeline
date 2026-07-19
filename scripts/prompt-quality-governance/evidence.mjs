@@ -106,17 +106,26 @@ function authorizationOrderValid(scopeItem,currentHead){
   return true;
 }
 
-export function carrierLedgerValid(base,current,receipts){
-  const before=base?.events||[],after=current?.events||[];
-  if(after.length!==before.length+3||!eq(after.slice(0,before.length),before))return false;
+const carrierStable=value=>{const out=cp(value);for(const key of ['events','ledger_hash','pull_request','next_required_event','branch_kind','completion_claim','scope_revision'])delete out[key];return out};
+function carrierEventsValid(base,current,receipts,min,max){
+  const before=base?.events||[],after=current?.events||[],delta=after.length-before.length;
+  if(delta<min||delta>max||!eq(after.slice(0,before.length),before))return null;
   const appended=after.slice(before.length),order=['exact_head_validated','owner_merge','exact_main_verified'];
-  if(!appended.every((event,index)=>event.event_type===order[index]))return false;
+  if(!appended.every((event,index)=>event.event_type===order[index]))return null;
   for(const event of appended){
     const receipt=(receipts||[]).find(item=>item.value?.task_id===current.task_id&&item.value?.event_type===event.event_type)?.value;
-    if(!receipt||event.head_sha!==receipt.subject_sha||event.pull_request!==receipt.pull_request||event.scope_revision!==receipt.scope_revision||event.evidence?.length!==1||event.evidence[0]?.sha256!==receipt.evidence_digest)return false;
+    if(!receipt||event.head_sha!==receipt.subject_sha||event.pull_request!==receipt.pull_request||event.scope_revision!==receipt.scope_revision||event.evidence?.length!==1||event.evidence[0]?.sha256!==receipt.evidence_digest)return null;
   }
-  const stable=value=>{const out=cp(value);for(const key of ['events','ledger_hash','pull_request','next_required_event','branch_kind','completion_claim','scope_revision'])delete out[key];return out};
-  return eq(stable(base),stable(current))&&current.pull_request===29&&current.branch_kind==='default'&&current.completion_claim===true&&current.next_required_event===null;
+  return appended;
+}
+export function carrierLedgerValid(base,current,receipts){
+  const appended=carrierEventsValid(base,current,receipts,3,3);
+  return!!appended&&eq(carrierStable(base),carrierStable(current))&&current.pull_request===29&&current.branch_kind==='default'&&current.completion_claim===true&&current.next_required_event===null;
+}
+function incrementalCarrierLedgerValid(base,current,receipts){
+  const appended=carrierEventsValid(base,current,receipts,1,3);if(!appended||!eq(carrierStable(base),carrierStable(current))||current.pull_request!==29)return false;
+  const last=appended.at(-1)?.event_type,expected=last==='exact_head_validated'?{branch_kind:'feature',completion_claim:false,next_required_event:'owner_merge'}:last==='owner_merge'?{branch_kind:'feature',completion_claim:false,next_required_event:'exact_main_verified'}:last==='exact_main_verified'?{branch_kind:'default',completion_claim:true,next_required_event:null}:null;
+  return!!expected&&Object.entries(expected).every(([key,value])=>current[key]===value);
 }
 
 async function verifyReconciliationCarrier(r,context,source){
@@ -143,7 +152,7 @@ async function verifyCurrentHeadBinding(r,context,source){
   const topologyOk=comparison.status==='ahead'&&comparison.behind_by===0&&comparison.merge_base_commit?.sha===r.subject_sha&&files.length>0&&files.every(x=>allowed.has(x.filename)&&!['removed','renamed'].includes(x.status))&&ledgerChange?.status==='modified'&&receiptChange?.status==='added'&&receiptFiles.every(file=>files.some(x=>x.filename===file&&x.status==='added'));
   if(!topologyOk)return{ok:false};
   const basePayload=await apiGet(`${prefix}/contents/${ledger.file}?ref=${encodeURIComponent(r.subject_sha)}`),baseLedger=contentJson(basePayload);
-  if(!carrierLedgerValid(baseLedger,ledger.value,context.receipts))return{ok:false};
+  if(!incrementalCarrierLedgerValid(baseLedger,ledger.value,context.receipts))return{ok:false};
   return{ok:true,facts:{validated_sha:r.subject_sha,current_head:currentHead,carrier_mode:'evidence_only_descendant',changed_paths:files.map(x=>x.filename).sort()}};
 }
 
