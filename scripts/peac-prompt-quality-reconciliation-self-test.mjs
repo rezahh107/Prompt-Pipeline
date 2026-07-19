@@ -1,13 +1,22 @@
 #!/usr/bin/env node
-import {readFileSync,readdirSync} from 'node:fs';
+import {cpSync,mkdtempSync,readFileSync,readdirSync,rmSync,writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 import {validateOwnerPayloadBytes,decodeOwnerPayloadSource,validateReconciliationComparison,stableMainProjection,evidenceProjectionDigest,carrierLedgerValid} from './prompt-quality-governance/evidence.mjs';
 import {validateLifecycle,reLedger} from './prompt-quality-governance/lifecycle.mjs';
 import {validateImpactHistory,validateScope} from './prompt-quality-governance/scope-progress.mjs';
 
-const ROOT=process.cwd(),json=p=>JSON.parse(readFileSync(path.join(ROOT,p),'utf8')),clone=structuredClone;
+const ROOT=process.cwd(),CLI=path.join(ROOT,'scripts/peac-prompt-quality-governance.mjs'),json=p=>JSON.parse(readFileSync(path.join(ROOT,p),'utf8')),clone=structuredClone,cleanup=[];
 let passed=0;
 function expect(name,condition){if(!condition)throw new Error(`reconciliation production mutation failed: ${name}`);passed++;console.log(`reconciliation production mutation PASS: ${name}`)}
+function cloneCliRoot(prefix='pqg-production-'){const root=mkdtempSync(path.join(tmpdir(),prefix));cleanup.push(root);for(const item of ['planning','scripts','.github'])cpSync(path.join(ROOT,item),path.join(root,item),{recursive:true});cpSync(path.join(ROOT,'package.json'),path.join(root,'package.json'));return root}
+function runCli(root,extra={}){const env={...process.env,PQG_REPO_ROOT:root,PQG_SKIP_REPOSITORY_RECONCILIATION:'1',npm_lifecycle_event:'test:prompt-quality-production',...extra};delete env.GITHUB_SHA;delete env.TESTED_SHA;const r=spawnSync(process.execPath,[CLI,'--program'],{cwd:ROOT,encoding:'utf8',env});return{code:r.status??1,out:`${r.stdout||''}${r.stderr||''}`}}
+function expectCli(name,result,code,needle=null,forbidden=[]){expect(name,result.code===code&&(!needle||result.out.includes(needle))&&forbidden.every(x=>!result.out.includes(x)))}
+function removeReceipt(root,name){rmSync(path.join(root,'planning/prompt-quality/evidence/receipts',name),{force:true})}
+function breakStatusJson(root){const file=path.join(root,'planning/NEXT_WORK.md'),text=readFileSync(file,'utf8'),next=text.replace(/(<!-- prompt-quality-status:start -->\s*```json\s*)[\s\S]*?(\s*```)/,'$1{\n$2');if(next===text)throw new Error('prompt-quality-status block not found');writeFileSync(file,next)}
+
+try{
 const RAW_PATH='planning/prompt-quality/evidence/sources/pr-29-owner-merge.raw.json',raw=decodeOwnerPayloadSource(readFileSync(path.join(ROOT,RAW_PATH))),basePayload=JSON.parse(raw),mutate=fn=>{const x=clone(basePayload);fn(x);return Buffer.from(JSON.stringify(x))};
 const valid=bytes=>validateOwnerPayloadBytes(bytes).ok;
 
@@ -53,5 +62,16 @@ diagnostics=await validateScope(scope,{source:SCOPE_PATH,task:scope.task_id,base
 const incomplete=clone(currentLedger);incomplete.events=incomplete.events.slice(0,-1);incomplete.completion_claim=true;incomplete.next_required_event=null;reLedger(incomplete);diagnostics=await validateLifecycle(incomplete,scope,{source:ledgerPath,scopeByIdentity});expect('31 completion without durable exact-main evidence rejected',diagnostics.some(x=>['PQG_FEATURE_BRANCH_COMPLETION_FORBIDDEN','PQG_LIFECYCLE_SEQUENCE_INVALID','PQG_EXACT_MAIN_EVIDENCE_MISSING'].includes(x.code)));
 expect('32 substantive PPQR path smuggling rejected',!validateReconciliationComparison(scope,{...comparison,files:[...files.slice(0,-1),{filename:'planning/prompt-quality/scopes/PPQR-001.scope.json',status:'added'}]},subject).ok);
 const merge=subject,stableA=stableMainProjection(subject,merge,null),stableB=stableMainProjection(subject,merge,{status:'ahead',behind_by:0,merge_base_commit:{sha:merge}});expect('33 mutable current-Head does not enter stable exact-main digest',evidenceProjectionDigest(stableA)===evidenceProjectionDigest(stableB));
-if(passed<33)throw new Error(`expected 33 reconciliation mutations, observed ${passed}`);
+
+{const root=cloneCliRoot();expectCli('34 valid active program fixture passes canonical CLI',runCli(root),0)}
+{const root=cloneCliRoot();removeReceipt(root,'PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-EXACT-HEAD.json');expectCli('35 missing exact-head evidence fails closed',runCli(root),1,'PQG_EXACT_HEAD_EVIDENCE_MISSING')}
+{const root=cloneCliRoot();removeReceipt(root,'PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-OWNER-MERGE.json');expectCli('36 missing owner-Merge evidence fails closed',runCli(root),1,'PQG_OWNER_MERGE_EVIDENCE_MISSING')}
+{const root=cloneCliRoot();removeReceipt(root,'PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-EXACT-MAIN.json');expectCli('37 missing exact-main evidence fails closed',runCli(root),1,'PQG_EXACT_MAIN_EVIDENCE_MISSING')}
+{const root=cloneCliRoot();expectCli('38 active program cannot be fabricated without verified lifecycle evidence',runCli(root,{npm_lifecycle_event:'ci'}),1,'PQG_EXACT_HEAD_EVIDENCE_MISSING')}
+{const root=cloneCliRoot('pqg-normal-');expectCli('39 fixture-only authority cannot leak into ordinary temp execution',runCli(root),1,'PQG_EXACT_HEAD_EVIDENCE_MISSING')}
+{const root=cloneCliRoot();breakStatusJson(root);expectCli('40 malformed status JSON returns stable memory diagnostic',runCli(root),1,'PQG_MEMORY_DRIFT | planning/NEXT_WORK.md',['SyntaxError','at JSON.parse'])}
+{const root=cloneCliRoot();breakStatusJson(root);const result=runCli(root);expect('41 malformed status JSON identifies NEXT_WORK and exits nonzero',result.code!==0&&result.out.includes('invalid prompt-quality-status JSON'))}
+
+if(passed<41)throw new Error(`expected 41 reconciliation mutations, observed ${passed}`);
 console.log(`Prompt Quality reconciliation production-path mutation suite passed. cases=${passed}`);
+}finally{for(const root of cleanup)rmSync(root,{recursive:true,force:true})}
