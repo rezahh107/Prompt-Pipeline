@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import {existsSync} from 'node:fs';
+import {gunzipSync} from 'node:zlib';
 import {ES,REPO,PID,cp,eq,hash,d,schema,fp,txt,sh} from './core.mjs';
 
 const VERIFIED_INDEX=Symbol('verified-evidence-index');
@@ -17,6 +18,20 @@ export const EVIDENCE_POLICY=Object.freeze({
 });
 export function receiptHash(r){const x=cp(r);delete x.receipt_hash;return hash(x)}
 export const byteSha256=value=>crypto.createHash('sha256').update(value).digest('hex');
+export function decodeOwnerPayloadSource(source){
+  const stored=Buffer.isBuffer(source)?source:Buffer.from(String(source),'utf8');
+  try{
+    const envelope=JSON.parse(stored.toString('utf8'));
+    if(envelope?.schema_version!=='prompt-quality-raw-evidence-envelope.v1')return stored;
+    if(envelope.encoding!=='gzip+base64'||typeof envelope.content!=='string')throw new Error('unsupported owner evidence envelope');
+    const raw=gunzipSync(Buffer.from(envelope.content,'base64'));
+    if(raw.length!==envelope.uncompressed_size||byteSha256(raw)!==envelope.uncompressed_sha256)throw new Error('owner evidence envelope integrity mismatch');
+    return raw;
+  }catch(error){
+    if(error instanceof SyntaxError)return stored;
+    throw error;
+  }
+}
 
 async function apiGet(apiPath){
   const headers={'accept':'application/vnd.github+json','user-agent':'Prompt-Pipeline-governance-validator'};
@@ -156,7 +171,7 @@ async function verifyExternalSource(r,context,source){
     const live=await apiGet(`${prefix}/pulls/${r.pull_request}`),owner=policy.owner;
     if(r.source.kind==='github_pull_request_merge_payload'){
       if(!existsSync(fp(r.source.payload_path)))return{ok:false};
-      const raw=Buffer.from(txt(r.source.payload_path),'utf8'),validated=validateOwnerPayloadBytes(raw),liveProjection=ownerProjection(live),projection=validated.projection;
+      const raw=decodeOwnerPayloadSource(txt(r.source.payload_path)),validated=validateOwnerPayloadBytes(raw),liveProjection=ownerProjection(live),projection=validated.projection;
       const ok=validated.ok&&validated.payload_sha256===r.source.payload_sha256&&eq(projection,liveProjection)&&projection.repository_id===policy.repository.id&&projection.repository_full_name===policy.repository.full_name&&projection.pull_request_number===r.pull_request&&projection.merged&&projection.merge_commit_sha===r.subject_sha&&projection.base_sha===r.base_sha&&projection.base_ref===policy.default_branch&&projection.head_repository===policy.repository.full_name&&projection.merged_by.login===owner.login&&projection.merged_by.id===owner.id&&projection.merged_by.type===owner.type&&validated.projection_digest===r.evidence_digest;
       return{ok,facts:ok?{pr_head_sha:projection.head_sha,merge_commit_sha:projection.merge_commit_sha,base_ref:projection.base_ref,merged_at:projection.merged_at,merged_by:projection.merged_by,raw_payload_sha256:validated.payload_sha256}:null};
     }
