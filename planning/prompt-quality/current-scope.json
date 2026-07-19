@@ -1,7 +1,1 @@
-{
-  "schema_version": "prompt-quality-current-scope.v1",
-  "program_id": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
-  "task_id": "PROMPT-QUALITY-PROGRAM-ACTIVATION",
-  "scope_path": "planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION-POST-MERGE-RECONCILIATION.scope.json",
-  "scope_revision": "sha256:86b9aef93b9602de6b7e5af019da26340ef82a67c3b0ae1ed450e93d9ab0fb8a"
-}
+{"schema_version":"prompt-quality-current-scope.v1","program_id":"PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM","task_id":"PROMPT-QUALITY-PROGRAM-ACTIVATION","scope_path":"planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION-POST-MERGE-RECONCILIATION.scope.json","scope_revision":"sha256:9774c4c88d428342106f0b2a959ed73b061b5557c3ad434e3b8ae707d80ef6e9"}
