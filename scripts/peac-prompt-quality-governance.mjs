@@ -37,7 +37,10 @@ async function main(){
   if(rl)z.push(...lifecycleDiagnostics);
   process.env.PQG_FIXTURE_CONTEXT='1';
   const activationImpact=state.impacts.find(x=>x.value.work_type==='program_activation')?.value,activationLedger=state.ledgers.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value;
-  const fx=rf?await validateFixtures({p,s,i:activationImpact,l:activationLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};delete process.env.PQG_FIXTURE_CONTEXT;
+  const historicalScope=state.scopes.find(x=>x.file==='planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json')?.value||s;
+  const fixtureLedger=activationLedger?structuredClone(activationLedger):activationLedger;
+  if(fixtureLedger){const end=fixtureLedger.events.findIndex(x=>x.event_type==='implementation_complete');fixtureLedger.events=fixtureLedger.events.slice(0,end+1);fixtureLedger.pull_request=null;fixtureLedger.scope_revision=historicalScope.scope_revision;fixtureLedger.branch_kind='feature';fixtureLedger.completion_claim=false;fixtureLedger.next_required_event='exact_head_validated';}
+  const fx=rf?await validateFixtures({p,s:historicalScope,i:activationImpact,l:fixtureLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};delete process.env.PQG_FIXTURE_CONTEXT;
   z.push(...fx.z,...diagnosticRegistry(reg,fx.docs),...validateMemory(p),...ciWiring(),...requiredOutputs(p,s));
   const out=[...new Map(z.map(x=>[`${x.code}:${x.source}:${x.message}`,x])).values()];
   if(out.length){console.error(`Prompt Quality governance validation failed with ${out.length} diagnostic(s).`);for(const x of out)console.error(`${x.code} | ${x.source} | ${x.message}`);for(const x of fx.results.filter(x=>!x.ok))console.error(`fixture ${x.fixture_id} expected=${JSON.stringify(x.expected)} observed=${JSON.stringify(x.observed)}`);process.exit(1)}
