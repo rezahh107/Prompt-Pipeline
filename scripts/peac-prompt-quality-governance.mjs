@@ -3,7 +3,7 @@ import {P,D,F,C,fp,json,setCodes,d,requiredOutputs,diagnosticRegistry,ciWiring,g
 import {existsSync} from 'node:fs';
 import {validateProgram,validateMemory} from './prompt-quality-governance/program.mjs';
 import {validateScope,validateImpact,validateImpactHistory} from './prompt-quality-governance/scope-progress.mjs';
-import {validateLifecycle,lifecycleState} from './prompt-quality-governance/lifecycle.mjs';
+import {validateLifecycle,lifecycleState,reLedger} from './prompt-quality-governance/lifecycle.mjs';
 import {validateFixtures} from './prompt-quality-governance/fixtures.mjs';
 import {discoverRepositoryState,discoveryDiagnostics,matchingScope} from './prompt-quality-governance/discovery.mjs';
 import {buildVerifiedEvidenceIndex} from './prompt-quality-governance/evidence.mjs';
@@ -39,7 +39,7 @@ async function main(){
   const activationImpact=state.impacts.find(x=>x.value.work_type==='program_activation')?.value,activationLedger=state.ledgers.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value;
   const historicalScope=state.scopes.find(x=>x.file==='planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json')?.value||s;
   const fixtureLedger=activationLedger?structuredClone(activationLedger):activationLedger;
-  if(fixtureLedger){const end=fixtureLedger.events.findIndex(x=>x.event_type==='implementation_complete');fixtureLedger.events=fixtureLedger.events.slice(0,end+1);fixtureLedger.pull_request=null;fixtureLedger.scope_revision=historicalScope.scope_revision;fixtureLedger.branch_kind='feature';fixtureLedger.completion_claim=false;fixtureLedger.next_required_event='exact_head_validated';}
+  if(fixtureLedger){const end=fixtureLedger.events.findIndex(x=>x.event_type==='implementation_complete');fixtureLedger.events=fixtureLedger.events.slice(0,end+1);fixtureLedger.pull_request=null;fixtureLedger.scope_revision=historicalScope.scope_revision;fixtureLedger.branch_kind='feature';fixtureLedger.completion_claim=false;fixtureLedger.next_required_event='exact_head_validated';reLedger(fixtureLedger);}
   const fx=rf?await validateFixtures({p,s:historicalScope,i:activationImpact,l:fixtureLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};delete process.env.PQG_FIXTURE_CONTEXT;
   z.push(...fx.z,...diagnosticRegistry(reg,fx.docs),...validateMemory(p),...ciWiring(),...requiredOutputs(p,s));
   const out=[...new Map(z.map(x=>[`${x.code}:${x.source}:${x.message}`,x])).values()];
