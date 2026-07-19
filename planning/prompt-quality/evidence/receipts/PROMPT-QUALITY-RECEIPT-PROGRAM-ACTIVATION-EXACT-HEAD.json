@@ -1,0 +1,20 @@
+{
+  "schema_version": "prompt-pipeline-evidence-receipt.v1",
+  "receipt_id": "PROMPT-QUALITY-RECEIPT-PROGRAM-ACTIVATION-EXACT-HEAD",
+  "receipt_hash": "sha256:f87871b2753d6f49d4e24afa21ac1da0195413579823871df5d8409b5a653d4a",
+  "repository": "rezahh107/Prompt-Pipeline",
+  "program_id": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
+  "task_id": "PROMPT-QUALITY-PROGRAM-ACTIVATION",
+  "event_type": "exact_head_validated",
+  "pull_request": 29,
+  "base_sha": "25bd3af631c17fbfda76a3cabcaa612dfdc11143",
+  "subject_sha": "c028f7009909fa57ef55ff0a922477f0c32ef484",
+  "scope_revision": "sha256:86b9aef93b9602de6b7e5af019da26340ef82a67c3b0ae1ed450e93d9ab0fb8a",
+  "evidence_digest": "6bb8425e009606af86f3693e08ec399a5da1ca0b63b04fa0225bfec8bd056ab6",
+  "source": {
+    "kind": "github_actions_artifact",
+    "run_id": 29660193834,
+    "job_id": 88121422303,
+    "artifact_id": 8434088383
+  }
+}
