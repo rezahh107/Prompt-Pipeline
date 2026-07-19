@@ -4,21 +4,7 @@
   "title": "Prompt Pipeline External Evidence Receipt v1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "receipt_id",
-    "receipt_hash",
-    "repository",
-    "program_id",
-    "task_id",
-    "event_type",
-    "pull_request",
-    "base_sha",
-    "subject_sha",
-    "scope_revision",
-    "evidence_digest",
-    "source"
-  ],
+  "required": ["schema_version","receipt_id","receipt_hash","repository","program_id","task_id","event_type","pull_request","base_sha","subject_sha","scope_revision","evidence_digest","source"],
   "properties": {
     "schema_version": {"const": "prompt-pipeline-evidence-receipt.v1"},
     "receipt_id": {"type": "string", "pattern": "^PROMPT-QUALITY-RECEIPT-[A-Z0-9._-]+$"},
@@ -49,17 +35,32 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["kind"],
+          "properties": {"kind": {"const": "github_pull_request_merge"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "payload_path", "payload_sha256"],
           "properties": {
-            "kind": {"const": "github_pull_request_merge"}
+            "kind": {"const": "github_pull_request_merge_payload"},
+            "payload_path": {"const": "planning/prompt-quality/evidence/sources/pr-29-owner-merge.raw.json"},
+            "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
           "required": ["kind", "branch"],
+          "properties": {"kind": {"const": "github_default_branch_head"}, "branch": {"const": "main"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "branch", "evidence_source_identity"],
           "properties": {
-            "kind": {"const": "github_default_branch_head"},
-            "branch": {"const": "main"}
+            "kind": {"const": "github_default_branch_ancestry"},
+            "branch": {"const": "main"},
+            "evidence_source_identity": {"const": "github_default_branch_ref_and_compare.v1"}
           }
         }
       ]
