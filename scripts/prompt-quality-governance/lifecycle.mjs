@@ -18,7 +18,7 @@ export async function validateLifecycle(l,s,c={}){
     if(e.predecessor_event_id!==(n?l.events[n-1].event_id:null))z.push(d('PQG_LIFECYCLE_PREDECESSOR_MISMATCH',e.event_id,source));
     const currentTime=Date.parse(e.occurred_at),previousTime=n?Date.parse(l.events[n-1].occurred_at):null;if(Number.isNaN(currentTime)||(n&&(Number.isNaN(previousTime)||currentTime<previousTime)))z.push(d('PQG_LIFECYCLE_TIME_INVALID',e.event_id,source));
     if(e.repository!==l.repository||e.program_id!==l.program_id||e.task_id!==l.task_id||e.base_sha!==l.base_sha)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH',e.event_id,source));
-    const eventScope=c.scopeByIdentity?.get(`${l.task_id}:${e.scope_revision}`);if(!eventScope)z.push(d('PQG_LIFECYCLE_SCOPE_STALE',e.event_id,source));
+    const eventScope=c.scopeByIdentity?.get(`${l.task_id}:${e.scope_revision}`)||(e.scope_revision===s.scope_revision?{value:s}:null);if(!eventScope)z.push(d('PQG_LIFECYCLE_SCOPE_STALE',e.event_id,source));
     for(const x of e.evidence||[]){if(ev.has(x.sha256))z.push(d('PQG_LIFECYCLE_EVIDENCE_REPLAY',x.sha256,source));ev.add(x.sha256)}
     if(e.event_type==='exact_head_validated'){
       const receipt=receiptFor(c.evidenceIndex,l,e);if(e.pull_request==null||e.pull_request!==l.pull_request)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH','exact-head PR',source));
@@ -30,6 +30,7 @@ export async function validateLifecycle(l,s,c={}){
     }
     if(e.event_type==='exact_main_verified'){
       const receipt=receiptFor(c.evidenceIndex,l,e),owner=l.events[n-1],ownerOrdered=owner?.event_type==='owner_merge';if(e.pull_request==null||e.pull_request!==l.pull_request)z.push(d('PQG_LIFECYCLE_IDENTITY_MISMATCH','exact-main PR',source));if(!ownerOrdered)z.push(d('PQG_EXACT_MAIN_ORDER_INVALID','order',source));
+      if(c.main&&c.main!==e.head_sha)z.push(d('PQG_EXACT_MAIN_STALE','live main differs from verified subject',source));
       if(ownerOrdered&&(e.evidence?.[0]?.kind!=='authoritative_exact_main'||!receipt))z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','verified receipt missing or mismatched',source));else if(ownerOrdered&&(receipt.facts?.owner_merge_commit_sha!==owner.head_sha||receipt.facts?.subject_contains_owner_merge!==true||receipt.facts?.branch!==EVIDENCE_POLICY.default_branch||receipt.facts?.verified_subject_sha!==e.head_sha||receipt.facts?.current_main_contains_verified_subject!==true||receipt.facts?.current_main_contains_owner_merge!==true))z.push(d('PQG_EXACT_MAIN_EVIDENCE_MISSING','current main does not contain the immutable verified subject and recorded owner-merge commit',source));
     }
   }
