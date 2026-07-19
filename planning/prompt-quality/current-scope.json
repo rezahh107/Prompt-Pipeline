@@ -1,1 +1,7 @@
-{"schema_version":"prompt-quality-current-scope.v1","scope_path":"planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION.scope.json","scope_revision":"sha256:1547c9f41164ef39464d3b1bfe91c7762ae4110d6d27b7f4c1d23666e363c511"}
+{
+  "schema_version": "prompt-quality-current-scope.v1",
+  "program_id": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
+  "task_id": "PROMPT-QUALITY-PROGRAM-ACTIVATION",
+  "scope_path": "planning/prompt-quality/scopes/PROMPT-QUALITY-PROGRAM-ACTIVATION-POST-MERGE-RECONCILIATION.scope.json",
+  "scope_revision": "sha256:86b9aef93b9602de6b7e5af019da26340ef82a67c3b0ae1ed450e93d9ab0fb8a"
+}
