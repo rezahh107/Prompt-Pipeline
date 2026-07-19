@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import {readFileSync,readdirSync} from 'node:fs';
 import path from 'node:path';
-import {validateOwnerPayloadBytes,validateReconciliationComparison,stableMainProjection,evidenceProjectionDigest,carrierLedgerValid} from './prompt-quality-governance/evidence.mjs';
+import {validateOwnerPayloadBytes,decodeOwnerPayloadSource,validateReconciliationComparison,stableMainProjection,evidenceProjectionDigest,carrierLedgerValid} from './prompt-quality-governance/evidence.mjs';
 import {validateLifecycle,reLedger} from './prompt-quality-governance/lifecycle.mjs';
 import {validateImpactHistory,validateScope} from './prompt-quality-governance/scope-progress.mjs';
 
 const ROOT=process.cwd(),json=p=>JSON.parse(readFileSync(path.join(ROOT,p),'utf8')),clone=structuredClone;
 let passed=0;
 function expect(name,condition){if(!condition)throw new Error(`reconciliation production mutation failed: ${name}`);passed++;console.log(`reconciliation production mutation PASS: ${name}`)}
-const RAW_PATH='planning/prompt-quality/evidence/sources/pr-29-owner-merge.raw.json',raw=readFileSync(path.join(ROOT,RAW_PATH)),basePayload=JSON.parse(raw),mutate=fn=>{const x=clone(basePayload);fn(x);return Buffer.from(JSON.stringify(x))};
+const RAW_PATH='planning/prompt-quality/evidence/sources/pr-29-owner-merge.raw.json',raw=decodeOwnerPayloadSource(readFileSync(path.join(ROOT,RAW_PATH))),basePayload=JSON.parse(raw),mutate=fn=>{const x=clone(basePayload);fn(x);return Buffer.from(JSON.stringify(x))};
 const valid=bytes=>validateOwnerPayloadBytes(bytes).ok;
 
 expect('1 valid raw owner-Merge REST projection',valid(raw));
