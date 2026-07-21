@@ -2,198 +2,151 @@
 
 ## Authority boundary
 
-This document is the durable human-readable execution-plan authority. It does not carry mutable task state.
+This document is the durable architecture, rationale, sequencing, and policy authority. It does not carry mutable Task status.
 
-Normative machine-readable authority:
+- Mutable current status: `planning/NEXT_WORK.md`
+- Machine-readable Task program: `planning/prompt-quality/prompt-quality-execution-program.v2.json`
+- Native repository evidence: Git commit SHA, Git history and ancestry, GitHub PR metadata, and GitHub Checks
 
-`planning/prompt-quality/prompt-quality-execution-program.v1.json`
+## Operating model
 
-Mutable current status authority:
+The active target model is `BALANCED_PERSONAL_REPOSITORY`.
 
-`planning/NEXT_WORK.md`
+The repository preserves controls that materially improve prompt quality, deterministic validation, regression detection, reproducibility, truthful reporting, provenance, recoverability, and basic security. Enterprise-style administrative evidence is retired from active use when Git and GitHub already provide the authoritative fact.
 
-## Activation effect
+## Blocking quality and integrity controls
 
-The activation registers and authorizes the fifteen `PPQR` tasks. It implements governance infrastructure only. It does not implement any substantive Prompt Quality or Migration deliverable, change production routing, improve a quality score, promote a migration, retire a legacy path, integrate Promptfoo, execute a model, or add a semantic judge.
+The canonical CI pipeline continues to enforce, where currently present:
 
-## Approved architecture
+- schema and static validation;
+- deterministic valid and invalid cases;
+- routing and subtype-selection tests;
+- output-contract checks;
+- behavioral-rule coverage;
+- knowledge and rule drift checks;
+- production-grade input requirements;
+- model-profile and context-policy checks;
+- human-review rules for genuinely high-risk artifacts;
+- artifact metadata, provenance, and path containment;
+- exact tested commit verification;
+- frozen dependency installation;
+- supported Node matrix;
+- PR-Inspector renderer and consumer compatibility;
+- bundle and smoke validation.
 
-### A. Quality-first hybrid evaluation
-Repository artifacts remain authoritative for quality definitions, rules, corpora, thresholds, migration readiness, production routing, task completion, and release approval. External harnesses may execute models and return raw evidence only. `promptfoo` is the preferred future execution-only adapter when a task supplies evidence and pins its version.
+No quality control is made advisory by this governance simplification.
 
-### B. Domain contracts
-Future domain contracts are JSON Schema-first, with schema-valid YAML or JSON instances. They must separate required, optional, conditional, forbidden, clarification, default, trust-boundary, output-obligation, and risk-trigger semantics. Critical inputs may not receive silent defaults.
+## Evidence and validation claims
 
-### C. Executable rules
-Future rules must define applicability, carriers, consumption receipts, validators, mutation tests, diagnostics, and gates. Prose presence alone is not enforcement.
+GitHub and Git are authoritative for external repository events. The active model does not require repository copies of Merge actors, raw PR payloads, workflow artifact receipts, exact-head receipts, exact-main receipts, or projection digests.
 
-### D. Thin templates
-Templates remain presentation and ordering mechanisms. They do not own domain inputs, behavioral rules, migration state, or quality decisions. Existing template technology is preserved unless later repository evidence authorizes replacement.
+A validation claim must report:
 
-### E. Domain quality packs
-Each future pack owns or references its quality policy, contract, rules, templates, corpora, mutations, justified metamorphic relations, model support profile, rubric, and evidence receipts. Development, release, and regression are default corpus layers. Calibration is required before semantic evaluation can become blocking.
+```yaml
+validation_status: passed | failed | not_run | unavailable
+tested_commit: <sha-or-null>
+source: github_actions | local | unavailable
+commands:
+  - <executed-command>
+ci_run_reference: <run-id-or-null>
+```
 
-### F. Risk-tiered evaluation
-Risk derives from `domain.subtype + consumer_path + execution_profile`. The registered future tiers are `Tier_1_Basic`, `Tier_2_Standard`, `Tier_3_High_Risk`, and `Tier_4_Critical`.
+A successful check for one commit does not validate another commit.
 
-### G. Model capability profiles
-A model name is not a tested execution identity. Future support is domain-specific, profile-versioned, and conformance-derived.
+## Task state and eligibility
 
-### H. Semantic evaluation
-Semantic evaluation begins non-authoritative and non-blocking. Blocking use requires versioning, schema-valid results, defect-specific rubrics, human-labelled calibration, false-pass measurement, order-bias controls, disagreement handling, and calibration across at least two materially different domains. Failure to evaluate never yields PASS.
-
-### I. Selective shadow
-Universal shadow execution is prohibited. Shadow is authorized only from evidence of material risk, weak observability, rollback need, or sensitive automated consumption.
-
-### J. Migration authority
-Exactly one path may be production-authoritative. `Migration Promotion Gate` is the sole transition authority; `Quality Delta Gate` is a required subgate. Low-risk and high-risk lifecycle paths remain distinct, and `new_only` requires retirement evidence.
-
-### K. Complexity budgets
-No universal Prompt IR is authorized. Generic semantic containers, arbitrary metadata blobs, unbounded nesting, prompt graphs, role hierarchies, and reasoning-plan trees are prohibited.
-
-### L. Repository Implementation Assurance Lite
-`Repository Implementation Assurance Lite` is a cross-cutting adaptive profile, not a new domain and not a target-repository enforcement platform. It is selected only for repository-modification consumer paths when risk tier or task complexity justifies the overhead. Simple repository requests retain the lightweight default path.
-
-The future bundle shape is intentionally bounded:
+Task state is limited to:
 
 ```text
-implementation-prompt.md
-+
-assurance-lite.yaml
+not_started
+active
+blocked
+complete
 ```
 
-The single linked `assurance-lite.yaml` artifact contains:
+Eligibility is derived from completed dependencies and explicit blockers. A Task may be marked `complete` only with a recorded successful quality-validation claim tied to a tested commit.
 
-- atomic requirements and completion conditions;
-- risks and failure scenarios;
-- acceptance and evidence mappings;
-- an implementation-report contract requiring requirement status, changed files, tests, evidence, and residual risks.
+Eligibility does not depend on owner-Merge receipts, exact-main receipts, lifecycle event order, impact hashes, receipt replay checks, or post-Merge administrative reconciliation.
 
-Prompt-Pipeline validation is structural only. It checks schema validity, unique identifiers, complete cross-references, requirement-to-acceptance mappings, High/Critical risk-to-mitigation-and-verification mappings, and forbidden lifecycle claims. It does not resolve target-repository files, execute target commands, prove semantic correctness, or claim implementation completion.
+`PPQR-001` is dependency-free, eligible, and `not_started`. This plan does not implement it.
 
-The implementation prompt must explicitly consume the linked artifact and must not treat artifact receipt as implementation proof. Downstream independent review remains the responsibility of `PR-Inspector`. A target-repository validator is not required for the initial pilot.
+## Risk-based Scope policy
 
-Assurance Lite begins non-authoritative and non-blocking. Promotion requires held-out evidence showing fewer first-review Critical/High findings or fewer repair/rereview cycles after accounting for token, execution, review, and cycle-time overhead. No benefit, material cross-domain leakage, or disproportionate complexity blocks promotion.
+### Routine changes
 
-The following machine-readable projection is required and must remain byte-equivalent in meaning to the normative program registration:
+Examples include documentation, planning status, ordinary tests and fixtures, prompt templates, non-destructive validator fixes, and local refactoring.
 
-<!-- repository-implementation-assurance-lite:start -->
-```json
-{
-  "architecture_key": "repository_implementation_assurance_lite",
-  "architecture_revision": "sha256:d34599ca0858231a66ce7de35d53ceb7c1494a5353711b8547f3ad9af7f866b1",
-  "registration": {
-    "status": "registered_future_work",
-    "role": "cross_cutting_adaptive_profile",
-    "new_domain_required": false,
-    "new_task_required": false,
-    "profile_name": "assurance_lite",
-    "selection_basis": [
-      "consumer_path",
-      "risk_tier",
-      "task_complexity"
-    ],
-    "activation_mode": "adaptive",
-    "simple_requests_default": "disabled",
-    "bundle_shape": "implementation_prompt_plus_one_linked_assurance_artifact",
-    "artifact_name": "assurance-lite.yaml",
-    "required_sections": [
-      "requirements",
-      "risks",
-      "acceptance_and_evidence",
-      "implementation_report_contract"
-    ],
-    "structural_validation": [
-      "schema_validity",
-      "identifier_uniqueness",
-      "requirement_to_acceptance_mapping",
-      "high_or_critical_risk_to_mitigation_and_verification_mapping",
-      "cross_reference_completeness",
-      "forbidden_lifecycle_claims"
-    ],
-    "implementation_report_required_fields": [
-      "requirement_id",
-      "status",
-      "changed_files",
-      "tests",
-      "evidence",
-      "residual_risks"
-    ],
-    "states": [
-      "declared",
-      "implemented",
-      "verified"
-    ],
-    "target_repository_validator_required_for_initial_pilot": false,
-    "downstream_independent_review": "PR-Inspector",
-    "initial_authority": "non_authoritative_non_blocking",
-    "task_integration": {
-      "PPQR-001": [
-        "measure baseline defects and repair-cycle cost",
-        "classify PR-Inspector findings by preventability"
-      ],
-      "PPQR-002": [
-        "select none or lite adaptively for repository-modification consumer paths"
-      ],
-      "PPQR-003": [
-        "define the schema-first single-artifact contract"
-      ],
-      "PPQR-004": [
-        "define structural mapping and lifecycle-claim rules"
-      ],
-      "PPQR-005": [
-        "render and bind the linked artifact to the implementation prompt"
-      ],
-      "PPQR-006": [
-        "pilot valid, invalid, and adversarial cases non-blockingly"
-      ],
-      "PPQR-007": [
-        "implement bounded structural validation and stable diagnostics"
-      ],
-      "PPQR-009": [
-        "bind activation to risk tier and measure overhead"
-      ],
-      "PPQR-010": [
-        "decide promotion from held-out quality delta and cost evidence"
-      ],
-      "PPQR-012": [
-        "prove cross-domain containment"
-      ],
-      "PPQR-015": [
-        "prevent silent fallback activation"
-      ]
-    },
-    "promotion_requires": [
-      "held_out_quality_delta_evidence",
-      "reduced_first_review_critical_or_high_findings_or_repair_cycles",
-      "measured_token_execution_review_and_cycle_time_overhead",
-      "no_material_cross_domain_leakage"
-    ],
-    "not_claimed": [
-      "semantic_correctness",
-      "target_repository_enforcement",
-      "implementation_completion",
-      "merge_readiness",
-      "exact_main_validation",
-      "zero_defect_guarantee"
-    ]
-  }
-}
-```
-<!-- repository-implementation-assurance-lite:end -->
+Required controls:
 
-## Registered task sequence
+- clear PR summary;
+- changed-file review;
+- canonical CI;
+- ordinary review.
 
-The exact titles, purposes, dependencies, and state dimensions for `PPQR-001` through `PPQR-015` are normative in the machine-readable program. Eligibility is validator-derived. Immediately after activation, only `PPQR-001` is eligible; all other tasks are dependency-blocked.
+Routine work does not require an immutable Scope revision, authorization commit, exact-file receipt, or lifecycle ceremony.
 
-`Repository Implementation Assurance Lite` is implemented incrementally through the existing task sequence rather than through a sixteenth task: baseline measurement in `PPQR-001`, adaptive routing in `PPQR-002`, contract and rule semantics in `PPQR-003` and `PPQR-004`, linked rendering in `PPQR-005`, pilot coverage in `PPQR-006`, bounded structural validation in `PPQR-007`, risk-tier activation in `PPQR-009`, Quality Delta decision in `PPQR-010`, cross-domain containment in `PPQR-012`, and fallback protection in `PPQR-015`.
+### High-risk or cross-cutting changes
 
-## Evidence and lifecycle
+Examples include `.github/workflows/**`, public schemas, authentication or authorization, security controls, dependency upgrades, destructive migrations, production routing, release authority, secret handling, and repository permissions.
 
-- Scope authority: current selector plus immutable scope revisions under `planning/prompt-quality/scopes/`
-- Append-only impact chronology: `planning/prompt-quality/impacts/`
-- Lifecycle evidence authority: `planning/prompt-quality/lifecycle/PROMPT-QUALITY-PROGRAM-ACTIVATION.ledger.json`
-- Stable diagnostics: `planning/prompt-quality/diagnostics/prompt-quality-diagnostics.v1.json`
-- Deterministic validator: `scripts/peac-prompt-quality-governance.mjs`
+Required controls:
 
-A branch implementation may be implemented and exact-head validated while lifecycle completion remains pending owner merge and exact-main verification.
+- explicit scope summary;
+- risk statement;
+- rollback or recovery notes;
+- independent review;
+- path-sensitive checks where useful;
+- canonical CI.
+
+## Independent review policy
+
+- High-risk or cross-cutting change: independent review required.
+- Routine low-risk change: independent review advisory or sampled.
+
+PR-Inspector renderer and consumer compatibility tests remain in CI. A fresh independent review is not required after every documentation, status, or low-risk maintenance commit.
+
+## Historical governance model
+
+The v1 program, Scope records, lifecycle ledgers, evidence receipts, impact records, hash chains, and their schemas are preserved as read-only history. They are excluded from active Task completion and current-status decisions.
+
+Do not append new receipts, lifecycle events, Scope amendments, impact entries, or governance hashes. Do not recompute historical hashes.
+
+See `planning/prompt-quality/DEPRECATION.md`.
+
+## Approved architecture retained
+
+### Quality-first hybrid evaluation
+
+Repository artifacts remain authoritative for quality definitions, rules, corpora, thresholds, migration readiness, production routing, Task completion, and release approval. External harnesses may execute models and return raw evidence only.
+
+### Domain contracts
+
+Future domain contracts remain JSON Schema-first and must distinguish required, optional, conditional, forbidden, clarification, default, trust-boundary, output-obligation, and risk-trigger semantics.
+
+### Executable rules and thin templates
+
+Rules must have applicability, carriers, validators, mutations, diagnostics, and gates. Templates own presentation and ordering, not domain authority or migration state.
+
+### Domain quality packs and semantic evaluation
+
+Development, release, and regression corpora remain the default. Semantic evaluation begins non-blocking and cannot become authoritative without calibration, false-pass measurement, bias controls, and cross-domain evidence.
+
+### Risk-tiered evaluation and model profiles
+
+Evaluation depth derives from domain subtype, consumer path, and execution profile. Model support remains profile-versioned and conformance-derived.
+
+### Migration authority
+
+Exactly one path may be production-authoritative. `Migration Promotion Gate` remains the sole transition authority, with `Quality Delta Gate` as a required subgate.
+
+### Complexity budget
+
+No universal Prompt IR, arbitrary metadata blob, unbounded nesting, prompt graph, or general reasoning-plan hierarchy is authorized.
+
+### Repository Implementation Assurance Lite
+
+Assurance Lite remains future, adaptive, non-authoritative work inside the existing PPQR sequence. It is enabled only when consumer path, risk tier, or task complexity justifies the overhead. Promotion requires held-out evidence of reduced important defects or repair cycles after accounting for cost.
+
+## Task sequence
+
+The exact titles, purposes, and dependencies for `PPQR-001` through `PPQR-015` are normative in `prompt-quality-execution-program.v2.json`. The approved dependency order is unchanged by this simplification.
