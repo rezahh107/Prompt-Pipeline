@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "peac-runtime-artifact-envelope-v1",
+  "title": "PEaC Runtime Artifact Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "artifact_sha256", "artifact", "authorization", "envelope_sha256"],
+  "properties": {
+    "schema_id": { "const": "peac.runtime-artifact-envelope" },
+    "schema_version": { "const": "runtime-artifact-envelope.v1" },
+    "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "required": ["prompt_id", "rendered_prompt", "canonical_intake", "generation_plan", "validation_ledger", "runtime", "assurance", "context_attribution", "governing_sources", "hashes"],
+      "properties": {
+        "prompt_id": { "type": "string", "minLength": 1 },
+        "rendered_prompt": { "type": "string" },
+        "canonical_intake": {
+          "type": "object",
+          "required": ["schema_id", "schema_version", "intake_digest", "raw_request_digest", "source_mode", "normalized_inputs"],
+          "properties": {
+            "intake_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "raw_request_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "source_mode": { "enum": ["interactive_request", "api_request", "fixture_validation"] },
+            "normalized_inputs": { "type": "object" }
+          }
+        },
+        "generation_plan": {
+          "type": "object",
+          "required": ["plan_id", "plan_version", "routing", "risk", "contract", "policies", "rules", "context", "evaluation", "required_checks", "publication"]
+        },
+        "validation_ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["checks"],
+          "properties": {
+            "checks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["check_id", "source", "applicable", "executed", "passed", "blocking", "diagnostics", "evidence"],
+                "properties": {
+                  "check_id": { "type": "string", "minLength": 1 },
+                  "source": { "type": "string" },
+                  "applicable": { "type": "boolean" },
+                  "executed": { "type": "boolean" },
+                  "passed": { "type": ["boolean", "null"] },
+                  "blocking": { "type": "boolean" },
+                  "diagnostics": { "type": "array", "items": { "type": "string" } },
+                  "evidence": { "type": "object" }
+                },
+                "allOf": [
+                  {
+                    "if": { "properties": { "applicable": { "const": false } }, "required": ["applicable"] },
+                    "then": { "properties": { "executed": { "const": false }, "passed": { "type": "null" } } }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "required": ["git_commit_sha", "expected_tested_sha", "provenance_source"],
+          "properties": {
+            "git_commit_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+            "expected_tested_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+            "provenance_source": { "const": "git rev-parse HEAD" }
+          }
+        },
+        "assurance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["profile", "validation_kind", "target_model_executed", "behavioral_success_observed", "semantic_correctness_claimed"],
+          "properties": {
+            "profile": { "type": "string" },
+            "validation_kind": { "const": "static_prompt_and_metadata_only" },
+            "target_model_executed": { "const": false },
+            "behavioral_success_observed": { "const": false },
+            "semantic_correctness_claimed": { "const": false }
+          }
+        },
+        "context_attribution": {
+          "type": "object",
+          "required": ["state", "items"],
+          "properties": {
+            "state": { "enum": ["manual_attributed", "source_bound", "unknown", "untrusted"] },
+            "items": { "type": "array" }
+          }
+        },
+        "governing_sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["algorithm", "path", "sha256"],
+            "properties": {
+              "algorithm": { "const": "sha256" },
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "hashes": { "type": "object" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_state", "downstream_use_allowed", "review_required", "review_receipt", "diagnostics"],
+      "properties": {
+        "authority_state": { "enum": ["authorized", "review_pending", "rejected", "non_authoritative_fixture"] },
+        "downstream_use_allowed": { "type": "boolean" },
+        "review_required": { "type": "boolean" },
+        "review_receipt": {
+          "type": ["object", "null"],
+          "properties": {
+            "receipt_type": { "const": "artifact_review" },
+            "receipt_version": { "const": "artifact-review.v1" },
+            "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "reviewer": { "const": "owner" },
+            "decision": { "enum": ["approved", "rejected"] },
+            "reviewed_at": { "type": "string", "format": "date-time" },
+            "limitations": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["receipt_type", "receipt_version", "artifact_sha256", "reviewer", "decision", "reviewed_at", "limitations"]
+        },
+        "diagnostics": { "type": "array", "items": { "type": "string" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "authority_state": { "const": "authorized" } }, "required": ["authority_state"] },
+          "then": { "properties": { "downstream_use_allowed": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "authority_state": { "enum": ["review_pending", "rejected", "non_authoritative_fixture"] } }, "required": ["authority_state"] },
+          "then": { "properties": { "downstream_use_allowed": { "const": false } } }
+        }
+      ]
+    },
+    "envelope_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
