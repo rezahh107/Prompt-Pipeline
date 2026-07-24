@@ -2,21 +2,23 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync 
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import yaml from 'js-yaml';
-import { loadConfig, type PEaCConfig } from './peac.js';
+import { loadConfig, type Dict, type PEaCConfig } from './peac.js';
 import {
+  currentCheckoutIdentity,
+  deriveAuthorityDecision,
   sha256Json,
   verifyArtifact,
   type ArtifactReviewReceipt,
+  type GenerationPlan,
   type RuntimeArtifactEnvelope,
+  type ValidationCheckRecord,
 } from './runtime-authority.js';
 
 export * from './runtime-authority.js';
 
 function loadEnvelope(path: string): RuntimeArtifactEnvelope {
   const value = yaml.load(readFileSync(path, 'utf8'));
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`Artifact envelope is not an object: ${path}`);
-  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`Artifact envelope is not an object: ${path}`);
   return value as RuntimeArtifactEnvelope;
 }
 
@@ -41,12 +43,24 @@ export function reviewArtifact(
   const config = configOverride ?? loadConfig();
   const envelope = loadEnvelope(path);
   const verification = verifyArtifact(path, config);
-  if (verification.verification_status !== 'verified') {
-    throw new Error(`Cannot review an unverified Artifact: ${verification.diagnostics.join('; ')}`);
-  }
-  if (envelope.authorization.authority_state !== 'review_pending') {
-    throw new Error(`Artifact is not review_pending: ${envelope.authorization.authority_state}`);
-  }
+  if (verification.verification_status !== 'verified') throw new Error(`Cannot review an unverified Artifact: ${verification.diagnostics.join('; ')}`);
+  if (verification.authority_state !== 'review_pending' || envelope.authorization.authority_state !== 'review_pending') throw new Error(`Artifact is not canonically review_pending: ${String(verification.authority_state)}`);
+
+  const artifact = envelope.artifact;
+  const canonicalIntake = artifact.canonical_intake as Dict;
+  const plan = artifact.generation_plan as GenerationPlan;
+  const ledgerValue = artifact.validation_ledger as Dict;
+  const ledger = Array.isArray(ledgerValue.checks) ? ledgerValue.checks as ValidationCheckRecord[] : [];
+  const checkout = currentCheckoutIdentity();
+  const preReview = deriveAuthorityDecision({
+    sourceMode: canonicalIntake.source_mode as 'interactive_request' | 'api_request' | 'fixture_validation',
+    riskAssessment: plan.risk,
+    validationLedger: ledger,
+    checkoutIdentity: checkout,
+    reviewReceipt: null,
+    artifactSha256: envelope.artifact_sha256,
+  });
+  if (preReview.authority_state !== 'review_pending') throw new Error(`Recomputed pre-review authority is ${preReview.authority_state}, not review_pending.`);
 
   const receipt: ArtifactReviewReceipt = {
     receipt_type: 'artifact_review',
@@ -57,21 +71,29 @@ export function reviewArtifact(
     reviewed_at: new Date().toISOString(),
     limitations,
   };
+  const reviewedDecision = deriveAuthorityDecision({
+    sourceMode: canonicalIntake.source_mode as 'interactive_request' | 'api_request' | 'fixture_validation',
+    riskAssessment: plan.risk,
+    validationLedger: ledger,
+    checkoutIdentity: checkout,
+    reviewReceipt: receipt,
+    artifactSha256: envelope.artifact_sha256,
+  });
+  const expectedState = decision === 'approved' ? 'authorized' : 'rejected';
+  if (reviewedDecision.authority_state !== expectedState) throw new Error(`Review transition reducer returned ${reviewedDecision.authority_state}; expected ${expectedState}.`);
+
   const authorization = {
-    authority_state: decision === 'approved' ? 'authorized' as const : 'rejected' as const,
-    downstream_use_allowed: decision === 'approved',
-    review_required: true,
+    authority_state: reviewedDecision.authority_state,
+    downstream_use_allowed: reviewedDecision.downstream_use_allowed,
+    review_required: reviewedDecision.review_required,
     review_receipt: receipt,
-    diagnostics: decision === 'approved' ? [] : ['Owner review rejected the Artifact.'],
+    diagnostics: reviewedDecision.diagnostics,
   };
   const { envelope_sha256: _previousEnvelopeSha256, ...baseEnvelope } = envelope;
   const withoutEnvelopeDigest = { ...baseEnvelope, authorization };
-  const reviewed: RuntimeArtifactEnvelope = {
-    ...withoutEnvelopeDigest,
-    envelope_sha256: sha256Json(withoutEnvelopeDigest),
-  };
+  const reviewed: RuntimeArtifactEnvelope = { ...withoutEnvelopeDigest, envelope_sha256: sha256Json(withoutEnvelopeDigest) };
   const outputPath = join(
-    authorityDirectory(config, authorization.authority_state),
+    authorityDirectory(config, reviewedDecision.authority_state as 'authorized' | 'rejected'),
     `${String(envelope.artifact.prompt_id ?? 'artifact').replaceAll('.', '-')}-${envelope.artifact_sha256.slice(0, 16)}.yaml`,
   );
   writeAtomic(outputPath, reviewed);
