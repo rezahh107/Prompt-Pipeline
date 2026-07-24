@@ -5,7 +5,8 @@ status_id: PEAC-RUNTIME-AUTHORITY-REPAIR-2026-07
 repository: rezahh107/Prompt-Pipeline
 starting_main_sha: e3f98e007bba01ba02310b01377f617c94ca8b09
 implementation_branch: fix/lean-canonical-generation-spine
-implementation_state: implemented_pending_exact_head_ci
+implementation_state: implemented_pending_independent_review
+merge_state: not_merged
 ```
 
 ## Verified live baseline
@@ -32,4 +33,6 @@ The repair does not merge, approve, deploy, enable auto-merge, change repository
 
 ## Validation authority
 
-Completion requires validation against the exact branch Head through repository-native CI. Until that succeeds, this document remains `implemented_pending_exact_head_ci` and the repair must not be described as complete.
+Repository-native exact-head CI has passed for this implementation line. The authoritative exact Head SHA, workflow run identity, job conclusions, and uploaded artifacts remain live GitHub evidence and must be read from the pull request rather than embedded as a self-referential immutable value in this file.
+
+The implementation remains pending fresh independent review. It must not be described as merged, approved, deployed, AIGOV-conformant, or target-model behaviorally validated.
