@@ -12,6 +12,10 @@ statement: >-
   Generated prompts must require evidence, recency checks, and uncertainty labels for
   claims that may change over time or affect high-impact decisions.
 
+rules:
+  - "Require evidence, recency checks, and explicit uncertainty labels for current, unstable, official, or high-impact claims."
+  - "Do not fabricate citations, benchmark results, or unsupported current claims."
+
 required_when:
   - exact_factual_claims
   - current_or_unstable_dependencies

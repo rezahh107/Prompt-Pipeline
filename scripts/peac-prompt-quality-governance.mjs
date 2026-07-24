@@ -35,17 +35,18 @@ async function main(){
     const ordered=[...state.impacts].sort((a,b)=>(a.value.sequence_number||0)-(b.value.sequence_number||0)||a.file.localeCompare(b.file));
     for(const item of ordered){
       const scopeItem=matchingScope(state,item.value.task_id,item.value.scope_revision);if(!scopeItem)continue;
-      const activation=item.value.work_type==='program_activation';
+      const activation=item.value.work_type==='program_activation',selectedScope=scopeItem.file===selector.scope_path,reconcileActivation=activation&&selectedScope;
       const derived=activation?(p.activation_obligations||[]).filter(o=>(o.required_paths||[]).every(x=>existsSync(fp(x)))).map(o=>o.obligation_id):undefined;
-      z.push(...await validateImpact(item.value,p,scopeItem.value,{source:item.file,head:activation?g.head:null,actual:activation?g.actual:null,derived,baselineBefore:activation?{program_authority:'absent',mutable_status_authority:'absent'}:undefined,baselineAfter:activation?{program_authority:P,program_id:p.program_id,authoritative_activation_state:p.authoritative_activation_state}:undefined}));
+      z.push(...await validateImpact(item.value,p,scopeItem.value,{source:item.file,head:reconcileActivation?g.head:null,actual:reconcileActivation?g.actual:null,derived,baselineBefore:activation?{program_authority:'absent',mutable_status_authority:'absent'}:undefined,baselineAfter:activation?{program_authority:P,program_id:p.program_id,authoritative_activation_state:p.authoritative_activation_state}:undefined}));
     }
     z.push(...validateImpactHistory(ordered.map(x=>x.value),{mutated:state.impactHistoryMutated,source:'planning/prompt-quality/impacts'}));
   }
   if(rl)z.push(...lifecycleDiagnostics);
   process.env.PQG_FIXTURE_CONTEXT='1';
+  const activationScope=state.scopes.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value||s;
   const activationImpact=state.impacts.find(x=>x.value.work_type==='program_activation')?.value;
   const activationLedger=state.ledgers.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value;
-  const fx=rf?await validateFixtures({p,s,i:activationImpact,l:activationLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};
+  const fx=rf?await validateFixtures({p,s:activationScope,i:activationImpact,l:activationLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};
   delete process.env.PQG_FIXTURE_CONTEXT;
   z.push(...fx.z,...diagnosticRegistry(reg,fx.docs),...validateMemory(p),...ciWiring(),...requiredOutputs(p,s));
   const out=[...new Map(z.map(x=>[`${x.code}:${x.source}:${x.message}`,x])).values()];
