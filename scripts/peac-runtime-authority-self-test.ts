@@ -139,7 +139,7 @@ test('14 unknown consequential risk requires clarification or review', () => {
 test('15 valid low-risk request remains low risk', () => expect(compileGenerationPlan(createIntake()).risk.classification === 'low', 'low-risk request changed'));
 
 // Contracts
-const contractBase = { fields: { required: [{ name: 'name', type: 'string' }], optional: [] as unknown[] } };
+const contractBase = { fields: { required: [{ name: 'name', type: 'string' }], optional: [] } };
 test('16 invalid string type is rejected', () => expect(validateContractForTest(contractBase, { name: 1 }).errors.length > 0, 'invalid string accepted'));
 test('17 invalid integer type is rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'count', type: 'integer' }] } }, { count: 1.5 }).errors.length > 0, 'invalid integer accepted'));
 test('18 invalid enum is rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'mode', type: 'string', enum: ['a', 'b'] }] } }, { mode: 'c' }).errors.length > 0, 'invalid enum accepted'));
