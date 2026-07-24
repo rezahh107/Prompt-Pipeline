@@ -43,9 +43,10 @@ async function main(){
   }
   if(rl)z.push(...lifecycleDiagnostics);
   process.env.PQG_FIXTURE_CONTEXT='1';
+  const activationScope=state.scopes.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value||s;
   const activationImpact=state.impacts.find(x=>x.value.work_type==='program_activation')?.value;
   const activationLedger=state.ledgers.find(x=>x.value.task_id==='PROMPT-QUALITY-PROGRAM-ACTIVATION')?.value;
-  const fx=rf?await validateFixtures({p,s,i:activationImpact,l:activationLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};
+  const fx=rf?await validateFixtures({p,s:activationScope,i:activationImpact,l:activationLedger},selected):{docs:['valid.json','invalid.json','adversarial.json'].map(x=>json(`${F}/${x}`)),z:[],results:[]};
   delete process.env.PQG_FIXTURE_CONTEXT;
   z.push(...fx.z,...diagnosticRegistry(reg,fx.docs),...validateMemory(p),...ciWiring(),...requiredOutputs(p,s));
   const out=[...new Map(z.map(x=>[`${x.code}:${x.source}:${x.message}`,x])).values()];
