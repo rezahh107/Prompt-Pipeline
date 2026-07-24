@@ -268,7 +268,7 @@ export function compileRuntimePlan(envelope: ValidatedIntakeEnvelope, configOver
     rules: plan.rules,
     context: plan.context,
     generationPlan: plan,
-    requiredChecks: plan.required_checks,
+    requiredChecks: [...plan.required_checks],
     governingSources: sources,
   };
   validatedRuntimePlans.add(assessment);
