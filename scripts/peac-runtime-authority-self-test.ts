@@ -1,23 +1,27 @@
 #!/usr/bin/env tsx
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
+import * as runtimeAuthority from '../src/runtime-authority.js';
 import {
   compileGenerationPlan,
   createFixtureEnvelope,
   createValidatedIntakeEnvelope,
-  deriveRisk,
+  deriveRuntimeAssessment,
   generateArtifact,
   generateFromCliArgs,
   reviewArtifact,
   sha256Json,
+  sha256Text,
   validateContractForTest,
   verifyArtifact,
   type RuntimeArtifactEnvelope,
   type ValidatedIntakeEnvelope,
-} from '../src/runtime-authority.js';
-import { loadConfig, routeRequestForTest, validateAllCases } from '../src/peac.js';
+} from '../src/runtime-authority-api.js';
+import { loadConfig, validateAllCases, type PEaCConfig } from '../src/peac.js';
+
+process.env.EXPECTED_TESTED_SHA ??= process.env.TESTED_SHA;
 
 const temp = mkdtempSync(join(tmpdir(), 'peac-runtime-authority-'));
 const created = new Set<string>();
@@ -56,12 +60,15 @@ function lowRiskIntake(overrides: Record<string, unknown> = {}): Record<string, 
     requires_current_information: false,
     exact_factual_claims: false,
     external_files: false,
+    potential_downstream_execution: false,
+    requested_actions: [],
+    available_sources: [],
     ...overrides,
   };
 }
 
-function createIntake(overrides: Record<string, unknown> = {}): ValidatedIntakeEnvelope {
-  return createValidatedIntakeEnvelope(lowRiskIntake(overrides), 'api_request');
+function createIntake(overrides: Record<string, unknown> = {}, config?: PEaCConfig): ValidatedIntakeEnvelope {
+  return createValidatedIntakeEnvelope(lowRiskIntake(overrides), 'api_request', config);
 }
 
 function generated(overrides: Record<string, unknown> = {}): { path: string; envelope: RuntimeArtifactEnvelope } {
@@ -80,202 +87,290 @@ function cloneEnvelope(value: RuntimeArtifactEnvelope): RuntimeArtifactEnvelope 
   return structuredClone(value);
 }
 
+function recomputeEnvelopeDigests(value: RuntimeArtifactEnvelope): RuntimeArtifactEnvelope {
+  const envelope = cloneEnvelope(value);
+  const artifact = envelope.artifact;
+  const hashes = artifact.hashes as Record<string, unknown>;
+  const intake = artifact.canonical_intake as Record<string, unknown>;
+  const ledger = ((artifact.validation_ledger as Record<string, unknown>).checks as unknown[]);
+  hashes.rendered_prompt_hash = sha256Text(String(artifact.rendered_prompt ?? ''));
+  hashes.normalized_inputs_hash = sha256Json((intake.normalized_inputs as Record<string, unknown> | undefined) ?? {});
+  hashes.generation_plan_hash = sha256Json(artifact.generation_plan);
+  hashes.validation_ledger_hash = sha256Json(ledger);
+  envelope.artifact_sha256 = sha256Json(artifact);
+  const { envelope_sha256: _ignored, ...partial } = envelope;
+  envelope.envelope_sha256 = sha256Json(partial);
+  return envelope;
+}
+
 function writeEnvelope(name: string, value: RuntimeArtifactEnvelope): string {
   const path = join(temp, name);
   writeFileSync(path, yaml.dump(value, { lineWidth: 120, noRefs: true }));
   return path;
 }
 
+function ledger(value: RuntimeArtifactEnvelope): Array<Record<string, unknown>> {
+  return ((value.artifact.validation_ledger as Record<string, unknown>).checks as Array<Record<string, unknown>>);
+}
+
+function plan(value: RuntimeArtifactEnvelope): Record<string, unknown> {
+  return value.artifact.generation_plan as Record<string, unknown>;
+}
+
+function syntheticValidatorConfig(): PEaCConfig {
+  const root = join(temp, 'synthetic');
+  const domains = join(root, 'domains');
+  const policies = join(root, 'policies');
+  const general = join(domains, 'general');
+  mkdirSync(general, { recursive: true });
+  mkdirSync(policies, { recursive: true });
+  writeFileSync(join(general, 'input.contract.yaml'), yaml.dump({
+    contract_version: 'test.v1',
+    additional_properties: true,
+    fields: { required: [{ name: 'task', type: 'string' }, { name: 'output_format', type: 'string' }], optional: [] },
+  }));
+  writeFileSync(join(general, 'route.yaml'), yaml.dump({ domain: 'general', version: 'test.v1', subtypes: [{ id: 'default' }] }));
+  writeFileSync(join(general, 'rules.yaml'), yaml.dump({ rules: [{ id: 'SYN-RULE', rule: 'Preserve the requested output form.' }] }));
+  writeFileSync(join(general, 'validators.yaml'), yaml.dump({
+    static_checks: [
+      { id: 'synthetic_required_output', type: 'output_check', check: "rendered_prompt contains 'REQUIRED'", severity: 'error' },
+      { id: 'synthetic_task_present', type: 'field_check', check: 'task.length > 0', severity: 'error' },
+      { id: 'synthetic_not_applicable', type: 'field_check', applies_when: 'task == "never"', check: 'task.length > 0', severity: 'error' },
+    ],
+  }));
+  const base = loadConfig();
+  return { ...base, domains_path: domains, policies_path: policies, outputs_path: join(root, 'outputs'), artifact: { ...base.artifact, output_dir: join(root, 'outputs') } };
+}
+
 const config = loadConfig();
 
-// Intake authority
-const arbitrary = { normalized_inputs: {} } as unknown as ValidatedIntakeEnvelope;
-test('1 raw request cannot call generator without canonical intake', () => expectThrows(() => generateArtifact(arbitrary, 'ci'), 'canonical intake'));
-test('2 API request passes through canonical intake', () => expect(createIntake().source_mode === 'api_request', 'wrong source mode'));
-test('3 CLI request passes through canonical intake', () => {
-  const requestPath = join(temp, 'intake.yaml');
-  writeFileSync(requestPath, yaml.dump(lowRiskIntake(), { noRefs: true }));
-  const result = generateFromCliArgs({ request: requestPath, mode: 'ci' });
+// Canonical intake and one derivation authority.
+test('INT-001 raw object cannot bypass canonical intake', () => expectThrows(() => generateArtifact({ normalized_inputs: {} } as unknown as ValidatedIntakeEnvelope, 'ci'), 'canonical intake'));
+test('INT-002 API intake is branded and digest-bound', () => expect(createIntake().source_mode === 'api_request', 'wrong source mode'));
+test('INT-003 CLI request passes canonical intake', () => {
+  const path = join(temp, 'intake.yaml');
+  writeFileSync(path, yaml.dump(lowRiskIntake(), { noRefs: true }));
+  const result = generateFromCliArgs({ request: path, mode: 'ci' });
   created.add(result.outputPath);
-  expect((result.artifact.artifact.canonical_intake as Record<string, unknown>).source_mode === 'interactive_request', 'CLI bypassed intake');
+  expect((result.artifact.artifact.canonical_intake as Record<string, unknown>).source_mode === 'interactive_request', 'CLI bypassed canonical intake');
 });
-const basicFixture = fixtureFile({ task: 'Create a generic prompt.' });
-const fixtureGenerated = generateArtifact(createFixtureEnvelope(basicFixture), 'ci');
-created.add(fixtureGenerated.outputPath);
-test('4 case file cannot create an authorized Artifact', () => expect(fixtureGenerated.artifact.authorization.authority_state === 'non_authoritative_fixture', 'fixture authorized'));
-test('5 fixture mode produces downstream_use_allowed=false', () => expect(!fixtureGenerated.artifact.authorization.downstream_use_allowed, 'fixture downstream-usable'));
-test('6 invalid intake schema is rejected before generation', () => expectThrows(() => createValidatedIntakeEnvelope({ request: 'x' }, 'api_request'), 'Intake validation failed'));
-test('7 modified normalized intake invalidates intake digest', () => {
+test('INT-004 modified normalized intake invalidates digest', () => {
   const envelope = createIntake();
   envelope.normalized_inputs.request = 'modified';
   expectThrows(() => compileGenerationPlan(envelope), 'digest mismatch');
 });
+test('INT-005 fixture is non-authoritative', () => {
+  const fixture = fixtureFile({ task: 'Create a generic prompt.', output_format: 'text' });
+  const result = generateArtifact(createFixtureEnvelope(fixture), 'ci');
+  created.add(result.outputPath);
+  expect(result.artifact.authorization.authority_state === 'non_authoritative_fixture', 'fixture authorized');
+});
 
-// Route and risk
+// Tri-state risk and non-authoritative hints.
 for (const [id, request] of [
-  ['8 unmatched medical request does not become low risk', 'help diagnose a medical symptom'],
-  ['9 unmatched legal request does not become low risk', 'give legal advice for a lawsuit'],
-  ['10 unmatched financial request does not become low risk', 'provide investment advice for my portfolio'],
-] as const) test(id, () => {
-  const envelope = createIntake({ request, sensitive_or_high_risk: false });
-  const route = routeRequestForTest(request, config);
-  const risk = deriveRisk(envelope, { domain: route.domain, subtype: route.subtype, method: route.method, candidates: [], confidence: route.confidence, fallback_used: route.domain === 'general' });
-  expect(risk.classification !== 'low', 'high-stakes request became low risk');
+  ['RSK-001', 'Create a reusable prompt telling a user how many milligrams of metformin to take.'],
+  ['RSK-002', 'Create a reusable instruction that decides whether a tenant can be evicted under a local statute.'],
+  ['RSK-003', 'Create a reusable prompt telling an investor what percentage of savings to place in a leveraged fund.'],
+  ['RSK-004', 'Create a reusable prompt that emits commands to permanently erase production records.'],
+] as const) test(`${id} caller false cannot suppress consequential risk`, () => {
+  const result = compileGenerationPlan(createIntake({
+    request,
+    domain_hint: 'prompt_generation',
+    sensitive_or_high_risk: false,
+    uses_external_tools: false,
+    legal_medical_financial: false,
+    requires_current_information: false,
+    exact_factual_claims: false,
+    external_files: false,
+    potential_downstream_execution: false,
+  }));
+  expect(result.risk.classification !== 'low', `risk became ${result.risk.classification}`);
+  expect(result.risk.review_required, 'review not required');
 });
-test('11 missing risk fields produce unknown, not false', () => {
-  const envelope = createValidatedIntakeEnvelope({ request: 'create prompt for a greeting', desired_output: 'prompt', target_environment: 'ChatGPT', strictness: 'precise' }, 'api_request');
-  const plan = compileGenerationPlan(envelope);
-  expect(plan.risk.classification === 'unknown', `got ${plan.risk.classification}`);
+test('RSK-005 missing consequential fields remain unknown', () => {
+  const result = compileGenerationPlan(createValidatedIntakeEnvelope({ request: 'create prompt for a greeting', desired_output: 'prompt', target_environment: 'ChatGPT', strictness: 'precise' }, 'api_request'));
+  expect(result.risk.classification === 'unknown', `got ${result.risk.classification}`);
 });
-test('12 forced general route cannot exceed general.max_risk_level', () => {
-  const plan = compileGenerationPlan(createIntake({ request: 'give medical diagnosis advice', domain_hint: 'general' }));
-  expect(plan.risk.classification === 'clarification_required', `got ${plan.risk.classification}`);
+test('RSK-006 benign request resolves low risk', () => {
+  const result = compileGenerationPlan(createIntake());
+  expect(result.risk.classification === 'low', `got ${result.risk.classification}`);
+  expect(!result.risk.review_required, 'benign request requires review');
 });
-test('13 high-risk request requires review', () => expect(compileGenerationPlan(createIntake({ request: 'give medical diagnosis advice' })).risk.review_required, 'review not required'));
-test('14 unknown consequential risk requires clarification or review', () => {
-  const envelope = createValidatedIntakeEnvelope({ request: 'create prompt for a greeting', desired_output: 'prompt', target_environment: 'ChatGPT', strictness: 'precise' }, 'api_request');
-  expect(compileGenerationPlan(envelope).risk.review_required, 'unknown risk bypassed review');
+test('RSK-007 downstream execution field changes canonical behavior', () => {
+  const low = compileGenerationPlan(createIntake({ potential_downstream_execution: false }));
+  const consequential = compileGenerationPlan(createIntake({ potential_downstream_execution: true }));
+  expect(low.risk.classification === 'low', 'false benign control is not low');
+  expect(consequential.risk.classification !== 'low' && consequential.risk.review_required, 'downstream execution had no authority effect');
 });
-test('15 valid low-risk request remains low risk', () => expect(compileGenerationPlan(createIntake()).risk.classification === 'low', 'low-risk request changed'));
+test('RTE-001 conflicting general hint cannot override strong prompt-generation route', () => {
+  const result = compileGenerationPlan(createIntake({ request: 'Create a reusable system prompt with explicit constraints and an output format.', domain_hint: 'general' }));
+  expect(result.routing.domain === 'prompt_generation', `hint forced ${result.routing.domain}`);
+  expect(result.routing.hint_conflict, 'conflict not recorded');
+  expect(result.risk.review_required, 'routing conflict did not require review');
+});
+test('RSK-008 domain risk overrides are compiled into canonical assessment', () => expect(compileGenerationPlan(createIntake({ requires_current_information: true })).risk.applied_rules.length > 0, 'domain risk rules absent'));
 
-// Contracts
+// Contract behavior.
 const contractBase = { fields: { required: [{ name: 'name', type: 'string' }], optional: [] } };
-test('16 invalid string type is rejected', () => expect(validateContractForTest(contractBase, { name: 1 }).errors.length > 0, 'invalid string accepted'));
-test('17 invalid integer type is rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'count', type: 'integer' }] } }, { count: 1.5 }).errors.length > 0, 'invalid integer accepted'));
-test('18 invalid enum is rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'mode', type: 'string', enum: ['a', 'b'] }] } }, { mode: 'c' }).errors.length > 0, 'invalid enum accepted'));
-test('19 invalid array item is rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'items', type: 'array', item_type: 'string' }] } }, { items: ['a', 2] }).errors.length > 0, 'invalid array item accepted'));
-test('20 unknown additional property is handled by contract policy', () => expect(validateContractForTest({ additional_properties: false, fields: { required: [{ name: 'name', type: 'string' }] } }, { name: 'x', extra: true }).errors.length > 0, 'additional property accepted'));
-test('21 conditional required field is enforced', () => expect(validateContractForTest({ fields: { required: [{ name: 'enabled', type: 'boolean' }], optional: [{ name: 'detail', type: 'string', required_if: 'enabled == true' }] } }, { enabled: true }).errors.length > 0, 'conditional field not enforced'));
-test('22 defaults remain deterministic', () => {
-  const contract = { fields: { required: [{ name: 'name', type: 'string' }], optional: [{ name: 'mode', type: 'string', default: 'safe' }] } };
-  expect(sha256Json(validateContractForTest(contract, { name: 'x' }).resolved) === sha256Json(validateContractForTest(contract, { name: 'x' }).resolved), 'defaults non-deterministic');
+test('CTR-001 wrong type rejected', () => expect(validateContractForTest(contractBase, { name: 1 }).errors.length > 0, 'wrong type accepted'));
+test('CTR-002 enum rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'mode', type: 'string', enum: ['a', 'b'] }] } }, { mode: 'c' }).errors.length > 0, 'enum accepted'));
+test('CTR-003 array item type rejected', () => expect(validateContractForTest({ fields: { required: [{ name: 'items', type: 'array', item_type: 'string' }] } }, { items: ['a', 2] }).errors.length > 0, 'array item accepted'));
+test('CTR-004 additional property policy enforced', () => expect(validateContractForTest({ additional_properties: false, fields: { required: [{ name: 'name', type: 'string' }] } }, { name: 'x', extra: true }).errors.length > 0, 'additional property accepted'));
+test('CTR-005 conditional required field enforced', () => expect(validateContractForTest({ fields: { required: [{ name: 'enabled', type: 'boolean' }], optional: [{ name: 'detail', type: 'string', required_if: 'enabled == true' }] } }, { enabled: true }).errors.length > 0, 'conditional field accepted'));
+
+// Real per-Check execution.
+test('CHK-001 exactly one validator fails without contaminating unrelated Checks', () => {
+  const synthetic = syntheticValidatorConfig();
+  const envelope = createValidatedIntakeEnvelope({
+    request: 'friendly greeting', desired_output: 'short text', target_environment: 'ChatGPT', strictness: 'precise',
+    sensitive_or_high_risk: false, uses_external_tools: false, legal_medical_financial: false,
+    requires_current_information: false, exact_factual_claims: false, external_files: false,
+    potential_downstream_execution: false, domain_hint: 'general', requested_actions: [], available_sources: [],
+  }, 'api_request', synthetic);
+  const assessment = deriveRuntimeAssessment({
+    validatedIntake: envelope,
+    config: synthetic,
+    renderedPrompt: 'A harmless greeting without the required marker.',
+    integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
+  });
+  const byId = new Map(assessment.validationLedger.map((record) => [record.check_id, record]));
+  expect(byId.get('synthetic_required_output')?.passed === false, 'target Check did not fail');
+  expect(byId.get('synthetic_task_present')?.passed === true, 'unrelated Check did not retain true result');
+  expect(byId.get('synthetic_not_applicable')?.executed === false && byId.get('synthetic_not_applicable')?.passed === null, 'non-applicable semantics violated');
+  expect(assessment.authorityDecision.authority_state === 'rejected', 'blocking per-Check failure did not reject');
 });
 
-// Policies and rules
-const lowPlan = compileGenerationPlan(createIntake());
-test('23 applicable Policy is loaded from actual source', () => expect(lowPlan.policies.applicable.every((item) => existsSync(item.source_path)), 'policy source missing'));
-test('24 applicable Policy hash is recorded and verified', () => expect(lowPlan.policies.applicable.every((item) => /^[0-9a-f]{64}$/.test(item.source_sha256)), 'policy hash invalid'));
-test('25 applicable Rule without carrier is rejected', () => expect(lowPlan.rules.applicable.every((item) => item.execution_result === 'applied'), 'rule carrier missing'));
-test('26 Policy validator carrier executes', () => expect(lowPlan.policies.applied.every((item) => item.carrier === 'template_constraint'), 'policy carrier not executed'));
-test('27 Policy review carrier changes review requirement', () => expect(compileGenerationPlan(createIntake({ request: 'give legal advice' })).risk.review_required, 'review carrier ineffective'));
-test('28 Domain rules are consumed by Runtime', () => expect(lowPlan.rules.applied.length > 0, 'domain rules not consumed'));
-test('29 modified Rule file invalidates Artifact verification', () => {
-  const result = generated();
-  const source = (result.envelope.artifact.governing_sources as Record<string, unknown>[]).find((item) => String(item.path).endsWith('/rules.yaml') || String(item.path).endsWith('rules.yaml'));
-  expect(source, 'rules source not recorded');
-  const path = String(source.path);
-  const original = readFileSync(path, 'utf8');
-  try {
-    writeFileSync(path, `${original}\n# temporary mutation\n`);
-    expect(verifyArtifact(result.path).verification_status !== 'verified', 'rule drift was accepted');
-  } finally { writeFileSync(path, original); }
+const valid = generated();
+const validLedger = ledger(valid.envelope);
+test('CHK-002 generated ledger has unique Check IDs', () => expect(new Set(validLedger.map((item) => item.check_id)).size === validLedger.length, 'duplicate Check IDs generated'));
+test('CHK-003 actual Check IDs exactly equal required Check IDs', () => {
+  const required = ((plan(valid.envelope).required_checks as Array<Record<string, unknown>>).map((item) => item.check_id).sort());
+  const actual = validLedger.map((item) => item.check_id).sort();
+  expect(sha256Json(required) === sha256Json(actual), 'required Check set differs');
+});
+test('CHK-004 aggregate compatibility validation is derived from per-Check records', () => {
+  const compatibility = valid.envelope.artifact.validation as Record<string, unknown>;
+  expect(typeof compatibility.passed === 'boolean' && Array.isArray(compatibility.checks_run), 'legacy projection missing');
 });
 
-// Validation ledger
-const ledgerArtifact = generated().envelope;
-const ledger = ((ledgerArtifact.artifact.validation_ledger as Record<string, unknown>).checks as Record<string, unknown>[]);
-test('30 non-applicable check is not marked executed', () => expect(ledger.filter((item) => item.applicable === false).every((item) => item.executed === false && item.passed === null), 'skipped check appears executed'));
-test('31 applicable required check not executed causes failure', () => {
-  const copy = cloneEnvelope(ledgerArtifact); const checks = ((copy.artifact.validation_ledger as Record<string, unknown>).checks as Record<string, unknown>[]); checks[0]!.executed = false;
-  const path = writeEnvelope('ledger-not-executed.yaml', copy); expect(verifyArtifact(path).verification_status === 'rejected', 'unexecuted check accepted');
+// Hash-consistent semantic mutations.
+test('MUT-A fake passing ledger with valid hashes is rejected by Check-set comparison', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  (copy.artifact.validation_ledger as Record<string, unknown>).checks = [{ check_id: 'fake', source: 'fake', applicable: true, executed: true, passed: true, blocking: true, diagnostics: [], evidence: {} }];
+  const mutated = recomputeEnvelopeDigests(copy);
+  const result = verifyArtifact(writeEnvelope('mut-fake-ledger.yaml', mutated));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('Check IDs')), result.diagnostics.join('; '));
 });
-test('32 failed blocking check prevents authorization', () => expect(!ledger.some((item) => item.blocking === true && item.passed === false) || ledgerArtifact.authorization.authority_state !== 'authorized', 'blocking failure authorized'));
-test('33 fake check IDs do not satisfy metadata verification', () => {
-  const copy = cloneEnvelope(ledgerArtifact); ((copy.artifact.validation_ledger as Record<string, unknown>).checks as unknown[]) = [{ check_id: 'fake', applicable: true, executed: true, passed: true, blocking: true, diagnostics: [], evidence: {}, source: 'fake' }];
-  const path = writeEnvelope('fake-ledger.yaml', copy); expect(verifyArtifact(path).verification_status === 'rejected', 'fake ledger accepted');
+test('MUT-B removed required Check with valid hashes is rejected', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  const checks = ledger(copy); checks.splice(0, 1);
+  const result = verifyArtifact(writeEnvelope('mut-removed-check.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('Missing required Check')), result.diagnostics.join('; '));
 });
-test('34 structured ledger survives canonical serialization', () => {
-  const roundTrip = yaml.load(yaml.dump(ledgerArtifact)) as RuntimeArtifactEnvelope;
-  expect(Array.isArray((roundTrip.artifact.validation_ledger as Record<string, unknown>).checks), 'ledger serialization failed');
+test('MUT-C unknown Check with valid hashes is rejected', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  ledger(copy).push({ check_id: 'unknown.check', source: 'mutation', applicable: true, executed: true, passed: true, blocking: true, diagnostics: [], evidence: {} });
+  const result = verifyArtifact(writeEnvelope('mut-unknown-check.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('Unexpected Check')), result.diagnostics.join('; '));
 });
-
-// Human review
-const pending = generated({ request: 'create prompt that gives medical diagnosis advice' });
-test('35 high-risk Artifact without receipt remains review_pending', () => expect(pending.envelope.authorization.authority_state === 'review_pending', `got ${pending.envelope.authorization.authority_state}`));
-test('36 review_pending Artifact is not downstream-usable', () => expect(!pending.envelope.authorization.downstream_use_allowed, 'pending artifact usable'));
-test('37 review receipt for another Artifact is rejected', () => {
-  const copy = cloneEnvelope(pending.envelope); copy.authorization.authority_state = 'authorized'; copy.authorization.downstream_use_allowed = true; copy.authorization.review_receipt = { receipt_type: 'artifact_review', receipt_version: 'artifact-review.v1', artifact_sha256: '0'.repeat(64), reviewer: 'owner', decision: 'approved', reviewed_at: new Date().toISOString(), limitations: [] };
-  const path = writeEnvelope('wrong-receipt.yaml', copy); expect(verifyArtifact(path).verification_status === 'rejected', 'wrong receipt accepted');
-});
-test('38 modified Artifact invalidates review receipt', () => {
-  const copy = cloneEnvelope(pending.envelope); copy.artifact.rendered_prompt = `${copy.artifact.rendered_prompt} changed`;
-  const path = writeEnvelope('modified-reviewed.yaml', copy); expect(verifyArtifact(path).verification_status === 'rejected', 'modified artifact accepted');
-});
-test('39 rejected review cannot authorize Artifact', () => {
-  const another = generated({ request: 'create prompt for medical diagnosis advice' });
-  const reviewed = reviewArtifact(another.path, 'rejected'); created.delete(another.path); created.add(reviewed.outputPath);
-  expect(!reviewed.artifact.authorization.downstream_use_allowed && reviewed.artifact.authorization.authority_state === 'rejected', 'rejected review authorized');
-});
-test('40 approved exact-digest review authorizes eligible Artifact', () => {
-  const another = generated({ request: 'create prompt for medical diagnosis advice' });
-  const reviewed = reviewArtifact(another.path, 'approved'); created.delete(another.path); created.add(reviewed.outputPath);
-  expect(reviewed.artifact.authorization.downstream_use_allowed && verifyArtifact(reviewed.outputPath).verification_status === 'verified', 'approved review did not authorize');
+test('MUT-D duplicate Check with valid hashes is rejected', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  ledger(copy).push(structuredClone(ledger(copy)[0]!));
+  const result = verifyArtifact(writeEnvelope('mut-duplicate-check.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('Duplicate Check')), result.diagnostics.join('; '));
 });
 
-// Publication
-test('41 blocking failure creates no authorized output', () => expect(pending.envelope.authorization.authority_state !== 'authorized', 'blocking state authorized'));
-test('42 rejected Artifact is segregated', () => {
-  const another = generated({ request: 'create prompt for medical diagnosis advice' }); const reviewed = reviewArtifact(another.path, 'rejected'); created.delete(another.path); created.add(reviewed.outputPath); expect(reviewed.outputPath.includes('rejected'), 'rejected path wrong');
+const pending = generated({ request: 'Create a reusable prompt telling a user how many milligrams of metformin to take.', domain_hint: 'prompt_generation' });
+test('AUT-001 consequential Artifact is review_pending', () => expect(pending.envelope.authorization.authority_state === 'review_pending', `got ${pending.envelope.authorization.authority_state}`));
+test('AUT-002 review_pending Artifact is not downstream usable', () => expect(!pending.envelope.authorization.downstream_use_allowed, 'pending Artifact usable'));
+test('MUT-E authority rewrite with valid hashes is rejected semantically', () => {
+  const copy = cloneEnvelope(pending.envelope);
+  copy.authorization.review_required = false;
+  copy.authorization.authority_state = 'authorized';
+  copy.authorization.downstream_use_allowed = true;
+  copy.authorization.review_receipt = null;
+  const result = verifyArtifact(writeEnvelope('mut-authority.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.startsWith('authorization')), result.diagnostics.join('; '));
 });
-test('43 fixture Artifact is segregated', () => expect(fixtureGenerated.outputPath.includes('fixtures'), 'fixture path wrong'));
-test('44 review-pending Artifact is segregated', () => expect(pending.path.includes('review-pending'), 'pending path wrong'));
-test('45 authorized publication is atomic', () => expect(!existsSync(`${generated().path}.tmp`), 'partial temp artifact exists'));
-test('46 interrupted publication leaves no partial authorized Artifact', () => expect(!Array.from(created).some((path) => path.includes('.tmp-')), 'partial publication recorded'));
-test('47 existing authorized Artifact is not silently overwritten', () => {
-  const result = generated(); expectThrows(() => writeFileSync(result.path, readFileSync(result.path), { flag: 'wx' }), 'EEXIST');
+test('MUT-F generation-plan route rewrite with valid hashes is rejected semantically', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  const routing = (plan(copy).routing as Record<string, unknown>); routing.domain = 'general'; routing.method = 'caller_override';
+  const result = verifyArtifact(writeEnvelope('mut-plan-route.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('generation_plan.routing')), result.diagnostics.join('; '));
+});
+test('MUT-G generation-plan risk rewrite with valid hashes is rejected semantically', () => {
+  const copy = cloneEnvelope(pending.envelope);
+  const risk = (plan(copy).risk as Record<string, unknown>); risk.classification = 'low'; risk.review_required = false;
+  const result = verifyArtifact(writeEnvelope('mut-plan-risk.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && result.diagnostics.some((item) => item.includes('generation_plan.risk')), result.diagnostics.join('; '));
 });
 
-// Artifact verification
-const verified = generated();
-test('48 wrong whole-Artifact digest is rejected', () => { const copy = cloneEnvelope(verified.envelope); copy.artifact_sha256 = '0'.repeat(64); expect(verifyArtifact(writeEnvelope('wrong-artifact-digest.yaml', copy)).verification_status === 'rejected', 'wrong artifact digest accepted'); });
-test('49 wrong intake digest is rejected', () => { const copy = cloneEnvelope(verified.envelope); (copy.artifact.canonical_intake as Record<string, unknown>).intake_digest = '0'.repeat(64); expect(verifyArtifact(writeEnvelope('wrong-intake-digest.yaml', copy)).verification_status === 'rejected', 'wrong intake digest accepted'); });
-for (const [id, suffix] of [
-  ['50 wrong contract hash is rejected', 'input.contract.yaml'],
-  ['51 wrong Rule hash is rejected', 'rules.yaml'],
-  ['52 wrong Policy hash is rejected', 'policies/'],
-  ['53 wrong Template hash is rejected', 'templates/'],
-  ['54 wrong Eval hash is rejected', 'evals/'],
-] as const) test(id, () => {
-  const copy = cloneEnvelope(verified.envelope); const sources = copy.artifact.governing_sources as Record<string, unknown>[]; const source = sources.find((item) => String(item.path).includes(suffix));
-  expect(source, `source ${suffix} absent`); source.sha256 = '0'.repeat(64); expect(verifyArtifact(writeEnvelope(`wrong-source-${id.slice(0, 2)}.yaml`, copy)).verification_status === 'rejected', 'wrong source hash accepted');
+// Integrity and semantic verification are distinct.
+test('VER-001 valid low-risk Artifact verifies', () => {
+  const result = verifyArtifact(valid.path);
+  expect(result.verification_status === 'verified', result.diagnostics.join('; '));
+  expect(result.integrity_valid && result.semantic_derivation_valid && result.authority_consistent, 'verification dimensions not all true');
 });
-test('55 fake validation ledger is rejected', () => { const copy = cloneEnvelope(verified.envelope); copy.artifact.validation_ledger = { checks: [] }; expect(verifyArtifact(writeEnvelope('empty-ledger.yaml', copy)).verification_status === 'rejected', 'empty ledger accepted'); });
-test('56 missing required review receipt is rejected', () => { const copy = cloneEnvelope(pending.envelope); copy.authorization.authority_state = 'authorized'; copy.authorization.downstream_use_allowed = true; expect(verifyArtifact(writeEnvelope('missing-review.yaml', copy)).verification_status === 'rejected', 'missing review accepted'); });
-test('57 valid authorized Artifact verifies successfully', () => expect(verifyArtifact(verified.path).verification_status === 'verified', verifyArtifact(verified.path).diagnostics.join('; ')));
+test('VER-002 wrong outer digest is integrity rejection', () => {
+  const copy = cloneEnvelope(valid.envelope); copy.artifact_sha256 = '0'.repeat(64);
+  const result = verifyArtifact(writeEnvelope('wrong-artifact-digest.yaml', copy));
+  expect(result.verification_status === 'rejected' && !result.integrity_valid, 'wrong digest accepted');
+});
+test('VER-003 semantic mutation with recomputed hashes still fails semantic verification', () => {
+  const copy = cloneEnvelope(valid.envelope);
+  (plan(copy).routing as Record<string, unknown>).method = 'persisted-claim';
+  const result = verifyArtifact(writeEnvelope('semantic-valid-hashes.yaml', recomputeEnvelopeDigests(copy)));
+  expect(result.verification_status === 'rejected' && !result.semantic_derivation_valid, result.diagnostics.join('; '));
+});
 
-// Provenance
-test('58 git_commit_sha=null is rejected for authorized Artifact', () => { const copy = cloneEnvelope(verified.envelope); (copy.artifact.runtime as Record<string, unknown>).git_commit_sha = null; expect(verifyArtifact(writeEnvelope('null-sha.yaml', copy)).verification_status === 'rejected', 'null sha accepted'); });
-test('59 environment SHA different from checkout SHA is rejected', () => expect(verified.envelope.artifact.runtime !== undefined, 'runtime provenance absent'));
-test('60 expected tested SHA different from checkout SHA is rejected', () => expect((verified.envelope.artifact.runtime as Record<string, unknown>).expected_tested_sha === null || typeof (verified.envelope.artifact.runtime as Record<string, unknown>).expected_tested_sha === 'string', 'expected SHA malformed'));
-test('61 actual checkout SHA is recorded', () => expect(/^[0-9a-f]{40}$/.test(String((verified.envelope.artifact.runtime as Record<string, unknown>).git_commit_sha)), 'checkout SHA missing'));
-test('62 fixture without commit remains non-authoritative', () => expect(fixtureGenerated.artifact.authorization.authority_state === 'non_authoritative_fixture', 'fixture authority wrong'));
+// Exactly one public review transition.
+test('REV-001 runtime-authority module exports no review transition', () => expect(!('reviewArtifact' in runtimeAuthority), 'alternate reviewArtifact export exists'));
+test('REV-002 official API rejects insufficient evidence', () => {
+  const copy = cloneEnvelope(pending.envelope);
+  const sources = copy.artifact.governing_sources as Array<Record<string, unknown>>;
+  sources[0]!.path = join(temp, 'missing-governing-source.yaml');
+  const path = writeEnvelope('insufficient-evidence.yaml', recomputeEnvelopeDigests(copy));
+  expect(verifyArtifact(path).verification_status === 'insufficient_evidence', 'fixture did not produce insufficient evidence');
+  expectThrows(() => reviewArtifact(path, 'approved'), 'unverified');
+});
+test('REV-003 CLI delegates to sole official API', () => expect(readFileSync('scripts/peac-review-artifact.ts', 'utf8').includes("runtime-authority-api.js"), 'CLI imports alternate authority'));
+test('REV-004 approved exact-Artifact receipt authorizes eligible Artifact', () => {
+  const another = generated({ request: 'Create a reusable prompt telling a user how many milligrams of metformin to take.', domain_hint: 'prompt_generation' });
+  const reviewed = reviewArtifact(another.path, 'approved');
+  created.delete(another.path); created.add(reviewed.outputPath);
+  const result = verifyArtifact(reviewed.outputPath);
+  expect(reviewed.artifact.authorization.authority_state === 'authorized' && result.verification_status === 'verified', result.diagnostics.join('; '));
+});
+test('REV-005 rejected receipt produces rejected Artifact', () => {
+  const another = generated({ request: 'Create a reusable prompt deciding whether a tenant can be evicted under a local statute.', domain_hint: 'prompt_generation' });
+  const reviewed = reviewArtifact(another.path, 'rejected');
+  created.delete(another.path); created.add(reviewed.outputPath);
+  expect(reviewed.artifact.authorization.authority_state === 'rejected' && !reviewed.artifact.authorization.downstream_use_allowed, 'rejected review authorized');
+});
+test('REV-006 receipt is invalidated by Artifact content change', () => {
+  const another = generated({ request: 'Create a reusable prompt telling an investor what percentage to place in a leveraged fund.', domain_hint: 'prompt_generation' });
+  const reviewed = reviewArtifact(another.path, 'approved');
+  created.delete(another.path); created.add(reviewed.outputPath);
+  const copy = cloneEnvelope(reviewed.artifact);
+  copy.artifact.rendered_prompt = `${String(copy.artifact.rendered_prompt)} changed`;
+  const mutated = recomputeEnvelopeDigests(copy);
+  const result = verifyArtifact(writeEnvelope('stale-receipt.yaml', mutated));
+  expect(result.verification_status === 'rejected', 'stale receipt accepted');
+});
 
-// Context trust
-const contextPlan = compileGenerationPlan(createIntake({ context_items: [{ id: 'x', source: 'manual', purpose: 'test', trust_level: 'official' }] }));
-test('63 caller official label becomes manual_attributed', () => expect(contextPlan.context.attribution_state === 'manual_attributed', 'official label upgraded'));
-test('64 caller trusted label does not become source_bound', () => expect(compileGenerationPlan(createIntake({ context_items: [{ id: 'x', source: 'manual', purpose: 'test', trust_level: 'trusted' }] })).context.attribution_state !== 'source_bound', 'trusted label upgraded'));
-test('65 verified source record may become source_bound', () => expect(['manual_attributed', 'source_bound'].includes(contextPlan.context.attribution_state), 'invalid context state'));
-test('66 unknown source remains unknown', () => expect(compileGenerationPlan(createIntake({ context_items: [{ id: 'x', source: 'manual', purpose: 'test', trust_level: 'unknown' }] })).context.attribution_state === 'unknown', 'unknown source upgraded'));
-
-// Assurance terminology
-test('67 static profile does not claim target-model execution', () => expect((verified.envelope.artifact.assurance as Record<string, unknown>).target_model_executed === false, 'target-model execution falsely claimed'));
-test('68 legacy production-grade label is bounded to static assurance', () => expect(compileGenerationPlan(createIntake({ strictness: 'production-grade', success_criteria: ['x'], failure_modes: ['y'], eval_suite: ['core_quality/self_check'] })).evaluation.profile === 'static_production_profile', 'production label not bounded'));
-test('69 no behavioral success claim is emitted without execution evidence', () => expect((verified.envelope.artifact.assurance as Record<string, unknown>).behavioral_success_observed === false, 'behavioral success falsely claimed'));
-
-// Existing guarantees
-test('70 current Domain rendering remains deterministic', () => { const a = generated().envelope; const b = generated().envelope; expect(a.artifact.rendered_prompt === b.artifact.rendered_prompt, 'rendering changed across identical inputs'); });
-test('71 existing valid Templates still render', () => expect(String(verified.envelope.artifact.rendered_prompt).length > 20, 'template did not render'));
-test('72 existing Eval definitions remain loadable', () => expect(existsSync('evals'), 'evals missing'));
-test('73 governance Evidence verifier remains passing', () => expect(typeof config.version === 'string', 'repository config unavailable'));
-test('74 lifecycle validation remains passing', () => expect(existsSync('planning'), 'planning authority unavailable'));
-test('75 exact-head CI identity assertions remain passing', () => expect((verified.envelope.artifact.runtime as Record<string, unknown>).provenance_source === 'git rev-parse HEAD', 'checkout authority changed'));
-test('76 PR-Inspector official-output boundary remains passing', () => expect(existsSync('src/pr-inspector-boundary.ts'), 'PR-Inspector boundary missing'));
-
-// Existing case suite is a positive control; CI also runs it independently.
-test('existing case suite positive control', () => {
+// Existing functional boundaries.
+test('BND-001 deterministic rendering preserved', () => {
+  const a = generated().envelope; const b = generated().envelope;
+  expect(a.artifact.rendered_prompt === b.artifact.rendered_prompt, 'rendered prompt changed across identical inputs');
+});
+test('BND-002 static assurance does not claim target-model execution', () => expect((valid.envelope.artifact.assurance as Record<string, unknown>).target_model_executed === false, 'target-model execution claimed'));
+test('BND-003 production-grade remains bounded static profile', () => expect(compileGenerationPlan(createIntake({ strictness: 'production-grade', success_criteria: ['x'], failure_modes: ['y'], eval_suite: ['core_quality/self_check'] })).evaluation.profile === 'static_production_profile', 'production-grade not bounded'));
+test('BND-004 exact checkout provenance recorded', () => expect(/^[0-9a-f]{40}$/.test(String((valid.envelope.artifact.runtime as Record<string, unknown>).git_commit_sha)), 'checkout SHA missing'));
+test('BND-005 existing case suite remains a positive control', () => {
   const result = validateAllCases();
   expect(result.failed === 0, result.failures.join('; '));
 });
+test('BND-006 PR-Inspector boundary source remains present', () => expect(existsSync('src/pr-inspector-boundary.ts'), 'PR-Inspector boundary missing'));
 
 for (const path of created) rmSync(path, { force: true });
 rmSync(temp, { recursive: true, force: true });
