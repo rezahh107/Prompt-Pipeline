@@ -56,3 +56,5 @@ The legacy intake label `production-grade` is retained for compatibility, but it
 ## Separate governance verifier
 
 `peac:verify-artifact` verifies Runtime Artifact integrity and authorization. Existing Prompt Quality governance and PR/lifecycle Evidence verification remain separate and unchanged.
+
+The `PR-Inspector v1.11.1 official-output boundary` CI job uses a repository-local snapshot of the four exact source blobs from private repository commit `80bc105d924d7c7dd566e76a9d8d919368655cfa`. CI recomputes and checks each Git blob SHA before running the existing consumer-source verifier. This changes source retrieval only; the pinned source identities and verifier semantics remain unchanged, and no cross-repository secret or permission is required.
