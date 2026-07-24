@@ -18,8 +18,9 @@ CLI / API request
 
 ## Authority boundaries
 
-- `src/runtime-authority.ts` is the Runtime authority for new generation.
-- `scripts/peac-generate.ts` is a thin CLI facade over that authority.
+- `src/runtime-authority-api.ts` is the official Runtime authority API for generation, review, and verification.
+- `src/runtime-authority.ts` contains the shared canonical intake, plan, risk, validation, publication, and verification implementation used by that API.
+- `scripts/peac-generate.ts`, `scripts/peac-review-artifact.ts`, and `scripts/peac-verify-artifact.ts` are thin CLI facades over the official API.
 - `src/peac.ts#generateArtifact` remains an internal compatibility renderer for repository fixtures and existing deterministic validation suites. It is invoked only inside an isolated staging workspace by the authoritative Runtime. Its direct output is not an authorized Runtime Artifact.
 - `--case` is always `fixture_validation`; it publishes only under `outputs/fixtures/` with `downstream_use_allowed: false`.
 
