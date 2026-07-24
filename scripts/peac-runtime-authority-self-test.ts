@@ -27,6 +27,8 @@ import {
 import {
   completeRuntimeAssessmentForTest,
   currentCheckoutIdentity,
+  enforceConstraints,
+  renderThroughStagedLegacy,
   validateCompletionLedgerForTest,
 } from '../src/runtime-authority-execution.js';
 import { loadConfig, validateAllCases, type PEaCConfig } from '../src/peac.js';
@@ -157,10 +159,14 @@ function syntheticValidatorConfig(): PEaCConfig {
   return { ...base, domains_path: domains, policies_path: policies, outputs_path: join(root, 'outputs'), artifact: { ...base.artifact, output_dir: join(root, 'outputs') } };
 }
 
-function completeForTest(planAssessment: RuntimePlanAssessment, renderedPrompt = 'A harmless REQUIRED greeting.') {
+function completeForTest(planAssessment: RuntimePlanAssessment, renderedPrompt?: string) {
+  const canonicalPrompt = renderedPrompt ?? enforceConstraints(
+    String(renderThroughStagedLegacy(planAssessment, 'ci', config).rendered_prompt ?? ''),
+    planAssessment,
+  );
   return completeRuntimeAssessmentForTest({
     plan: planAssessment,
-    renderedPrompt,
+    renderedPrompt: canonicalPrompt,
     checkoutIdentity: currentCheckoutIdentity(),
     integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
     reviewReceipt: null,
@@ -352,7 +358,7 @@ test('REV-003 rejected Artifact cannot be reviewed', () => {
   const another = generated({ request: 'Create a reusable prompt deciding whether a tenant can be evicted under a local statute.', desired_output: 'prompt', domain_hint: 'prompt_generation' });
   const reviewed = reviewArtifact(another.path, 'rejected');
   created.delete(another.path); created.add(reviewed.outputPath);
-  expectThrows(() => reviewArtifact(reviewed.outputPath, 'approved'), 'unverified');
+  expectThrows(() => reviewArtifact(reviewed.outputPath, 'approved'), 'review_pending');
 });
 test('REV-004 automatic Low Artifact cannot receive a review receipt', () => expectThrows(() => reviewArtifact(valid.path, 'approved'), 'review_pending'));
 test('REV-005 approved receipt authorizes only exact canonical pending Artifact', () => {
