@@ -5,7 +5,7 @@ status_id: PEAC-RUNTIME-AUTHORITY-REPAIR-2026-07
 repository: rezahh107/Prompt-Pipeline
 starting_main_sha: e3f98e007bba01ba02310b01377f617c94ca8b09
 implementation_branch: fix/lean-canonical-generation-spine
-implementation_state: implemented_pending_exact_head_ci
+implementation_state: implemented_pending_independent_review
 merge_state: not_merged
 ```
 
@@ -26,7 +26,8 @@ PR_31:
 PR_32:
   repair_start_head: e84360550f4747be80aa5eb5149ad7f9d00b75b8
   scope: functional_runtime_authority_closure
-  exact_head_ci: pending_for_resulting_head
+  exact_head_ci: passed_before_status_reconciliation_and_required_again_on_final_head
+  independent_review: requested_after_final_exact_head_success
 ```
 
 ## Functional closure scope
@@ -41,6 +42,6 @@ The repair does not merge, approve, deploy, enable auto-merge, change repository
 
 ## Validation authority
 
-Completion requires repository-native validation against the exact resulting PR Head. Until all required jobs pass on that exact Head and the status is reconciled, this document remains `implemented_pending_exact_head_ci`.
+The implementation state may be `implemented_pending_independent_review` only after repository-native validation succeeds on the exact resulting PR Head. Workflow run and job identities are live GitHub evidence and are intentionally not embedded as self-referential source authority in this status file.
 
-After exact-head success, the implementation must be marked `implemented_pending_independent_review` and a fresh independent PR Inspector review requested. It must not be described as merged, approved, deployed, AIGOV-conformant, or target-model behaviorally validated.
+A fresh independent PR Inspector review is required before any merge decision. This repair must not be described as merged, approved, deployed, AIGOV-conformant, or target-model behaviorally validated.
