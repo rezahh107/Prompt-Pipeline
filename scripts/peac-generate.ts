@@ -3,6 +3,8 @@ import { assertCaseFileDomainAllowed } from '../src/pr-inspector-boundary.js';
 import { parseArgs } from '../src/peac.js';
 import { generateFromCliArgs } from '../src/runtime-authority.js';
 
+process.env.EXPECTED_TESTED_SHA ??= process.env.TESTED_SHA;
+
 const args = parseArgs(process.argv.slice(2));
 
 if (args.help === true) {
