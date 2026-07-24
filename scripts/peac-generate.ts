@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import { assertCaseFileDomainAllowed } from '../src/pr-inspector-boundary.js';
 import { parseArgs } from '../src/peac.js';
-import { generateFromCliArgs } from '../src/runtime-authority.js';
+import { generateFromCliArgs } from '../src/runtime-authority-api.js';
 
 process.env.EXPECTED_TESTED_SHA ??= process.env.TESTED_SHA;
 
