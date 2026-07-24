@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 import { parseArgs } from '../src/peac.js';
-import { reviewArtifact } from '../src/runtime-authority.js';
+import { reviewArtifact } from '../src/runtime-authority-api.js';
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help === true) {
