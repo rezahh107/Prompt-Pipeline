@@ -1,0 +1,316 @@
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { join, resolve } from 'node:path';
+import yaml from 'js-yaml';
+import {
+  evaluateConditionForTest,
+  generateArtifact as generateLegacyFixtureArtifact,
+  readYamlFile,
+  type Dict,
+  type ExecutionMode,
+  type PEaCConfig,
+} from './peac.js';
+import {
+  type ArtifactReviewReceipt,
+  type AuthorityDecision,
+  type CheckoutIdentity,
+  type DomainContract,
+  type DomainValidator,
+  type GenerationPlan,
+  type GoverningSource,
+  type RiskAssessment,
+  type RuntimeAssessment,
+  type RuntimeDerivationInput,
+  type SourceMode,
+  type ValidatedIntakeEnvelope,
+  type ValidationCheckRecord,
+  canonicalJson,
+  sha256File,
+  sha256Json,
+  validatedPlans,
+} from './runtime-authority-foundation.js';
+import {
+  active,
+  buildPlanCore,
+  finalizePlan,
+  governingSources,
+  resolveAndValidateContract,
+  validatorDefinitions,
+} from './runtime-authority-plan.js';
+
+function assertValidatedPlan(plan: GenerationPlan): void {
+  if (!validatedPlans.has(plan)) throw new Error('ValidatedGenerationPlan must be compiled by the Runtime.');
+  if (sha256Json(plan.intake.normalized_inputs) !== plan.intake.digest) throw new Error('Generation plan intake digest mismatch.');
+}
+
+export function currentCheckoutIdentity(): CheckoutIdentity {
+  let actual: string | null = null;
+  try {
+    actual = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim().toLowerCase() || null;
+  } catch {
+    actual = null;
+  }
+  const value = process.env.EXPECTED_TESTED_SHA ?? process.env.GITHUB_SHA ?? null;
+  const expected = value && /^[0-9a-f]{40}$/i.test(value) ? value.toLowerCase() : null;
+  return { actual_sha: actual, expected_sha: expected, source: 'git rev-parse HEAD' };
+}
+
+function absoluteConfig(config: PEaCConfig, outputPath: string): PEaCConfig {
+  return {
+    ...config,
+    kb_path: resolve(config.kb_path),
+    policies_path: resolve(config.policies_path),
+    domains_path: resolve(config.domains_path),
+    pipeline_path: resolve(config.pipeline_path),
+    outputs_path: outputPath,
+    artifact: { ...config.artifact, schema: resolve(config.artifact.schema), output_dir: outputPath },
+  };
+}
+
+export function renderThroughStagedLegacy(plan: GenerationPlan, mode: ExecutionMode, config: PEaCConfig): Dict {
+  assertValidatedPlan(plan);
+  const stagingRoot = resolve(config.outputs_path, '.runtime-staging');
+  mkdirSync(stagingRoot, { recursive: true });
+  const workspace = mkdtempSync(join(stagingRoot, 'render-'));
+  const outputDir = join(workspace, 'legacy-output');
+  mkdirSync(outputDir, { recursive: true });
+  const casePath = join(workspace, 'canonical.case.yaml');
+  writeFileSync(casePath, yaml.dump({
+    case_id: `runtime.${plan.routing.domain}.${randomUUID()}`,
+    description: String(plan.intake.normalized_inputs.request ?? ''),
+    domain: plan.routing.domain,
+    subtype: plan.routing.subtype ?? undefined,
+    version: config.version ?? 'dev',
+    inputs: plan.contract.resolved_inputs,
+    expected: { validation: { should_pass: true } },
+  }, { lineWidth: 120, noRefs: true }));
+  const runtimeConfig = absoluteConfig(config, outputDir);
+  writeFileSync(join(workspace, 'peac.config.yaml'), yaml.dump(runtimeConfig, { lineWidth: 120, noRefs: true }));
+  const previousCwd = process.cwd();
+  try {
+    process.chdir(workspace);
+    const result = generateLegacyFixtureArtifact({ case: casePath, mode });
+    return result.artifact as unknown as Dict;
+  } finally {
+    process.chdir(previousCwd);
+    rmSync(workspace, { recursive: true, force: true });
+  }
+}
+
+export function enforceConstraints(prompt: string, plan: GenerationPlan): string {
+  const constraints = [...plan.policies.applied, ...plan.rules.applied]
+    .map((record) => record.constraint_text?.trim())
+    .filter((value): value is string => Boolean(value));
+  if (constraints.length === 0) return prompt;
+  const lines = constraints.map((constraint, index) => `${index + 1}. ${constraint}`);
+  return `${prompt.trim()}\n\n## Runtime-enforced constraints\n${lines.join('\n')}\n`;
+}
+
+function checkOutputExpression(expr: string, renderedPrompt: string, inputs: Dict): boolean {
+  const containsMatch = expr.match(/^rendered_prompt\s+contains\s+['"](.+)['"]$/);
+  if (containsMatch) return renderedPrompt.includes(containsMatch[1] ?? '');
+  const jsExpr = expr.replaceAll('len(rendered_prompt)', String(renderedPrompt.length));
+  return evaluateConditionForTest(jsExpr, { ...inputs, rendered_prompt: renderedPrompt });
+}
+
+function missingRequiredFields(contract: DomainContract, inputs: Dict): string[] {
+  const missing = new Set<string>();
+  for (const field of contract.fields?.required ?? []) if (inputs[field.name] === undefined || inputs[field.name] === null || inputs[field.name] === '') missing.add(field.name);
+  for (const field of contract.fields?.optional ?? []) {
+    if (!field.required_if) continue;
+    if (evaluateConditionForTest(field.required_if, inputs) && (inputs[field.name] === undefined || inputs[field.name] === null || inputs[field.name] === '')) missing.add(field.name);
+  }
+  return [...missing].sort();
+}
+
+function forbiddenCombinationViolations(contract: DomainContract, inputs: Dict): string[] {
+  return (contract.fields?.forbidden_combinations ?? [])
+    .filter((combo) => combo.fields.length > 0 && combo.fields.every((fieldName) => active(inputs[fieldName])))
+    .map((combo) => `${combo.fields.join(' + ')}${combo.reason ? ` — ${combo.reason}` : ''}`);
+}
+
+function executeDomainValidator(
+  check: DomainValidator,
+  validatorsPath: string,
+  contract: DomainContract,
+  plan: GenerationPlan,
+  renderedPrompt: string,
+): ValidationCheckRecord {
+  const id = String(check.id ?? 'unnamed_check');
+  const blocking = String(check.severity ?? 'warning') === 'error';
+  const evaluationInputs = { ...plan.contract.resolved_inputs, rendered_prompt: renderedPrompt };
+  let applicable = true;
+  try {
+    applicable = check.applies_when === undefined || evaluateConditionForTest(String(check.applies_when), evaluationInputs);
+  } catch (error) {
+    return {
+      check_id: id,
+      source: validatorsPath,
+      applicable: true,
+      executed: true,
+      passed: false,
+      blocking,
+      diagnostics: [`applies_when evaluation failed: ${(error as Error).message}`],
+      evidence: { applies_when: check.applies_when ?? null, type: check.type ?? null },
+    };
+  }
+  if (!applicable) return { check_id: id, source: validatorsPath, applicable: false, executed: false, passed: null, blocking, diagnostics: [], evidence: { applies_when: check.applies_when ?? null, type: check.type ?? null } };
+  const diagnostics: string[] = [];
+  let passed = true;
+  try {
+    if (check.type === 'contract_check') {
+      const missing = missingRequiredFields(contract, plan.contract.resolved_inputs);
+      passed = missing.length === 0;
+      if (!passed) diagnostics.push(`Missing required fields: ${missing.join(', ')}`);
+    } else if (check.type === 'rule_presence') {
+      const required = String(check.required_policy_id ?? '');
+      passed = !required || plan.policies.applied.some((item) => item.rule_id === required);
+      if (!passed) diagnostics.push(String(check.message ?? `Required policy not applied: ${required}`));
+    } else if (check.type === 'forbidden_instruction') {
+      const matches = (check.forbidden_patterns ?? []).filter((pattern) => renderedPrompt.toLowerCase().includes(pattern.toLowerCase()));
+      passed = matches.length === 0;
+      diagnostics.push(...matches.map((pattern) => `Forbidden instruction found: ${pattern}`));
+    } else if (check.type === 'field_check') {
+      passed = evaluateConditionForTest(String(check.check ?? ''), plan.contract.resolved_inputs);
+      if (!passed) diagnostics.push(String(check.message ?? `Field check failed: ${id}`));
+    } else if (check.type === 'output_check') {
+      passed = checkOutputExpression(String(check.check ?? ''), renderedPrompt, plan.contract.resolved_inputs);
+      if (!passed) diagnostics.push(String(check.message ?? `Output check failed: ${id}`));
+    } else if (check.type === 'forbidden_combination') {
+      const violations = forbiddenCombinationViolations(contract, plan.contract.resolved_inputs);
+      passed = violations.length === 0;
+      diagnostics.push(...violations.map((message) => `Forbidden input combination: ${message}`));
+    } else {
+      passed = false;
+      diagnostics.push(`Unsupported validator type: ${String(check.type ?? '<missing>')}`);
+    }
+  } catch (error) {
+    passed = false;
+    diagnostics.push(`validator execution failed: ${(error as Error).message}`);
+  }
+  return {
+    check_id: id,
+    source: validatorsPath,
+    applicable: true,
+    executed: true,
+    passed,
+    blocking,
+    diagnostics,
+    evidence: { applies_when: check.applies_when ?? null, type: check.type ?? null },
+  };
+}
+
+function coreLedger(
+  envelope: ValidatedIntakeEnvelope,
+  plan: GenerationPlan,
+  config: PEaCConfig,
+  renderedPrompt: string,
+  checkout: CheckoutIdentity,
+  integrity: NonNullable<RuntimeDerivationInput['integrity']>,
+  sources: GoverningSource[],
+): ValidationCheckRecord[] {
+  const contractDefinition = readYamlFile<DomainContract>(plan.contract.source_path) ?? {};
+  const records: ValidationCheckRecord[] = [
+    { check_id: 'artifact_integrity', source: 'runtime-artifact-envelope', applicable: true, executed: true, passed: integrity.artifact_valid, blocking: true, diagnostics: integrity.artifact_valid ? [] : ['Artifact SHA-256 mismatch.'], evidence: {} },
+    { check_id: 'canonical_intake_digest', source: envelope.schema_id, applicable: true, executed: true, passed: sha256Json(envelope.normalized_inputs) === envelope.intake_digest, blocking: true, diagnostics: [], evidence: { intake_digest: envelope.intake_digest } },
+    { check_id: 'domain_contract', source: plan.contract.source_path, applicable: true, executed: true, passed: resolveAndValidateContract(contractDefinition, plan.contract.resolved_inputs).errors.length === 0, blocking: true, diagnostics: [], evidence: { source_sha256: plan.contract.source_sha256, resolved_inputs_sha256: sha256Json(plan.contract.resolved_inputs) } },
+    { check_id: 'envelope_integrity', source: 'runtime-artifact-envelope', applicable: true, executed: true, passed: integrity.envelope_valid, blocking: true, diagnostics: integrity.envelope_valid ? [] : ['Envelope SHA-256 mismatch.'], evidence: {} },
+    { check_id: 'governing_sources_integrity', source: 'canonical-governing-sources', applicable: true, executed: true, passed: integrity.governing_sources_valid, blocking: true, diagnostics: integrity.governing_sources_valid ? [] : ['One or more governing sources are unavailable or changed.'], evidence: { source_count: sources.length } },
+    { check_id: 'policy_rule_carriers', source: 'compiled-policy-and-domain-rules', applicable: true, executed: true, passed: [...plan.policies.applicable, ...plan.rules.applicable].every((item) => item.execution_result === 'applied'), blocking: true, diagnostics: [...plan.policies.applicable, ...plan.rules.applicable].flatMap((item) => item.diagnostics), evidence: {} },
+    { check_id: 'review_eligibility', source: 'canonical-authority-reducer', applicable: plan.risk.review_required, executed: plan.risk.review_required, passed: plan.risk.review_required ? true : null, blocking: false, diagnostics: [], evidence: { review_required: plan.risk.review_required } },
+    { check_id: 'runtime_risk_derivation', source: 'src/runtime-authority.ts', applicable: true, executed: true, passed: true, blocking: true, diagnostics: plan.risk.unknowns.map((item) => `unknown:${item}`), evidence: { classification: plan.risk.classification, decision: plan.risk.decision } },
+    { check_id: 'runtime_routing_derivation', source: 'pipeline/router.yaml', applicable: true, executed: true, passed: true, blocking: true, diagnostics: plan.routing.hint_conflict ? ['caller domain hint conflicts with Runtime route'] : [], evidence: { domain: plan.routing.domain, method: plan.routing.method } },
+  ];
+  if (envelope.source_mode === 'fixture_validation') records.push({ check_id: 'checkout_identity', source: checkout.source, applicable: false, executed: false, passed: null, blocking: true, diagnostics: [], evidence: {} });
+  else {
+    const passed = Boolean(checkout.actual_sha) && (!checkout.expected_sha || checkout.actual_sha === checkout.expected_sha);
+    const diagnostics = !checkout.actual_sha ? ['Actual checkout commit could not be resolved.'] : checkout.expected_sha && checkout.actual_sha !== checkout.expected_sha ? [`Actual checkout SHA ${checkout.actual_sha} does not match expected tested SHA ${checkout.expected_sha}.`] : [];
+    records.push({ check_id: 'checkout_identity', source: checkout.source, applicable: true, executed: true, passed, blocking: true, diagnostics, evidence: { actual_sha: checkout.actual_sha, expected_sha: checkout.expected_sha } });
+  }
+  for (const item of plan.policies.applicable) records.push({ check_id: `policy:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
+  for (const item of plan.rules.applicable) records.push({ check_id: `rule:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
+  for (const item of sources) {
+    const available = existsSync(item.path);
+    const actualHash = available ? sha256File(item.path) : null;
+    records.push({ check_id: `source:${item.path}`, source: item.path, applicable: true, executed: true, passed: available && actualHash === item.sha256, blocking: true, diagnostics: !available ? ['Governing source unavailable.'] : actualHash !== item.sha256 ? ['Governing source hash mismatch.'] : [], evidence: { expected_sha256: item.sha256, actual_sha256: actualHash } });
+  }
+  const validators = validatorDefinitions(config, plan.routing.domain);
+  for (const check of validators.checks) records.push(executeDomainValidator(check, validators.path, contractDefinition, plan, renderedPrompt));
+  return records.sort((a, b) => a.check_id.localeCompare(b.check_id));
+}
+
+export function legacyValidationProjection(ledger: ValidationCheckRecord[], config: PEaCConfig, domain: string): Dict {
+  const validatorIds = new Set(validatorDefinitions(config, domain).checks.map((check) => String(check.id ?? 'unnamed_check')));
+  const records = ledger.filter((record) => validatorIds.has(record.check_id));
+  const errors = records.filter((record) => record.applicable && record.passed === false && record.blocking).flatMap((record) => record.diagnostics.length > 0 ? record.diagnostics : [`Check failed: ${record.check_id}`]);
+  const warnings = records.filter((record) => record.applicable && record.passed === false && !record.blocking).flatMap((record) => record.diagnostics.length > 0 ? record.diagnostics : [`Check failed: ${record.check_id}`]);
+  const passed = records.every((record) => !record.applicable || !record.blocking || (record.executed && record.passed === true));
+  return { passed, warnings, errors, checks_run: records.map((record) => record.check_id) };
+}
+
+export function deriveAuthorityDecision(input: {
+  sourceMode: SourceMode;
+  riskAssessment: RiskAssessment;
+  validationLedger: ValidationCheckRecord[];
+  checkoutIdentity: CheckoutIdentity;
+  reviewReceipt: ArtifactReviewReceipt | null;
+  artifactSha256: string | null;
+}): AuthorityDecision {
+  const reviewRequired = input.riskAssessment.review_required;
+  if (input.sourceMode === 'fixture_validation') return { authority_state: 'non_authoritative_fixture', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['Fixture mode is never authoritative.'] };
+  const blockingFailure = input.validationLedger.some((check) => check.applicable && check.blocking && (!check.executed || check.passed !== true));
+  if (blockingFailure) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['At least one applicable blocking Check failed or was not executed.'] };
+  if (!input.checkoutIdentity.actual_sha) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['Actual checkout commit could not be resolved.'] };
+  if (input.checkoutIdentity.expected_sha && input.checkoutIdentity.actual_sha !== input.checkoutIdentity.expected_sha) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: [`Actual checkout SHA ${input.checkoutIdentity.actual_sha} does not match expected tested SHA ${input.checkoutIdentity.expected_sha}.`] };
+  const receipt = input.reviewReceipt;
+  if (receipt) {
+    if (receipt.receipt_type !== 'artifact_review' || receipt.receipt_version !== 'artifact-review.v1' || receipt.reviewer !== 'owner' || !['approved', 'rejected'].includes(receipt.decision)) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['Review receipt shape is invalid.'] };
+    if (!input.artifactSha256 || receipt.artifact_sha256 !== input.artifactSha256) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['Review receipt is not bound to the exact current Artifact.'] };
+    if (receipt.decision === 'rejected') return { authority_state: 'rejected', downstream_use_allowed: false, review_required: reviewRequired, diagnostics: ['Owner review rejected the Artifact.'] };
+  }
+  if (reviewRequired) {
+    if (receipt?.decision === 'approved') return { authority_state: 'authorized', downstream_use_allowed: true, review_required: true, diagnostics: [] };
+    return { authority_state: 'review_pending', downstream_use_allowed: false, review_required: true, diagnostics: ['Canonical Runtime risk requires an exact Artifact-bound owner review.'] };
+  }
+  if (receipt) return { authority_state: 'rejected', downstream_use_allowed: false, review_required: false, diagnostics: ['Review receipt was supplied for an Artifact that was not canonically review-eligible.'] };
+  return { authority_state: 'authorized', downstream_use_allowed: true, review_required: false, diagnostics: [] };
+}
+
+export function deriveRuntimeAssessment(input: RuntimeDerivationInput): RuntimeAssessment {
+  const core = buildPlanCore(input.validatedIntake, input.config);
+  const plan = finalizePlan(core, input.config);
+  const checkout = input.checkoutIdentity ?? currentCheckoutIdentity();
+  const sources = governingSources(plan, input.config);
+  const integrity = input.integrity ?? { artifact_valid: true, envelope_valid: true, governing_sources_valid: sources.every((source) => existsSync(source.path) && sha256File(source.path) === source.sha256) };
+  const ledger = input.renderedPrompt === undefined ? [] : coreLedger(input.validatedIntake, plan, input.config, input.renderedPrompt, checkout, integrity, sources);
+  const actualIds = ledger.map((record) => record.check_id).sort();
+  const expectedIds = plan.required_checks.map((record) => record.check_id).sort();
+  if (ledger.length > 0 && canonicalJson(actualIds) !== canonicalJson(expectedIds)) throw new Error(`Canonical Check-set construction mismatch: expected ${expectedIds.join(', ')}, got ${actualIds.join(', ')}`);
+  const authorityDecision = deriveAuthorityDecision({
+    sourceMode: input.validatedIntake.source_mode,
+    riskAssessment: plan.risk,
+    validationLedger: ledger,
+    checkoutIdentity: checkout,
+    reviewReceipt: input.reviewReceipt ?? null,
+    artifactSha256: input.artifactSha256 ?? null,
+  });
+  return {
+    routing: plan.routing,
+    risk: plan.risk,
+    contract: plan.contract,
+    policies: plan.policies,
+    rules: plan.rules,
+    context: plan.context,
+    generationPlan: plan,
+    validationLedger: ledger,
+    authorityDecision,
+  };
+}

@@ -5,7 +5,7 @@ status_id: PEAC-RUNTIME-AUTHORITY-REPAIR-2026-07
 repository: rezahh107/Prompt-Pipeline
 starting_main_sha: e3f98e007bba01ba02310b01377f617c94ca8b09
 implementation_branch: fix/lean-canonical-generation-spine
-implementation_state: implemented_pending_independent_review
+implementation_state: implemented_pending_exact_head_ci
 merge_state: not_merged
 ```
 
@@ -23,16 +23,24 @@ PR_31:
   scope: governance_and_status_simplification
   runtime_authority_findings_repaired: false
   relationship: independent_do_not_modify
+PR_32:
+  repair_start_head: e84360550f4747be80aa5eb5149ad7f9d00b75b8
+  scope: functional_runtime_authority_closure
+  exact_head_ci: pending_for_resulting_head
 ```
 
-## Runtime repair scope
+## Functional closure scope
 
-This branch introduces the Lean Canonical Generation Spine, Runtime-derived risk, type-aware Domain contract validation, executable Policy and Domain Rule carriers, a structured validation ledger, exact Artifact-bound owner review, segregated atomic publication, actual-checkout provenance, complete governing-source hashes, context-attribution semantics, and independent Runtime Artifact verification.
+This repair establishes one deterministic Runtime derivation engine shared by generation and verification; semantic recomputation independent of serialized derived fields; exact required Check-set enforcement; real per-Check validator execution; tri-state consequential risk; non-authoritative Domain hints; canonical consumption of authority-relevant intake fields; compiled Domain risk rules; one deterministic authority reducer; and one public review transition.
 
-The repair does not merge, approve, deploy, enable auto-merge, change repository settings, modify external repositories, adopt AIGOV v2.6, or claim target-model behavioral production readiness.
+Mutation tests recompute ordinary unkeyed hashes before verification so rejection depends on semantic mismatch rather than a stale outer digest. Existing canonical intake, fixture-only `--case`, staging, Template rendering, Domain contracts, Policy/Rule application, checkout provenance, atomic publication, governance, lifecycle, renderer packaging, portable bundle, and PR-Inspector boundary remain in scope for regression validation.
+
+## Non-actions
+
+The repair does not merge, approve, deploy, enable auto-merge, change repository settings, modify PR #31, modify external repositories, add cryptographic signing/HMAC/RBAC, or claim target-model behavioral production readiness.
 
 ## Validation authority
 
-Repository-native exact-head CI has passed for this implementation line. The authoritative exact Head SHA, workflow run identity, job conclusions, and uploaded artifacts remain live GitHub evidence and must be read from the pull request rather than embedded as a self-referential immutable value in this file.
+Completion requires repository-native validation against the exact resulting PR Head. Until all required jobs pass on that exact Head and the status is reconciled, this document remains `implemented_pending_exact_head_ci`.
 
-The implementation remains pending fresh independent review. It must not be described as merged, approved, deployed, AIGOV-conformant, or target-model behaviorally validated.
+After exact-head success, the implementation must be marked `implemented_pending_independent_review` and a fresh independent PR Inspector review requested. It must not be described as merged, approved, deployed, AIGOV-conformant, or target-model behaviorally validated.
