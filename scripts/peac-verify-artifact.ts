@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import yaml from 'js-yaml';
 import { parseArgs } from '../src/peac.js';
-import { verifyArtifact } from '../src/runtime-authority.js';
+import { verifyArtifact } from '../src/runtime-authority-api.js';
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help === true) {
