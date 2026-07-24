@@ -17,8 +17,11 @@
         "rendered_prompt": { "type": "string" },
         "canonical_intake": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["schema_id", "schema_version", "intake_digest", "raw_request_digest", "source_mode", "normalized_inputs"],
           "properties": {
+            "schema_id": { "const": "peac.validated-intake" },
+            "schema_version": { "const": "validated-intake.v1" },
             "intake_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
             "raw_request_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
             "source_mode": { "enum": ["interactive_request", "api_request", "fixture_validation"] },
@@ -27,7 +30,21 @@
         },
         "generation_plan": {
           "type": "object",
-          "required": ["plan_id", "plan_version", "routing", "risk", "contract", "policies", "rules", "context", "evaluation", "required_checks", "publication"]
+          "required": ["plan_id", "plan_version", "routing", "risk", "contract", "policies", "rules", "context", "evaluation", "required_checks", "publication"],
+          "properties": {
+            "plan_id": { "const": "peac.validated-generation-plan" },
+            "plan_version": { "enum": ["generation-plan.v1", "generation-plan.v2"] },
+            "required_checks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["check_id"],
+                "properties": { "check_id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.:/\\-]+$" } }
+              }
+            }
+          }
         },
         "validation_ledger": {
           "type": "object",
@@ -37,13 +54,14 @@
             "checks": {
               "type": "array",
               "minItems": 1,
+              "uniqueItems": true,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["check_id", "source", "applicable", "executed", "passed", "blocking", "diagnostics", "evidence"],
                 "properties": {
-                  "check_id": { "type": "string", "minLength": 1 },
-                  "source": { "type": "string" },
+                  "check_id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.:/\\-]+$" },
+                  "source": { "type": "string", "minLength": 1 },
                   "applicable": { "type": "boolean" },
                   "executed": { "type": "boolean" },
                   "passed": { "type": ["boolean", "null"] },
@@ -55,6 +73,10 @@
                   {
                     "if": { "properties": { "applicable": { "const": false } }, "required": ["applicable"] },
                     "then": { "properties": { "executed": { "const": false }, "passed": { "type": "null" } } }
+                  },
+                  {
+                    "if": { "properties": { "applicable": { "const": true } }, "required": ["applicable"] },
+                    "then": { "properties": { "executed": { "const": true }, "passed": { "type": "boolean" } } }
                   }
                 ]
               }
@@ -92,6 +114,7 @@
         },
         "governing_sources": {
           "type": "array",
+          "minItems": 1,
           "items": {
             "type": "object",
             "additionalProperties": false,
@@ -116,6 +139,7 @@
         "review_required": { "type": "boolean" },
         "review_receipt": {
           "type": ["object", "null"],
+          "additionalProperties": false,
           "properties": {
             "receipt_type": { "const": "artifact_review" },
             "receipt_version": { "const": "artifact-review.v1" },
@@ -137,6 +161,29 @@
         {
           "if": { "properties": { "authority_state": { "enum": ["review_pending", "rejected", "non_authoritative_fixture"] } }, "required": ["authority_state"] },
           "then": { "properties": { "downstream_use_allowed": { "const": false } } }
+        },
+        {
+          "if": { "properties": { "authority_state": { "const": "review_pending" } }, "required": ["authority_state"] },
+          "then": { "properties": { "review_required": { "const": true }, "review_receipt": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "properties": { "authority_state": { "const": "authorized" }, "review_required": { "const": true } },
+            "required": ["authority_state", "review_required"]
+          },
+          "then": {
+            "properties": {
+              "review_receipt": {
+                "type": "object",
+                "properties": { "decision": { "const": "approved" } },
+                "required": ["decision"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "review_required": { "const": false } }, "required": ["review_required"] },
+          "then": { "properties": { "review_receipt": { "type": "null" } } }
         }
       ]
     },
