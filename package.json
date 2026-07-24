@@ -35,7 +35,7 @@
     "peac:smoke": "pnpm peac:generate -- --case domains/image/cases/academic-portrait.yaml --mode ci",
     "peac:verify-artifact": "tsx scripts/peac-verify-artifact.ts",
     "peac:review-artifact": "tsx scripts/peac-review-artifact.ts",
-    "peac:runtime-authority-test": "tsx scripts/peac-runtime-authority-self-test.ts",
+    "peac:runtime-authority-test": "tsx scripts/peac-runtime-authority-ci.ts",
     "validate:prompt-quality-program": "node scripts/peac-prompt-quality-governance.mjs --program",
     "validate:prompt-quality-scope": "node scripts/peac-prompt-quality-governance.mjs --scope",
     "validate:prompt-quality-progress": "node scripts/peac-prompt-quality-governance.mjs --progress",
