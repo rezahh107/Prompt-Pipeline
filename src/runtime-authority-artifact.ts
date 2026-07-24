@@ -6,14 +6,16 @@ import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
 import { loadConfig, type Dict, type ExecutionMode, type PEaCConfig } from './peac.js';
 import {
+  type AssuranceProjection,
   type AuthorityState,
+  type CanonicalDerivedProjection,
+  type CanonicalPolicyProjection,
+  type CompletedRuntimeAssessment,
   type DerivedRisk,
-  type GenerationPlan,
   type GoverningSource,
   type RuntimeArtifactEnvelope,
-  type RuntimeAssessment,
+  type RuntimePlanAssessment,
   type ValidatedIntakeEnvelope,
-  type ValidationCheckRecord,
   type VerificationResult,
   type VerificationStatus,
   assertValidatedEnvelope,
@@ -27,13 +29,11 @@ import {
   sha256Json,
   sha256Text,
 } from './runtime-authority-foundation.js';
-import { compileGenerationPlan, governingSources } from './runtime-authority-plan.js';
+import { compileRuntimePlan } from './runtime-authority-plan.js';
 import {
+  completeRuntimeAssessmentInternal,
   currentCheckoutIdentity,
-  deriveAuthorityDecision,
-  deriveRuntimeAssessment,
   enforceConstraints,
-  legacyValidationProjection,
   renderThroughStagedLegacy,
 } from './runtime-authority-execution.js';
 
@@ -62,6 +62,175 @@ function legacyRisk(classification: DerivedRisk): 'low' | 'medium' | 'high' {
   return 'high';
 }
 
+function assuranceProjection(completed: CompletedRuntimeAssessment): AssuranceProjection {
+  return {
+    profile: completed.plan.generationPlan.evaluation.profile,
+    validation_kind: 'static_prompt_and_metadata_only',
+    target_model_executed: false,
+    behavioral_success_observed: false,
+    semantic_correctness_claimed: false,
+  };
+}
+
+function policyProjection(completed: CompletedRuntimeAssessment): CanonicalPolicyProjection[] {
+  return completed.plan.policies.applied.map((item) => ({
+    id: item.rule_id,
+    source_ref: item.source_path,
+    source_hash: item.source_sha256,
+    triggered_by: item.trigger_evidence.join(' OR '),
+  })).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function templateSource(sources: readonly GoverningSource[]): string | null {
+  return sources.find((item) => /[\\/]templates[\\/]/.test(item.path))?.path ?? null;
+}
+
+export function buildCanonicalDerivedProjection(completed: CompletedRuntimeAssessment): CanonicalDerivedProjection {
+  const plan = completed.plan;
+  const generationPlan = plan.generationPlan;
+  const normalized = generationPlan.intake.normalized_inputs;
+  const sources = [...plan.governingSources].sort((a, b) => a.path.localeCompare(b.path));
+  return {
+    generationPlan,
+    validationLedger: completed.validationLedger,
+    compatibilityValidation: completed.compatibilityValidation,
+    routing: plan.routing,
+    risk: plan.risk,
+    legacyRiskLevel: legacyRisk(plan.risk.classification),
+    requiresHumanReview: plan.risk.review_required,
+    reviewReason: plan.risk.review_required ? plan.risk.decision : null,
+    assurance: assuranceProjection(completed),
+    contextAttribution: { state: plan.context.attribution_state, items: plan.context.items },
+    domain: plan.routing.domain,
+    subtype: plan.routing.subtype,
+    provenance: {
+      user_request: String(normalized.request ?? ''),
+      case_file: plan.validatedIntake.source_mode === 'fixture_validation' ? 'fixture_validation' : null,
+      routing_method: plan.routing.method,
+      routing_confidence: plan.routing.confidence,
+      routing_evidence: [...plan.routing.evidence],
+      template_used: templateSource(sources),
+      template_version: generationPlan.contract.version,
+      inputs_provided: Object.keys(normalized).sort(),
+      inputs_inferred: [],
+      inputs_defaulted: [...generationPlan.contract.defaulted_inputs],
+      canonical_intake_digest: plan.validatedIntake.intake_digest,
+      checkout: completed.checkoutIdentity,
+    },
+    policiesApplied: policyProjection(completed),
+    governingSources: sources,
+    sourceHashes: { sources },
+  };
+}
+
+interface LegacyCompatibilityView {
+  domain: string;
+  subtype: string | null;
+  provenance: CanonicalDerivedProjection['provenance'];
+  policies_applied: CanonicalDerivedProjection['policiesApplied'];
+  validation: CanonicalDerivedProjection['compatibilityValidation'];
+  risk_level: CanonicalDerivedProjection['legacyRiskLevel'];
+  requires_human_review: boolean;
+  review_reason: string | null;
+  assurance: CanonicalDerivedProjection['assurance'];
+  context_attribution: CanonicalDerivedProjection['contextAttribution'];
+  governing_sources: CanonicalDerivedProjection['governingSources'];
+  generation_plan: CanonicalDerivedProjection['generationPlan'];
+  validation_ledger: { checks: CanonicalDerivedProjection['validationLedger'] };
+  runtime: {
+    git_commit_sha: string | null;
+    expected_tested_sha: string | null;
+    provenance_source: 'git rev-parse HEAD';
+  };
+}
+
+function projectLegacyArtifactFields(derived: CanonicalDerivedProjection): LegacyCompatibilityView {
+  return {
+    domain: derived.domain,
+    subtype: derived.subtype,
+    provenance: derived.provenance,
+    policies_applied: derived.policiesApplied,
+    validation: derived.compatibilityValidation,
+    risk_level: derived.legacyRiskLevel,
+    requires_human_review: derived.requiresHumanReview,
+    review_reason: derived.reviewReason,
+    assurance: derived.assurance,
+    context_attribution: derived.contextAttribution,
+    governing_sources: derived.governingSources,
+    generation_plan: derived.generationPlan,
+    validation_ledger: { checks: derived.validationLedger },
+    runtime: {
+      git_commit_sha: derived.provenance.checkout.actual_sha,
+      expected_tested_sha: derived.provenance.checkout.expected_sha,
+      provenance_source: derived.provenance.checkout.source,
+    },
+  };
+}
+
+function extractLegacyArtifactFields(artifact: Dict): LegacyCompatibilityView {
+  const runtime = artifact.runtime as Dict | undefined;
+  return {
+    domain: String(artifact.domain ?? ''),
+    subtype: artifact.subtype === null ? null : String(artifact.subtype ?? ''),
+    provenance: artifact.provenance as CanonicalDerivedProjection['provenance'],
+    policies_applied: artifact.policies_applied as CanonicalDerivedProjection['policiesApplied'],
+    validation: artifact.validation as CanonicalDerivedProjection['compatibilityValidation'],
+    risk_level: artifact.risk_level as CanonicalDerivedProjection['legacyRiskLevel'],
+    requires_human_review: artifact.requires_human_review === true,
+    review_reason: artifact.review_reason === null ? null : String(artifact.review_reason ?? ''),
+    assurance: artifact.assurance as CanonicalDerivedProjection['assurance'],
+    context_attribution: artifact.context_attribution as CanonicalDerivedProjection['contextAttribution'],
+    governing_sources: artifact.governing_sources as CanonicalDerivedProjection['governingSources'],
+    generation_plan: artifact.generation_plan as CanonicalDerivedProjection['generationPlan'],
+    validation_ledger: artifact.validation_ledger as { checks: CanonicalDerivedProjection['validationLedger'] },
+    runtime: {
+      git_commit_sha: typeof runtime?.git_commit_sha === 'string' ? runtime.git_commit_sha : null,
+      expected_tested_sha: typeof runtime?.expected_tested_sha === 'string' ? runtime.expected_tested_sha : null,
+      provenance_source: 'git rev-parse HEAD',
+    },
+  };
+}
+
+function hashForSuffix(sources: readonly GoverningSource[], suffix: string): string | null {
+  return sources.find((item) => item.path.endsWith(suffix))?.sha256 ?? null;
+}
+
+function hashForContaining(sources: readonly GoverningSource[], marker: string): string | null {
+  return sources.find((item) => item.path.includes(marker))?.sha256 ?? null;
+}
+
+function buildArtifactHashes(
+  canonicalIntake: Dict,
+  renderedPrompt: string,
+  derived: CanonicalDerivedProjection,
+): Dict {
+  const sources = derived.governingSources;
+  return {
+    rendered_prompt_hash: sha256Text(renderedPrompt),
+    normalized_inputs_hash: sha256Json((canonicalIntake.normalized_inputs as Dict | undefined) ?? {}),
+    generation_plan_hash: sha256Json(derived.generationPlan),
+    validation_ledger_hash: sha256Json(derived.validationLedger),
+    derived_projection_hash: sha256Json(derived),
+    config_hash: hashForSuffix(sources, 'peac.config.yaml'),
+    contract_hash: hashForSuffix(sources, 'input.contract.yaml'),
+    route_hash: hashForSuffix(sources, 'route.yaml'),
+    template_hash: hashForContaining(sources, '/templates/'),
+    validators_hash: hashForSuffix(sources, 'validators.yaml'),
+    policies_hash: sha256Json(sources.filter((item) => item.path.includes('policies/')).map((item) => ({ path: item.path, sha256: item.sha256 }))),
+  };
+}
+
+function canonicalIntakeProjection(envelope: ValidatedIntakeEnvelope): Dict {
+  return {
+    schema_id: envelope.schema_id,
+    schema_version: envelope.schema_version,
+    intake_digest: envelope.intake_digest,
+    raw_request_digest: envelope.raw_request_digest,
+    source_mode: envelope.source_mode,
+    normalized_inputs: envelope.normalized_inputs,
+  };
+}
+
 export function generateArtifact(
   envelope: ValidatedIntakeEnvelope,
   mode: ExecutionMode = 'batch',
@@ -69,71 +238,48 @@ export function generateArtifact(
 ): { artifact: RuntimeArtifactEnvelope; outputPath: string } {
   assertValidatedEnvelope(envelope);
   const config = configOverride ?? loadConfig();
-  const plan = compileGenerationPlan(envelope, config);
+  const plan = compileRuntimePlan(envelope, config);
   const legacyArtifact = renderThroughStagedLegacy(plan, mode, config);
   const renderedPrompt = enforceConstraints(String(legacyArtifact.rendered_prompt ?? ''), plan);
   const checkout = currentCheckoutIdentity();
-  const assessment = deriveRuntimeAssessment({
-    validatedIntake: envelope,
-    config,
+  const completed = completeRuntimeAssessmentInternal({
+    plan,
     renderedPrompt,
-    legacyArtifact,
     checkoutIdentity: checkout,
     reviewReceipt: null,
     artifactSha256: null,
     integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
+    config,
   });
-  const sources = governingSources(assessment.generationPlan, config);
-  const compatibilityValidation = legacyValidationProjection(assessment.validationLedger, config, assessment.routing.domain);
+  const derived = buildCanonicalDerivedProjection(completed);
+  const compatibility = projectLegacyArtifactFields(derived);
+  const canonicalIntake = canonicalIntakeProjection(envelope);
+  const observedRuntime = legacyArtifact.runtime !== null && typeof legacyArtifact.runtime === 'object' && !Array.isArray(legacyArtifact.runtime) ? legacyArtifact.runtime as Dict : {};
   const artifactPayload: Dict = {
-    ...legacyArtifact,
+    prompt_id: String(legacyArtifact.prompt_id ?? `${derived.domain}.default.v1`),
     generated_at: new Date().toISOString(),
+    execution_mode: String(legacyArtifact.execution_mode ?? mode),
     rendered_prompt: renderedPrompt,
-    validation: compatibilityValidation,
-    risk_level: legacyRisk(assessment.risk.classification),
-    requires_human_review: assessment.risk.review_required,
-    review_reason: assessment.risk.review_required ? assessment.risk.decision : null,
-    canonical_intake: {
-      schema_id: envelope.schema_id,
-      schema_version: envelope.schema_version,
-      intake_digest: envelope.intake_digest,
-      raw_request_digest: envelope.raw_request_digest,
-      source_mode: envelope.source_mode,
-      normalized_inputs: envelope.normalized_inputs,
-    },
-    generation_plan: assessment.generationPlan,
-    validation_ledger: { checks: assessment.validationLedger },
+    canonical_intake: canonicalIntake,
+    derived_projection: derived,
+    ...compatibility,
     runtime: {
-      ...((legacyArtifact.runtime as Dict | undefined) ?? {}),
-      git_commit_sha: checkout.actual_sha,
-      expected_tested_sha: checkout.expected_sha,
-      provenance_source: checkout.source,
+      node_version: String(observedRuntime.node_version ?? process.version),
+      package_manager: observedRuntime.package_manager ?? null,
+      pipeline_version: observedRuntime.pipeline_version ?? config.version ?? null,
+      ...compatibility.runtime,
     },
-    assurance: {
-      profile: assessment.generationPlan.evaluation.profile,
-      validation_kind: 'static_prompt_and_metadata_only',
-      target_model_executed: false,
-      behavioral_success_observed: false,
-      semantic_correctness_claimed: false,
-    },
-    context_attribution: { state: assessment.context.attribution_state, items: assessment.context.items },
-    governing_sources: sources,
-    hashes: {
-      ...((legacyArtifact.hashes as Dict | undefined) ?? {}),
-      rendered_prompt_hash: sha256Text(renderedPrompt),
-      normalized_inputs_hash: sha256Json(envelope.normalized_inputs),
-      generation_plan_hash: sha256Json(assessment.generationPlan),
-      validation_ledger_hash: sha256Json(assessment.validationLedger),
-    },
+    hashes: buildArtifactHashes(canonicalIntake, renderedPrompt, derived),
   };
   const artifactSha = sha256Json(artifactPayload);
-  const finalDecision = deriveAuthorityDecision({
-    sourceMode: envelope.source_mode,
-    riskAssessment: assessment.risk,
-    validationLedger: assessment.validationLedger,
+  const finalCompleted = completeRuntimeAssessmentInternal({
+    plan,
+    renderedPrompt,
     checkoutIdentity: checkout,
     reviewReceipt: null,
     artifactSha256: artifactSha,
+    integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
+    config,
   });
   const partial: Omit<RuntimeArtifactEnvelope, 'envelope_sha256'> = {
     schema_id: 'peac.runtime-artifact-envelope',
@@ -141,16 +287,16 @@ export function generateArtifact(
     artifact_sha256: artifactSha,
     artifact: artifactPayload,
     authorization: {
-      authority_state: finalDecision.authority_state,
-      downstream_use_allowed: finalDecision.downstream_use_allowed,
-      review_required: finalDecision.review_required,
+      authority_state: finalCompleted.authorityDecision.authority_state,
+      downstream_use_allowed: finalCompleted.authorityDecision.downstream_use_allowed,
+      review_required: finalCompleted.authorityDecision.review_required,
       review_receipt: null,
-      diagnostics: finalDecision.diagnostics,
+      diagnostics: finalCompleted.authorityDecision.diagnostics,
     },
   };
   const artifact: RuntimeArtifactEnvelope = { ...partial, envelope_sha256: sha256Json(envelopeDigestInput(partial)) };
-  const id = String(legacyArtifact.prompt_id ?? `${assessment.routing.domain}.default.v1`).replaceAll('.', '-');
-  const outputPath = join(publicationDirectory(config, finalDecision.authority_state), `${id}-${artifact.artifact_sha256.slice(0, 16)}.yaml`);
+  const id = String(artifactPayload.prompt_id).replaceAll('.', '-');
+  const outputPath = join(publicationDirectory(config, finalCompleted.authorityDecision.authority_state), `${id}-${artifact.artifact_sha256.slice(0, 16)}.yaml`);
   writeAtomic(outputPath, artifact);
   return { artifact, outputPath };
 }
@@ -171,47 +317,45 @@ function artifactSchemaCheck(envelope: RuntimeArtifactEnvelope, config: PEaCConf
   return validate(envelope) ? [] : formatAjvErrors(validate.errors);
 }
 
-function ledgerFromArtifact(artifact: Dict): ValidationCheckRecord[] {
-  const value = artifact.validation_ledger;
-  const checks = value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Dict).checks : null;
-  if (!Array.isArray(checks)) return [];
-  return checks as ValidationCheckRecord[];
-}
-
 function compareSemantic(label: string, actual: unknown, expected: unknown, diagnostics: string[]): void {
   if (canonicalJson(actual) !== canonicalJson(expected)) diagnostics.push(`${label} differs from canonical Runtime recomputation.`);
 }
 
-function exactCheckSetDiagnostics(actual: ValidationCheckRecord[], expected: ValidationCheckRecord[]): string[] {
+function crossFieldInvariantDiagnostics(
+  envelope: RuntimeArtifactEnvelope,
+  completed: CompletedRuntimeAssessment,
+): string[] {
   const diagnostics: string[] = [];
-  const ids = actual.map((item) => item.check_id);
-  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
-  if (duplicates.length > 0) diagnostics.push(`Duplicate Check IDs: ${[...new Set(duplicates)].join(', ')}`);
-  const actualSet = [...new Set(ids)].sort();
-  const expectedSet = expected.map((item) => item.check_id).sort();
-  const missing = expectedSet.filter((id) => !actualSet.includes(id));
-  const unexpected = actualSet.filter((id) => !expectedSet.includes(id));
-  if (missing.length > 0) diagnostics.push(`Missing required Check IDs: ${missing.join(', ')}`);
-  if (unexpected.length > 0) diagnostics.push(`Unexpected Check IDs: ${unexpected.join(', ')}`);
-  if (diagnostics.length === 0) {
-    const expectedById = new Map(expected.map((item) => [item.check_id, item]));
-    for (const record of actual) {
-      const canonical = expectedById.get(record.check_id);
-      if (canonical && canonicalJson(record) !== canonicalJson(canonical)) diagnostics.push(`Check result mismatch: ${record.check_id}`);
-    }
-  }
+  const authorization = envelope.authorization;
+  const derived = envelope.artifact.derived_projection as CanonicalDerivedProjection | undefined;
+  if (completed.validationLedger.length === 0) diagnostics.push('Authorized state cannot exist without a non-empty completed validation ledger.');
+  if (authorization.authority_state === 'authorized' && completed.validationLedger.some((item) => item.applicable && item.blocking && (!item.executed || item.passed !== true))) diagnostics.push('Authorized state has an unsatisfied blocking Check.');
+  if (authorization.authority_state === 'review_pending' && (!authorization.review_required || authorization.downstream_use_allowed || authorization.review_receipt !== null)) diagnostics.push('review_pending cross-field invariant failed.');
+  if (authorization.authority_state === 'authorized' && authorization.review_required && (!authorization.review_receipt || authorization.review_receipt.decision !== 'approved' || authorization.review_receipt.artifact_sha256 !== envelope.artifact_sha256)) diagnostics.push('Reviewed authorization lacks an exact approved Artifact-bound receipt.');
+  if (derived && envelope.artifact.requires_human_review !== derived.risk.review_required) diagnostics.push('Legacy requires_human_review contradicts canonical risk.review_required.');
+  if (derived && envelope.artifact.risk_level !== legacyRisk(derived.risk.classification)) diagnostics.push('Legacy risk_level contradicts canonical risk classification.');
+  if (derived && canonicalJson(envelope.artifact.context_attribution) !== canonicalJson(derived.contextAttribution)) diagnostics.push('Legacy context_attribution contradicts canonical context projection.');
   return diagnostics;
 }
 
-export function verifyArtifact(path: string, configOverride?: PEaCConfig): VerificationResult {
-  const config = configOverride ?? loadConfig();
+export interface VerifiedRuntimeCompletionInternal {
+  verificationResult: VerificationResult;
+  completedAssessment: CompletedRuntimeAssessment;
+  artifactEnvelope: RuntimeArtifactEnvelope;
+}
+
+function verifyArtifactDetailed(path: string, config: PEaCConfig): { result: VerificationResult; capability: VerifiedRuntimeCompletionInternal | null } {
   const diagnostics: string[] = [];
   let envelope: RuntimeArtifactEnvelope;
   try {
     envelope = loadEnvelope(path);
   } catch (error) {
-    return { verification_status: 'rejected', integrity_valid: false, semantic_derivation_valid: false, authority_consistent: false, artifact_sha256: null, authority_state: null, downstream_use_allowed: false, checks: [], diagnostics: [(error as Error).message] };
+    return {
+      result: { verification_status: 'rejected', integrity_valid: false, semantic_derivation_valid: false, authority_consistent: false, artifact_sha256: null, authority_state: null, downstream_use_allowed: false, checks: [], diagnostics: [(error as Error).message] },
+      capability: null,
+    };
   }
+
   const schemaErrors = artifactSchemaCheck(envelope, config);
   diagnostics.push(...schemaErrors);
   const artifactValid = sha256Json(envelope.artifact) === envelope.artifact_sha256;
@@ -219,81 +363,66 @@ export function verifyArtifact(path: string, configOverride?: PEaCConfig): Verif
   const { envelope_sha256: _ignored, ...withoutEnvelopeDigest } = envelope;
   const envelopeValid = sha256Json(envelopeDigestInput(withoutEnvelopeDigest)) === envelope.envelope_sha256;
   if (!envelopeValid) diagnostics.push('Envelope SHA-256 mismatch.');
+
   const artifact = envelope.artifact;
   const intakeValue = artifact.canonical_intake;
   const intake = intakeValue !== null && typeof intakeValue === 'object' && !Array.isArray(intakeValue) ? intakeValue as Dict : null;
   if (!intake) diagnostics.push('Canonical intake is missing.');
-  const hashes = artifact.hashes !== null && typeof artifact.hashes === 'object' && !Array.isArray(artifact.hashes) ? artifact.hashes as Dict : {};
-  if (hashes.rendered_prompt_hash !== sha256Text(String(artifact.rendered_prompt ?? ''))) diagnostics.push('Rendered Prompt hash mismatch.');
-  if (intake && hashes.normalized_inputs_hash !== sha256Json((intake.normalized_inputs as Dict | undefined) ?? {})) diagnostics.push('Normalized input hash mismatch.');
-  const persistedPlan = artifact.generation_plan as GenerationPlan | undefined;
-  const persistedLedger = ledgerFromArtifact(artifact);
-  if (hashes.generation_plan_hash !== sha256Json(persistedPlan ?? {})) diagnostics.push('Generation plan hash mismatch.');
-  if (hashes.validation_ledger_hash !== sha256Json(persistedLedger)) diagnostics.push('Validation ledger hash mismatch.');
-
   const persistedSources = Array.isArray(artifact.governing_sources) ? artifact.governing_sources as GoverningSource[] : [];
   const unavailableSource = persistedSources.some((source) => !source.path || !existsSync(source.path));
   const governingSourcesValid = persistedSources.length > 0 && persistedSources.every((source) => existsSync(source.path) && source.sha256 === sha256File(source.path));
   if (!governingSourcesValid) diagnostics.push('Persisted governing sources are unavailable or changed.');
 
-  let assessment: RuntimeAssessment | null = null;
-  let canonicalEnvelope: ValidatedIntakeEnvelope | null = null;
+  let completed: CompletedRuntimeAssessment | null = null;
   try {
     if (!intake) throw new Error('Canonical intake is unavailable.');
-    canonicalEnvelope = rehydrateEnvelope(intake, config);
+    const canonicalEnvelope = rehydrateEnvelope(intake, config);
+    const plan = compileRuntimePlan(canonicalEnvelope, config);
+    const executionMode = ['interactive', 'batch', 'ci', 'agent'].includes(String(artifact.execution_mode)) ? artifact.execution_mode as ExecutionMode : 'ci';
+    const canonicalLegacy = renderThroughStagedLegacy(plan, executionMode, config);
+    const expectedRenderedPrompt = enforceConstraints(String(canonicalLegacy.rendered_prompt ?? ''), plan);
+    compareSemantic('rendered Prompt', artifact.rendered_prompt, expectedRenderedPrompt, diagnostics);
     const checkout = currentCheckoutIdentity();
-    assessment = deriveRuntimeAssessment({
-      validatedIntake: canonicalEnvelope,
-      config,
-      renderedPrompt: String(artifact.rendered_prompt ?? ''),
-      legacyArtifact: artifact,
+    completed = completeRuntimeAssessmentInternal({
+      plan,
+      renderedPrompt: expectedRenderedPrompt,
       checkoutIdentity: checkout,
       reviewReceipt: envelope.authorization.review_receipt,
       artifactSha256: envelope.artifact_sha256,
       integrity: { artifact_valid: artifactValid, envelope_valid: envelopeValid, governing_sources_valid: governingSourcesValid },
+      config,
     });
-    const canonicalSources = governingSources(assessment.generationPlan, config);
-    compareSemantic('governing_sources', persistedSources, canonicalSources, diagnostics);
-    compareSemantic('generation_plan.routing', persistedPlan?.routing, assessment.routing, diagnostics);
-    compareSemantic('generation_plan.risk', persistedPlan?.risk, assessment.risk, diagnostics);
-    compareSemantic('generation_plan.contract', persistedPlan?.contract, assessment.contract, diagnostics);
-    compareSemantic('generation_plan.policies', persistedPlan?.policies, assessment.policies, diagnostics);
-    compareSemantic('generation_plan.rules', persistedPlan?.rules, assessment.rules, diagnostics);
-    compareSemantic('generation_plan.context', persistedPlan?.context, assessment.context, diagnostics);
-    compareSemantic('generation_plan.required_checks', persistedPlan?.required_checks, assessment.generationPlan.required_checks, diagnostics);
-    compareSemantic('generation_plan.publication', persistedPlan?.publication, assessment.generationPlan.publication, diagnostics);
-    diagnostics.push(...exactCheckSetDiagnostics(persistedLedger, assessment.validationLedger));
-    const expectedValidation = legacyValidationProjection(assessment.validationLedger, config, assessment.routing.domain);
-    compareSemantic('legacy validation compatibility projection', artifact.validation, expectedValidation, diagnostics);
-    compareSemantic('runtime checkout identity', {
-      git_commit_sha: (artifact.runtime as Dict | undefined)?.git_commit_sha ?? null,
-      expected_tested_sha: (artifact.runtime as Dict | undefined)?.expected_tested_sha ?? null,
-      provenance_source: (artifact.runtime as Dict | undefined)?.provenance_source ?? null,
-    }, { git_commit_sha: checkout.actual_sha, expected_tested_sha: checkout.expected_sha, provenance_source: checkout.source }, diagnostics);
+    const expectedDerived = buildCanonicalDerivedProjection(completed);
+    compareSemantic('canonical derived projection', artifact.derived_projection, expectedDerived, diagnostics);
+    const expectedLegacy = projectLegacyArtifactFields(expectedDerived);
+    compareSemantic('legacy compatibility projection', extractLegacyArtifactFields(artifact), expectedLegacy, diagnostics);
+    const expectedHashes = buildArtifactHashes(intake, expectedRenderedPrompt, expectedDerived);
+    compareSemantic('Artifact hashes', artifact.hashes, expectedHashes, diagnostics);
     const expectedAuthorization = {
-      authority_state: assessment.authorityDecision.authority_state,
-      downstream_use_allowed: assessment.authorityDecision.downstream_use_allowed,
-      review_required: assessment.authorityDecision.review_required,
+      authority_state: completed.authorityDecision.authority_state,
+      downstream_use_allowed: completed.authorityDecision.downstream_use_allowed,
+      review_required: completed.authorityDecision.review_required,
       review_receipt: envelope.authorization.review_receipt,
-      diagnostics: assessment.authorityDecision.diagnostics,
+      diagnostics: completed.authorityDecision.diagnostics,
     };
     compareSemantic('authorization', envelope.authorization, expectedAuthorization, diagnostics);
+    diagnostics.push(...crossFieldInvariantDiagnostics(envelope, completed));
   } catch (error) {
     diagnostics.push(`Canonical semantic recomputation failed: ${(error as Error).message}`);
   }
 
-  const integrityDiagnostics = diagnostics.filter((item) => /schema|SHA-256|hash mismatch|digest mismatch|integrity|governing sources/i.test(item));
+  const integrityDiagnostics = diagnostics.filter((item) => /schema|SHA-256|hashes|digest|integrity|governing sources/i.test(item));
   const integrityValid = schemaErrors.length === 0 && artifactValid && envelopeValid && governingSourcesValid && integrityDiagnostics.length === 0;
-  const semanticDiagnostics = diagnostics.filter((item) => /canonical|generation_plan|Check|compatibility projection|routing|risk|contract|policies|rules|runtime checkout/i.test(item));
-  const semanticValid = Boolean(assessment && canonicalEnvelope) && semanticDiagnostics.length === 0;
-  const authorityDiagnostics = diagnostics.filter((item) => item.startsWith('authorization'));
-  const authorityConsistent = Boolean(assessment) && authorityDiagnostics.length === 0;
+  const semanticDiagnostics = diagnostics.filter((item) => /canonical|projection|rendered Prompt|generation|validation|risk|routing|contract|policy|rule|context|provenance|cross-field/i.test(item));
+  const semanticValid = completed !== null && semanticDiagnostics.length === 0;
+  const authorityDiagnostics = diagnostics.filter((item) => item.startsWith('authorization') || item.includes('Authorized state') || item.includes('review_pending'));
+  const authorityConsistent = completed !== null && authorityDiagnostics.length === 0;
   const verificationStatus: VerificationStatus = diagnostics.length === 0
     ? 'verified'
     : unavailableSource || diagnostics.some((item) => item.includes('Governing source unavailable'))
       ? 'insufficient_evidence'
       : 'rejected';
-  return {
+  const result: VerificationResult = {
     verification_status: verificationStatus,
     integrity_valid: integrityValid,
     semantic_derivation_valid: semanticValid,
@@ -301,9 +430,26 @@ export function verifyArtifact(path: string, configOverride?: PEaCConfig): Verif
     artifact_sha256: envelope.artifact_sha256,
     authority_state: envelope.authorization.authority_state,
     downstream_use_allowed: verificationStatus === 'verified' && envelope.authorization.downstream_use_allowed,
-    checks: assessment?.validationLedger ?? persistedLedger,
+    checks: completed ? [...completed.validationLedger] : [],
     diagnostics,
   };
+  return {
+    result,
+    capability: verificationStatus === 'verified' && completed ? { verificationResult: result, completedAssessment: completed, artifactEnvelope: envelope } : null,
+  };
+}
+
+export function verifyArtifact(path: string, configOverride?: PEaCConfig): VerificationResult {
+  const config = configOverride ?? loadConfig();
+  return verifyArtifactDetailed(path, config).result;
+}
+
+/** @internal Official review API only; not re-exported by runtime-authority.ts. */
+export function verifyArtifactForReviewInternal(path: string, configOverride?: PEaCConfig): VerifiedRuntimeCompletionInternal {
+  const config = configOverride ?? loadConfig();
+  const detailed = verifyArtifactDetailed(path, config);
+  if (!detailed.capability) throw new Error(`Cannot review an unverified Artifact: ${detailed.result.diagnostics.join('; ')}`);
+  return detailed.capability;
 }
 
 function rawIntakeFromRequestArgument(value: string): unknown {

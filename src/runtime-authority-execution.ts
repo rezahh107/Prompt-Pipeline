@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -22,33 +15,27 @@ import {
   type ArtifactReviewReceipt,
   type AuthorityDecision,
   type CheckoutIdentity,
+  type CompletedRuntimeAssessment,
+  type CompletionIntegrity,
   type DomainContract,
   type DomainValidator,
-  type GenerationPlan,
-  type GoverningSource,
-  type RiskAssessment,
-  type RuntimeAssessment,
-  type RuntimeDerivationInput,
-  type SourceMode,
-  type ValidatedIntakeEnvelope,
+  type LegacyValidationProjection,
+  type NonEmptyValidationLedger,
+  type RuntimePlanAssessment,
   type ValidationCheckRecord,
   canonicalJson,
   sha256File,
   sha256Json,
   validatedPlans,
+  validatedRuntimePlans,
 } from './runtime-authority-foundation.js';
-import {
-  active,
-  buildPlanCore,
-  finalizePlan,
-  governingSources,
-  resolveAndValidateContract,
-  validatorDefinitions,
-} from './runtime-authority-plan.js';
+import { active, resolveAndValidateContract, validatorDefinitions } from './runtime-authority-plan.js';
 
-function assertValidatedPlan(plan: GenerationPlan): void {
-  if (!validatedPlans.has(plan)) throw new Error('ValidatedGenerationPlan must be compiled by the Runtime.');
-  if (sha256Json(plan.intake.normalized_inputs) !== plan.intake.digest) throw new Error('Generation plan intake digest mismatch.');
+function assertRuntimePlan(plan: RuntimePlanAssessment): void {
+  if (!validatedRuntimePlans.has(plan)) throw new Error('RuntimePlanAssessment must be compiled by compileRuntimePlan in this process.');
+  if (!validatedPlans.has(plan.generationPlan)) throw new Error('GenerationPlan must be compiled by the Runtime.');
+  if (sha256Json(plan.generationPlan.intake.normalized_inputs) !== plan.generationPlan.intake.digest) throw new Error('Generation plan intake digest mismatch.');
+  if (plan.generationPlan.plan_id !== 'peac.validated-generation-plan' || plan.generationPlan.plan_version !== 'generation-plan.v2') throw new Error('Runtime plan identity is invalid.');
 }
 
 export function currentCheckoutIdentity(): CheckoutIdentity {
@@ -75,8 +62,9 @@ function absoluteConfig(config: PEaCConfig, outputPath: string): PEaCConfig {
   };
 }
 
-export function renderThroughStagedLegacy(plan: GenerationPlan, mode: ExecutionMode, config: PEaCConfig): Dict {
-  assertValidatedPlan(plan);
+export function renderThroughStagedLegacy(plan: RuntimePlanAssessment, mode: ExecutionMode, config: PEaCConfig): Dict {
+  assertRuntimePlan(plan);
+  const generationPlan = plan.generationPlan;
   const stagingRoot = resolve(config.outputs_path, '.runtime-staging');
   mkdirSync(stagingRoot, { recursive: true });
   const workspace = mkdtempSync(join(stagingRoot, 'render-'));
@@ -84,12 +72,12 @@ export function renderThroughStagedLegacy(plan: GenerationPlan, mode: ExecutionM
   mkdirSync(outputDir, { recursive: true });
   const casePath = join(workspace, 'canonical.case.yaml');
   writeFileSync(casePath, yaml.dump({
-    case_id: `runtime.${plan.routing.domain}.${randomUUID()}`,
-    description: String(plan.intake.normalized_inputs.request ?? ''),
-    domain: plan.routing.domain,
-    subtype: plan.routing.subtype ?? undefined,
+    case_id: `runtime.${generationPlan.routing.domain}.${randomUUID()}`,
+    description: String(generationPlan.intake.normalized_inputs.request ?? ''),
+    domain: generationPlan.routing.domain,
+    subtype: generationPlan.routing.subtype ?? undefined,
     version: config.version ?? 'dev',
-    inputs: plan.contract.resolved_inputs,
+    inputs: generationPlan.contract.resolved_inputs,
     expected: { validation: { should_pass: true } },
   }, { lineWidth: 120, noRefs: true }));
   const runtimeConfig = absoluteConfig(config, outputDir);
@@ -105,7 +93,7 @@ export function renderThroughStagedLegacy(plan: GenerationPlan, mode: ExecutionM
   }
 }
 
-export function enforceConstraints(prompt: string, plan: GenerationPlan): string {
+export function enforceConstraints(prompt: string, plan: RuntimePlanAssessment): string {
   const constraints = [...plan.policies.applied, ...plan.rules.applied]
     .map((record) => record.constraint_text?.trim())
     .filter((value): value is string => Boolean(value));
@@ -141,12 +129,13 @@ function executeDomainValidator(
   check: DomainValidator,
   validatorsPath: string,
   contract: DomainContract,
-  plan: GenerationPlan,
+  plan: RuntimePlanAssessment,
   renderedPrompt: string,
 ): ValidationCheckRecord {
+  const generationPlan = plan.generationPlan;
   const id = String(check.id ?? 'unnamed_check');
   const blocking = String(check.severity ?? 'warning') === 'error';
-  const evaluationInputs = { ...plan.contract.resolved_inputs, rendered_prompt: renderedPrompt };
+  const evaluationInputs = { ...generationPlan.contract.resolved_inputs, rendered_prompt: renderedPrompt };
   let applicable = true;
   try {
     applicable = check.applies_when === undefined || evaluateConditionForTest(String(check.applies_when), evaluationInputs);
@@ -167,25 +156,25 @@ function executeDomainValidator(
   let passed = true;
   try {
     if (check.type === 'contract_check') {
-      const missing = missingRequiredFields(contract, plan.contract.resolved_inputs);
+      const missing = missingRequiredFields(contract, generationPlan.contract.resolved_inputs);
       passed = missing.length === 0;
       if (!passed) diagnostics.push(`Missing required fields: ${missing.join(', ')}`);
     } else if (check.type === 'rule_presence') {
       const required = String(check.required_policy_id ?? '');
-      passed = !required || plan.policies.applied.some((item) => item.rule_id === required);
+      passed = !required || generationPlan.policies.applied.some((item) => item.rule_id === required);
       if (!passed) diagnostics.push(String(check.message ?? `Required policy not applied: ${required}`));
     } else if (check.type === 'forbidden_instruction') {
       const matches = (check.forbidden_patterns ?? []).filter((pattern) => renderedPrompt.toLowerCase().includes(pattern.toLowerCase()));
       passed = matches.length === 0;
       diagnostics.push(...matches.map((pattern) => `Forbidden instruction found: ${pattern}`));
     } else if (check.type === 'field_check') {
-      passed = evaluateConditionForTest(String(check.check ?? ''), plan.contract.resolved_inputs);
+      passed = evaluateConditionForTest(String(check.check ?? ''), generationPlan.contract.resolved_inputs);
       if (!passed) diagnostics.push(String(check.message ?? `Field check failed: ${id}`));
     } else if (check.type === 'output_check') {
-      passed = checkOutputExpression(String(check.check ?? ''), renderedPrompt, plan.contract.resolved_inputs);
+      passed = checkOutputExpression(String(check.check ?? ''), renderedPrompt, generationPlan.contract.resolved_inputs);
       if (!passed) diagnostics.push(String(check.message ?? `Output check failed: ${id}`));
     } else if (check.type === 'forbidden_combination') {
-      const violations = forbiddenCombinationViolations(contract, plan.contract.resolved_inputs);
+      const violations = forbiddenCombinationViolations(contract, generationPlan.contract.resolved_inputs);
       passed = violations.length === 0;
       diagnostics.push(...violations.map((message) => `Forbidden input combination: ${message}`));
     } else {
@@ -208,26 +197,29 @@ function executeDomainValidator(
   };
 }
 
-function coreLedger(
-  envelope: ValidatedIntakeEnvelope,
-  plan: GenerationPlan,
+function buildCanonicalLedger(
+  plan: RuntimePlanAssessment,
   config: PEaCConfig,
   renderedPrompt: string,
   checkout: CheckoutIdentity,
-  integrity: NonNullable<RuntimeDerivationInput['integrity']>,
-  sources: GoverningSource[],
+  integrity: CompletionIntegrity,
 ): ValidationCheckRecord[] {
-  const contractDefinition = readYamlFile<DomainContract>(plan.contract.source_path) ?? {};
+  const generationPlan = plan.generationPlan;
+  const envelope = plan.validatedIntake;
+  const contractDefinition = readYamlFile<DomainContract>(generationPlan.contract.source_path) ?? {};
+  const sources = [...plan.governingSources];
   const records: ValidationCheckRecord[] = [
     { check_id: 'artifact_integrity', source: 'runtime-artifact-envelope', applicable: true, executed: true, passed: integrity.artifact_valid, blocking: true, diagnostics: integrity.artifact_valid ? [] : ['Artifact SHA-256 mismatch.'], evidence: {} },
     { check_id: 'canonical_intake_digest', source: envelope.schema_id, applicable: true, executed: true, passed: sha256Json(envelope.normalized_inputs) === envelope.intake_digest, blocking: true, diagnostics: [], evidence: { intake_digest: envelope.intake_digest } },
-    { check_id: 'domain_contract', source: plan.contract.source_path, applicable: true, executed: true, passed: resolveAndValidateContract(contractDefinition, plan.contract.resolved_inputs).errors.length === 0, blocking: true, diagnostics: [], evidence: { source_sha256: plan.contract.source_sha256, resolved_inputs_sha256: sha256Json(plan.contract.resolved_inputs) } },
+    { check_id: 'domain_contract', source: generationPlan.contract.source_path, applicable: true, executed: true, passed: resolveAndValidateContract(contractDefinition, generationPlan.contract.resolved_inputs).errors.length === 0, blocking: true, diagnostics: [], evidence: { source_sha256: generationPlan.contract.source_sha256, resolved_inputs_sha256: sha256Json(generationPlan.contract.resolved_inputs) } },
     { check_id: 'envelope_integrity', source: 'runtime-artifact-envelope', applicable: true, executed: true, passed: integrity.envelope_valid, blocking: true, diagnostics: integrity.envelope_valid ? [] : ['Envelope SHA-256 mismatch.'], evidence: {} },
     { check_id: 'governing_sources_integrity', source: 'canonical-governing-sources', applicable: true, executed: true, passed: integrity.governing_sources_valid, blocking: true, diagnostics: integrity.governing_sources_valid ? [] : ['One or more governing sources are unavailable or changed.'], evidence: { source_count: sources.length } },
-    { check_id: 'policy_rule_carriers', source: 'compiled-policy-and-domain-rules', applicable: true, executed: true, passed: [...plan.policies.applicable, ...plan.rules.applicable].every((item) => item.execution_result === 'applied'), blocking: true, diagnostics: [...plan.policies.applicable, ...plan.rules.applicable].flatMap((item) => item.diagnostics), evidence: {} },
-    { check_id: 'review_eligibility', source: 'canonical-authority-reducer', applicable: plan.risk.review_required, executed: plan.risk.review_required, passed: plan.risk.review_required ? true : null, blocking: false, diagnostics: [], evidence: { review_required: plan.risk.review_required } },
-    { check_id: 'runtime_risk_derivation', source: 'src/runtime-authority.ts', applicable: true, executed: true, passed: true, blocking: true, diagnostics: plan.risk.unknowns.map((item) => `unknown:${item}`), evidence: { classification: plan.risk.classification, decision: plan.risk.decision } },
-    { check_id: 'runtime_routing_derivation', source: 'pipeline/router.yaml', applicable: true, executed: true, passed: true, blocking: true, diagnostics: plan.routing.hint_conflict ? ['caller domain hint conflicts with Runtime route'] : [], evidence: { domain: plan.routing.domain, method: plan.routing.method } },
+    { check_id: 'policy_rule_carriers', source: 'compiled-policy-and-domain-rules', applicable: true, executed: true, passed: [...generationPlan.policies.applicable, ...generationPlan.rules.applicable].every((item) => item.execution_result === 'applied'), blocking: true, diagnostics: [...generationPlan.policies.applicable, ...generationPlan.rules.applicable].flatMap((item) => item.diagnostics), evidence: {} },
+    generationPlan.risk.review_required
+      ? { check_id: 'review_eligibility', source: 'canonical-authority-reducer', applicable: true, executed: true, passed: true, blocking: false, diagnostics: [], evidence: { review_required: true } }
+      : { check_id: 'review_eligibility', source: 'canonical-authority-reducer', applicable: false, executed: false, passed: null, blocking: false, diagnostics: [], evidence: { review_required: false } },
+    { check_id: 'runtime_risk_derivation', source: 'src/runtime-authority-risk.ts', applicable: true, executed: true, passed: true, blocking: true, diagnostics: generationPlan.risk.unknowns.map((item) => `unknown:${item}`), evidence: { classification: generationPlan.risk.classification, decision: generationPlan.risk.decision } },
+    { check_id: 'runtime_routing_derivation', source: 'pipeline/router.yaml', applicable: true, executed: true, passed: true, blocking: true, diagnostics: generationPlan.routing.hint_conflict ? ['caller domain hint conflicts with Runtime route'] : [], evidence: { domain: generationPlan.routing.domain, method: generationPlan.routing.method } },
   ];
   if (envelope.source_mode === 'fixture_validation') records.push({ check_id: 'checkout_identity', source: checkout.source, applicable: false, executed: false, passed: null, blocking: true, diagnostics: [], evidence: {} });
   else {
@@ -235,31 +227,50 @@ function coreLedger(
     const diagnostics = !checkout.actual_sha ? ['Actual checkout commit could not be resolved.'] : checkout.expected_sha && checkout.actual_sha !== checkout.expected_sha ? [`Actual checkout SHA ${checkout.actual_sha} does not match expected tested SHA ${checkout.expected_sha}.`] : [];
     records.push({ check_id: 'checkout_identity', source: checkout.source, applicable: true, executed: true, passed, blocking: true, diagnostics, evidence: { actual_sha: checkout.actual_sha, expected_sha: checkout.expected_sha } });
   }
-  for (const item of plan.policies.applicable) records.push({ check_id: `policy:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
-  for (const item of plan.rules.applicable) records.push({ check_id: `rule:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
+  for (const item of generationPlan.policies.applicable) records.push({ check_id: `policy:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
+  for (const item of generationPlan.rules.applicable) records.push({ check_id: `rule:${item.rule_id}`, source: item.source_path, applicable: true, executed: true, passed: item.execution_result === 'applied', blocking: true, diagnostics: item.diagnostics, evidence: { source_sha256: item.source_sha256, carrier: item.carrier } });
   for (const item of sources) {
     const available = existsSync(item.path);
     const actualHash = available ? sha256File(item.path) : null;
     records.push({ check_id: `source:${item.path}`, source: item.path, applicable: true, executed: true, passed: available && actualHash === item.sha256, blocking: true, diagnostics: !available ? ['Governing source unavailable.'] : actualHash !== item.sha256 ? ['Governing source hash mismatch.'] : [], evidence: { expected_sha256: item.sha256, actual_sha256: actualHash } });
   }
-  const validators = validatorDefinitions(config, plan.routing.domain);
+  const validators = validatorDefinitions(config, generationPlan.routing.domain);
   for (const check of validators.checks) records.push(executeDomainValidator(check, validators.path, contractDefinition, plan, renderedPrompt));
   return records.sort((a, b) => a.check_id.localeCompare(b.check_id));
 }
 
-export function legacyValidationProjection(ledger: ValidationCheckRecord[], config: PEaCConfig, domain: string): Dict {
+export function legacyValidationProjection(ledger: readonly ValidationCheckRecord[], config: PEaCConfig, domain: string): LegacyValidationProjection {
   const validatorIds = new Set(validatorDefinitions(config, domain).checks.map((check) => String(check.id ?? 'unnamed_check')));
   const records = ledger.filter((record) => validatorIds.has(record.check_id));
   const errors = records.filter((record) => record.applicable && record.passed === false && record.blocking).flatMap((record) => record.diagnostics.length > 0 ? record.diagnostics : [`Check failed: ${record.check_id}`]);
   const warnings = records.filter((record) => record.applicable && record.passed === false && !record.blocking).flatMap((record) => record.diagnostics.length > 0 ? record.diagnostics : [`Check failed: ${record.check_id}`]);
   const passed = records.every((record) => !record.applicable || !record.blocking || (record.executed && record.passed === true));
-  return { passed, warnings, errors, checks_run: records.map((record) => record.check_id) };
+  return { passed, warnings, errors, checks_run: records.filter((record) => record.applicable).map((record) => record.check_id).sort() };
 }
 
-export function deriveAuthorityDecision(input: {
-  sourceMode: SourceMode;
-  riskAssessment: RiskAssessment;
-  validationLedger: ValidationCheckRecord[];
+function assertCanonicalCompletionLedger(plan: RuntimePlanAssessment, ledger: readonly ValidationCheckRecord[]): asserts ledger is NonEmptyValidationLedger {
+  if (plan.requiredChecks.length === 0) throw new Error('Completion requires a non-empty required Check set.');
+  if (ledger.length === 0) throw new Error('Completion requires a non-empty validation ledger.');
+  const expected = plan.requiredChecks.map((item) => item.check_id).sort();
+  const actual = ledger.map((item) => item.check_id).sort();
+  const duplicates = actual.filter((id, index) => actual.indexOf(id) !== index);
+  if (duplicates.length > 0) throw new Error(`Completion ledger contains duplicate Check IDs: ${[...new Set(duplicates)].join(', ')}`);
+  const missing = expected.filter((id) => !actual.includes(id));
+  const unexpected = actual.filter((id) => !expected.includes(id));
+  if (missing.length > 0) throw new Error(`Completion ledger is missing required Check IDs: ${missing.join(', ')}`);
+  if (unexpected.length > 0) throw new Error(`Completion ledger contains unexpected Check IDs: ${unexpected.join(', ')}`);
+  if (canonicalJson(actual) !== canonicalJson(expected)) throw new Error('Completion ledger does not exactly match the canonical required Check set.');
+  for (const record of ledger) {
+    if (!record.applicable && (record.executed || record.passed !== null)) throw new Error(`Non-applicable Check has invalid execution semantics: ${record.check_id}`);
+    if (record.applicable && !record.executed) throw new Error(`Applicable Check was not executed: ${record.check_id}`);
+    if (record.applicable && record.passed === null) throw new Error(`Applicable Check has no result: ${record.check_id}`);
+  }
+}
+
+function deriveAuthorityDecisionInternal(input: {
+  sourceMode: RuntimePlanAssessment['validatedIntake']['source_mode'];
+  riskAssessment: RuntimePlanAssessment['risk'];
+  validationLedger: NonEmptyValidationLedger;
   checkoutIdentity: CheckoutIdentity;
   reviewReceipt: ArtifactReviewReceipt | null;
   artifactSha256: string | null;
@@ -284,33 +295,50 @@ export function deriveAuthorityDecision(input: {
   return { authority_state: 'authorized', downstream_use_allowed: true, review_required: false, diagnostics: [] };
 }
 
-export function deriveRuntimeAssessment(input: RuntimeDerivationInput): RuntimeAssessment {
-  const core = buildPlanCore(input.validatedIntake, input.config);
-  const plan = finalizePlan(core, input.config);
-  const checkout = input.checkoutIdentity ?? currentCheckoutIdentity();
-  const sources = governingSources(plan, input.config);
-  const integrity = input.integrity ?? { artifact_valid: true, envelope_valid: true, governing_sources_valid: sources.every((source) => existsSync(source.path) && sha256File(source.path) === source.sha256) };
-  const ledger = input.renderedPrompt === undefined ? [] : coreLedger(input.validatedIntake, plan, input.config, input.renderedPrompt, checkout, integrity, sources);
-  const actualIds = ledger.map((record) => record.check_id).sort();
-  const expectedIds = plan.required_checks.map((record) => record.check_id).sort();
-  if (ledger.length > 0 && canonicalJson(actualIds) !== canonicalJson(expectedIds)) throw new Error(`Canonical Check-set construction mismatch: expected ${expectedIds.join(', ')}, got ${actualIds.join(', ')}`);
-  const authorityDecision = deriveAuthorityDecision({
-    sourceMode: input.validatedIntake.source_mode,
-    riskAssessment: plan.risk,
+export interface CompleteRuntimeAssessmentInput {
+  plan: RuntimePlanAssessment;
+  renderedPrompt: string;
+  checkoutIdentity: CheckoutIdentity;
+  integrity: CompletionIntegrity;
+  reviewReceipt: ArtifactReviewReceipt | null;
+  artifactSha256: string | null;
+  config: PEaCConfig;
+}
+
+/** @internal Official callers are generate/verify/review only. */
+export function completeRuntimeAssessmentInternal(input: CompleteRuntimeAssessmentInput): CompletedRuntimeAssessment {
+  assertRuntimePlan(input.plan);
+  if (typeof input.renderedPrompt !== 'string' || input.renderedPrompt.trim().length === 0) throw new Error('Completed Runtime assessment requires a rendered Prompt.');
+  if (!input.checkoutIdentity || input.checkoutIdentity.source !== 'git rev-parse HEAD') throw new Error('Completed Runtime assessment requires evaluated checkout identity.');
+  if (!input.integrity) throw new Error('Completed Runtime assessment requires integrity inputs.');
+  const ledger = buildCanonicalLedger(input.plan, input.config, input.renderedPrompt, input.checkoutIdentity, input.integrity);
+  assertCanonicalCompletionLedger(input.plan, ledger);
+  const compatibilityValidation = legacyValidationProjection(ledger, input.config, input.plan.routing.domain);
+  const authorityDecision = deriveAuthorityDecisionInternal({
+    sourceMode: input.plan.validatedIntake.source_mode,
+    riskAssessment: input.plan.risk,
     validationLedger: ledger,
-    checkoutIdentity: checkout,
-    reviewReceipt: input.reviewReceipt ?? null,
-    artifactSha256: input.artifactSha256 ?? null,
+    checkoutIdentity: input.checkoutIdentity,
+    reviewReceipt: input.reviewReceipt,
+    artifactSha256: input.artifactSha256,
   });
   return {
-    routing: plan.routing,
-    risk: plan.risk,
-    contract: plan.contract,
-    policies: plan.policies,
-    rules: plan.rules,
-    context: plan.context,
-    generationPlan: plan,
+    plan: input.plan,
+    renderedPrompt: input.renderedPrompt,
     validationLedger: ledger,
+    checkoutIdentity: input.checkoutIdentity,
+    compatibilityValidation,
     authorityDecision,
   };
+}
+
+/** @internal Test seam; not re-exported by the official Runtime API. */
+export function completeRuntimeAssessmentForTest(input: CompleteRuntimeAssessmentInput): CompletedRuntimeAssessment {
+  return completeRuntimeAssessmentInternal(input);
+}
+
+/** @internal Test seam for exact completion invariants; cannot issue authority. */
+export function validateCompletionLedgerForTest(plan: RuntimePlanAssessment, ledger: readonly ValidationCheckRecord[]): void {
+  assertRuntimePlan(plan);
+  assertCanonicalCompletionLedger(plan, ledger);
 }

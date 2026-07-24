@@ -1,35 +1,24 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
-import { dirname, extname, join, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { extname, join } from 'node:path';
 import Ajv, { type ErrorObject } from 'ajv';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
-import {
-  evaluateConditionForTest,
-  generateArtifact as generateLegacyFixtureArtifact,
-  loadConfig,
-  readYamlFile,
-  routeRequestForTest,
-  type Dict,
-  type ExecutionMode,
-  type PEaCConfig,
-} from './peac.js';
+import { loadConfig, type Dict, type PEaCConfig } from './peac.js';
 
 export type SourceMode = 'interactive_request' | 'api_request' | 'fixture_validation';
 export type AuthorityState = 'authorized' | 'review_pending' | 'rejected' | 'non_authoritative_fixture';
 export type DerivedRisk = 'low' | 'medium' | 'high' | 'unknown' | 'clarification_required';
 export type VerificationStatus = 'verified' | 'rejected' | 'insufficient_evidence';
 export type RiskFactorState = 'present' | 'absent' | 'unknown';
+export type BenignOperation =
+  | 'short_greeting'
+  | 'birthday_or_congratulation_message'
+  | 'grammar_correction_of_provided_text'
+  | 'rewrite_of_provided_text'
+  | 'summary_of_provided_text'
+  | 'non_operational_name_brainstorm'
+  | 'non_instructional_creative_poem';
 
 export interface ValidatedIntakeEnvelope {
   schema_id: 'peac.validated-intake';
@@ -54,6 +43,26 @@ export interface RoutingDecision {
   evidence: string[];
 }
 
+export interface CanonicalRiskSurface {
+  request: string;
+  desiredOutput: string;
+  constraints: readonly string[];
+  requestedActions: readonly string[];
+  consumerPath: string | null;
+  modelInteractionMode: string | null;
+  availableSources: readonly string[];
+  targetEnvironment: string | null;
+}
+
+export interface BenignResolution {
+  operation: BenignOperation | null;
+  completeIntentCovered: boolean;
+  secondaryActions: string[];
+  unresolvedClauses: string[];
+  consequentialSignals: string[];
+  evidence: string[];
+}
+
 export interface RiskFactorAssessment {
   factor_id: string;
   state: RiskFactorState;
@@ -75,6 +84,8 @@ export interface RiskAssessment {
   classification: DerivedRisk;
   factors: RiskFactorAssessment[];
   applied_rules: AppliedRiskRule[];
+  benign_resolution: BenignResolution;
+  risk_surface: CanonicalRiskSurface;
   unknowns: string[];
   review_required: boolean;
   decision: string;
@@ -105,6 +116,12 @@ export interface ValidationCheckRecord {
   evidence: Dict;
 }
 
+export type NonEmptyValidationLedger = readonly [ValidationCheckRecord, ...ValidationCheckRecord[]];
+
+export interface RequiredCheckDefinition {
+  check_id: string;
+}
+
 export interface ArtifactReviewReceipt {
   receipt_type: 'artifact_review';
   receipt_version: 'artifact-review.v1';
@@ -128,7 +145,7 @@ export interface AuthorityDecision {
   diagnostics: string[];
 }
 
-export interface GenerationPlan {
+export interface GenerationPlanV2 {
   plan_id: 'peac.validated-generation-plan';
   plan_version: 'generation-plan.v2';
   intake: { schema_id: string; digest: string; normalized_inputs: Dict };
@@ -150,35 +167,109 @@ export interface GenerationPlan {
     suites: string[];
     assurance: 'static_production_profile' | 'static_production_profile_validated' | 'static_profile';
   };
-  required_checks: Array<{ check_id: string }>;
+  required_checks: RequiredCheckDefinition[];
   publication: { intended_authority_state: AuthorityState };
 }
 
-export interface RuntimeAssessment {
+export type GenerationPlan = GenerationPlanV2;
+
+export interface GoverningSource {
+  algorithm: 'sha256';
+  path: string;
+  sha256: string;
+}
+
+export interface RuntimePlanAssessment {
+  validatedIntake: ValidatedIntakeEnvelope;
   routing: RoutingDecision;
   risk: RiskAssessment;
   contract: GenerationPlan['contract'];
   policies: GenerationPlan['policies'];
   rules: GenerationPlan['rules'];
   context: GenerationPlan['context'];
-  generationPlan: GenerationPlan;
-  validationLedger: ValidationCheckRecord[];
+  generationPlan: GenerationPlanV2;
+  requiredChecks: readonly RequiredCheckDefinition[];
+  governingSources: readonly GoverningSource[];
+}
+
+export interface CompletionIntegrity {
+  artifact_valid: boolean;
+  envelope_valid: boolean;
+  governing_sources_valid: boolean;
+}
+
+export interface LegacyValidationProjection {
+  passed: boolean;
+  warnings: string[];
+  errors: string[];
+  checks_run: string[];
+}
+
+export interface CompletedRuntimeAssessment {
+  plan: RuntimePlanAssessment;
+  renderedPrompt: string;
+  validationLedger: NonEmptyValidationLedger;
+  checkoutIdentity: CheckoutIdentity;
+  compatibilityValidation: LegacyValidationProjection;
   authorityDecision: AuthorityDecision;
 }
 
-export interface RuntimeDerivationInput {
-  validatedIntake: ValidatedIntakeEnvelope;
-  config: PEaCConfig;
-  renderedPrompt?: string;
-  legacyArtifact?: Dict;
-  checkoutIdentity?: CheckoutIdentity;
-  reviewReceipt?: ArtifactReviewReceipt | null;
-  artifactSha256?: string | null;
-  integrity?: {
-    artifact_valid: boolean;
-    envelope_valid: boolean;
-    governing_sources_valid: boolean;
-  };
+export interface AssuranceProjection {
+  profile: string;
+  validation_kind: 'static_prompt_and_metadata_only';
+  target_model_executed: false;
+  behavioral_success_observed: false;
+  semantic_correctness_claimed: false;
+}
+
+export interface ContextAttributionProjection {
+  state: GenerationPlan['context']['attribution_state'];
+  items: Dict[];
+}
+
+export interface CanonicalPolicyProjection {
+  id: string;
+  source_ref: string;
+  source_hash: string;
+  triggered_by: string;
+}
+
+export interface CanonicalProvenanceProjection {
+  user_request: string;
+  case_file: string | null;
+  routing_method: string;
+  routing_confidence: number;
+  routing_evidence: string[];
+  template_used: string | null;
+  template_version: string;
+  inputs_provided: string[];
+  inputs_inferred: string[];
+  inputs_defaulted: string[];
+  canonical_intake_digest: string;
+  checkout: CheckoutIdentity;
+}
+
+export interface CanonicalSourceHashProjection {
+  sources: GoverningSource[];
+}
+
+export interface CanonicalDerivedProjection {
+  generationPlan: GenerationPlanV2;
+  validationLedger: NonEmptyValidationLedger;
+  compatibilityValidation: LegacyValidationProjection;
+  routing: RoutingDecision;
+  risk: RiskAssessment;
+  legacyRiskLevel: 'low' | 'medium' | 'high';
+  requiresHumanReview: boolean;
+  reviewReason: string | null;
+  assurance: AssuranceProjection;
+  contextAttribution: ContextAttributionProjection;
+  domain: string;
+  subtype: string | null;
+  provenance: CanonicalProvenanceProjection;
+  policiesApplied: readonly CanonicalPolicyProjection[];
+  governingSources: readonly GoverningSource[];
+  sourceHashes: CanonicalSourceHashProjection;
 }
 
 export interface RuntimeArtifactEnvelope {
@@ -255,14 +346,10 @@ export interface CaseFile {
   inputs: Dict;
 }
 
-export interface GoverningSource {
-  algorithm: 'sha256';
-  path: string;
-  sha256: string;
-}
-
 const validatedEnvelopes = new WeakSet<object>();
 export const validatedPlans = new WeakSet<object>();
+export const validatedRuntimePlans = new WeakSet<object>();
+
 export const RISK_BOOLEAN_FIELDS = [
   'sensitive_or_high_risk',
   'uses_external_tools',
@@ -272,6 +359,7 @@ export const RISK_BOOLEAN_FIELDS = [
   'external_files',
   'potential_downstream_execution',
 ] as const;
+
 export const CORE_CHECK_IDS = [
   'artifact_integrity',
   'canonical_intake_digest',
@@ -284,19 +372,17 @@ export const CORE_CHECK_IDS = [
   'runtime_risk_derivation',
   'runtime_routing_derivation',
 ] as const;
+
 export const HIGH_STAKES_PATTERNS: Array<{ id: string; regex: RegExp }> = [
   { id: 'medical_request', regex: /\b(medical|medicine|diagnos(?:is|e)|treatment|prescription|symptom|health advice|metformin|milligrams?|dosage|dose|insulin|antibiotic)\b|پزشک|پزشکی|تشخیص|درمان|دارو|نسخه|دوز/i },
   { id: 'legal_request', regex: /\b(legal|lawyer|lawsuit|court|statute|liability|indemnity|evict(?:ion)?|tenant rights?|contract advice)\b|حقوقی|وکیل|دادگاه|شکایت|اخراج مستاجر|مسئولیت حقوقی/i },
   { id: 'financial_request', regex: /\b(financial|investment|tax|securities|portfolio|leveraged fund|asset allocation|retirement savings|loan advice)\b|مشاوره مالی|سرمایه.?گذاری|مالیات|بورس|پرتفوی/i },
-  { id: 'irreversible_operation', regex: /\b(permanently erase|irreversibly delete|drop production|destroy records|force.?push|wipe database|deploy to production|merge and release)\b|حذف دائمی|پاک کردن تولید|برگشت.?ناپذیر/i },
-  { id: 'safety_sensitive_request', regex: /\b(safety-critical|hazardous|dangerous operation|explosive|high voltage)\b|ایمنی.?حیاتی|خطرناک|مواد منفجره|ولتاژ بالا/i },
+  { id: 'irreversible_operation', regex: /\b(permanently erase|irreversibly delete|drop production|destroy records|force.?push|wipe database|deploy to production|merge and release|disable production backups|remove the machine guard|bypass(?:ing)? a safety interlock|energize exposed equipment)\b|حذف دائمی|پاک کردن تولید|برگشت.?ناپذیر/i },
+  { id: 'safety_sensitive_request', regex: /\b(safety-critical|hazardous|dangerous operation|explosive|high voltage|machine guard|safety interlock|press is moving|exposed equipment)\b|ایمنی.?حیاتی|خطرناک|مواد منفجره|ولتاژ بالا/i },
 ];
-export const BENIGN_PATTERNS = [
-  /\b(friendly greeting|hello message|short greeting|birthday wish|brainstorm names|write a poem|grammar correction|rewrite this sentence|summarize provided text|title ideas)\b/i,
-  /سلام دوستانه|پیام تبریک|اصلاح نگارش|بازنویسی جمله|ایده عنوان|شعر کوتاه/i,
-];
-export const DESTRUCTIVE_ACTION_PATTERN = /\b(delete|erase|destroy|drop|force.?push|merge|deploy|publish|release|execute|run command|write file|modify repository)\b/i;
-export const TOOL_ACTION_PATTERN = /\b(api|tool|browser|search web|execute|run|shell|terminal|connector|plugin)\b/i;
+
+export const DESTRUCTIVE_ACTION_PATTERN = /\b(delete|erase|destroy|drop|force.?push|merge|deploy|publish|release|execute|run command|write file|modify repository|disable backups?|remove (?:the )?machine guard|bypass (?:a )?safety interlock|energize exposed equipment)\b/i;
+export const TOOL_ACTION_PATTERN = /\b(api|tool|browser|search web|execute|run|shell|terminal|connector|plugin|tool.?calling|autonomous execution|executable commands?)\b/i;
 export const CURRENT_INFO_PATTERN = /\b(latest|today|current|right now|live price|current law|current version|this week)\b|امروز|آخرین|فعلی|قیمت لحظه.?ای|قانون جاری/i;
 export const EXACT_CLAIM_PATTERN = /\b(exact quote|verbatim|precise citation|exact figure|exact date|official value)\b|نقل قول دقیق|عدد دقیق|تاریخ دقیق|مقدار رسمی/i;
 

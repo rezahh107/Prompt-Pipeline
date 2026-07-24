@@ -10,12 +10,14 @@ import {
   type DomainValidator,
   type GenerationPlan,
   type GoverningSource,
+  type RequiredCheckDefinition,
+  type RuntimePlanAssessment,
   type ValidatedIntakeEnvelope,
   assertValidatedEnvelope,
   canonicalJson,
   sha256File,
-  sha256Json,
   validatedPlans,
+  validatedRuntimePlans,
   walkFiles,
 } from './runtime-authority-foundation.js';
 import { buildRoutingDecision, deriveRisk, seedDomainInputs } from './runtime-authority-risk.js';
@@ -152,7 +154,7 @@ export function validatorDefinitions(config: PEaCConfig, domain: string): { path
   return { path, checks: source?.static_checks ?? [] };
 }
 
-function expectedCheckIds(plan: Omit<GenerationPlan, 'required_checks'>, config: PEaCConfig, sources: GoverningSource[]): string[] {
+function expectedCheckDefinitions(plan: Omit<GenerationPlan, 'required_checks'>, config: PEaCConfig, sources: GoverningSource[]): RequiredCheckDefinition[] {
   const validators = validatorDefinitions(config, plan.routing.domain).checks.map((check) => String(check.id ?? 'unnamed_check'));
   const policyChecks = plan.policies.applicable.map((item) => `policy:${item.rule_id}`);
   const ruleChecks = plan.rules.applicable.map((item) => `rule:${item.rule_id}`);
@@ -160,7 +162,8 @@ function expectedCheckIds(plan: Omit<GenerationPlan, 'required_checks'>, config:
   const ids = [...CORE_CHECK_IDS, ...validators, ...policyChecks, ...ruleChecks, ...sourceChecks].sort();
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicates.length > 0) throw new Error(`Duplicate logical Check ID: ${[...new Set(duplicates)].join(', ')}`);
-  return ids;
+  if (ids.length === 0) throw new Error('Canonical required Check set must be non-empty.');
+  return ids.map((check_id) => ({ check_id }));
 }
 
 function templatePathForPlan(plan: Pick<GenerationPlan, 'routing'>, config: PEaCConfig): string | null {
@@ -198,7 +201,7 @@ export function governingSources(plan: Pick<GenerationPlan, 'routing' | 'contrac
   return [...paths].sort().map(sourceRecord);
 }
 
-export function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): Omit<GenerationPlan, 'required_checks'> {
+function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): Omit<GenerationPlan, 'required_checks'> {
   assertValidatedEnvelope(envelope);
   const routing = buildRoutingDecision(envelope, config);
   const contractPath = join(config.domains_path, routing.domain, 'input.contract.yaml');
@@ -212,6 +215,8 @@ export function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCCon
   const risk = deriveRisk(envelope, routing, config, validation.resolved);
   const policies = compilePolicyConstraints(config, validation.resolved);
   const rules = compileDomainRules(config, routing.domain);
+  const failedCarriers = [...policies, ...rules].filter((record) => record.applicable && record.execution_result !== 'applied');
+  if (failedCarriers.length > 0) throw new Error(`Applicable rule without executable carrier: ${failedCarriers.map((record) => record.rule_id).join(', ')}`);
   const contextItems = Array.isArray(envelope.normalized_inputs.context_items) ? envelope.normalized_inputs.context_items as Dict[] : [];
   const strictness = String(envelope.normalized_inputs.strictness ?? 'precise');
   let intended: AuthorityState = 'authorized';
@@ -243,14 +248,33 @@ export function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCCon
   };
 }
 
-export function finalizePlan(core: Omit<GenerationPlan, 'required_checks'>, config: PEaCConfig): GenerationPlan {
+function finalizePlan(core: Omit<GenerationPlan, 'required_checks'>, config: PEaCConfig): { plan: GenerationPlan; sources: GoverningSource[] } {
   const sources = governingSources(core, config);
-  const plan: GenerationPlan = { ...core, required_checks: expectedCheckIds(core, config, sources).map((check_id) => ({ check_id })) };
+  const requiredChecks = expectedCheckDefinitions(core, config, sources);
+  const plan: GenerationPlan = { ...core, required_checks: requiredChecks };
   validatedPlans.add(plan);
-  return plan;
+  return { plan, sources };
+}
+
+export function compileRuntimePlan(envelope: ValidatedIntakeEnvelope, configOverride?: PEaCConfig): RuntimePlanAssessment {
+  const config = configOverride ?? loadConfig();
+  const { plan, sources } = finalizePlan(buildPlanCore(envelope, config), config);
+  const assessment: RuntimePlanAssessment = {
+    validatedIntake: envelope,
+    routing: plan.routing,
+    risk: plan.risk,
+    contract: plan.contract,
+    policies: plan.policies,
+    rules: plan.rules,
+    context: plan.context,
+    generationPlan: plan,
+    requiredChecks: plan.required_checks,
+    governingSources: sources,
+  };
+  validatedRuntimePlans.add(assessment);
+  return assessment;
 }
 
 export function compileGenerationPlan(envelope: ValidatedIntakeEnvelope, configOverride?: PEaCConfig): GenerationPlan {
-  const config = configOverride ?? loadConfig();
-  return finalizePlan(buildPlanCore(envelope, config), config);
+  return compileRuntimePlan(envelope, configOverride).generationPlan;
 }

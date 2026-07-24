@@ -1,5 +1,43 @@
-export * from './runtime-authority-foundation.js';
-export * from './runtime-authority-risk.js';
-export * from './runtime-authority-plan.js';
-export * from './runtime-authority-execution.js';
-export * from './runtime-authority-artifact.js';
+export {
+  createValidatedIntakeEnvelope,
+  createFixtureEnvelope,
+  rehydrateEnvelope,
+  canonicalJson,
+  sha256Text,
+  sha256Json,
+  type SourceMode,
+  type AuthorityState,
+  type DerivedRisk,
+  type VerificationStatus,
+  type RiskFactorState,
+  type BenignOperation,
+  type ValidatedIntakeEnvelope,
+  type RoutingDecision,
+  type CanonicalRiskSurface,
+  type BenignResolution,
+  type RiskFactorAssessment,
+  type AppliedRiskRule,
+  type RiskAssessment,
+  type AppliedConstraint,
+  type ValidationCheckRecord,
+  type NonEmptyValidationLedger,
+  type RequiredCheckDefinition,
+  type ArtifactReviewReceipt,
+  type CheckoutIdentity,
+  type AuthorityDecision,
+  type GenerationPlanV2,
+  type GenerationPlan,
+  type GoverningSource,
+  type RuntimePlanAssessment,
+  type CompletionIntegrity,
+  type LegacyValidationProjection,
+  type CompletedRuntimeAssessment,
+  type CanonicalDerivedProjection,
+  type RuntimeArtifactEnvelope,
+  type VerificationResult,
+  type ContractField,
+  type DomainContract,
+} from './runtime-authority-foundation.js';
+export { buildCanonicalRiskSurface, resolveBenignOperation, buildRoutingDecision, deriveRisk, seedDomainInputs } from './runtime-authority-risk.js';
+export { compileRuntimePlan, compileGenerationPlan, validateContractForTest } from './runtime-authority-plan.js';
+export { generateArtifact, generateFromCliArgs, verifyArtifact } from './runtime-authority-artifact.js';
