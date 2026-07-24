@@ -12,6 +12,11 @@ statement: >-
   Generated prompt artifacts must be useful to the user without leaking internal reasoning,
   hidden metadata, irrelevant KB dumps, fabricated execution results, or unsafe action claims.
 
+rules:
+  - "Expose only user-relevant output, validation notes, required inputs, and human-review status; do not expose hidden reasoning or irrelevant knowledge-base content."
+  - "Do not fabricate CLI output, repository state, execution results, memory, telemetry, or completed actions."
+  - "For high-risk output, state that human review is required before downstream use."
+
 visible_allowed:
   - selected_domain
   - rendered_prompt
