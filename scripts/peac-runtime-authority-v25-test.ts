@@ -384,6 +384,67 @@ function identityReferenceSymbol(checker: ts.TypeChecker, expression: ts.Express
   return null;
 }
 
+function externalReferenceDeclaration(
+  declaration: ts.Declaration,
+): { importedName: string; moduleSpecifier: ts.Expression } | null {
+  if (ts.isImportSpecifier(declaration)) {
+    const importDeclaration = declaration.parent.parent.parent;
+    if (!ts.isImportDeclaration(importDeclaration)) return null;
+    return {
+      importedName: (declaration.propertyName ?? declaration.name).text,
+      moduleSpecifier: importDeclaration.moduleSpecifier,
+    };
+  }
+  if (ts.isExportSpecifier(declaration)) {
+    const exportDeclaration = declaration.parent.parent;
+    if (!ts.isExportDeclaration(exportDeclaration) || !exportDeclaration.moduleSpecifier) return null;
+    return {
+      importedName: (declaration.propertyName ?? declaration.name).text,
+      moduleSpecifier: exportDeclaration.moduleSpecifier,
+    };
+  }
+  return null;
+}
+
+function moduleLocalDeclarationSymbol(
+  checker: ts.TypeChecker,
+  moduleSpecifier: ts.Expression,
+  name: string,
+): ts.Symbol | null {
+  const moduleSymbol = checker.getSymbolAtLocation(moduleSpecifier);
+  for (const declaration of moduleSymbol?.declarations ?? []) {
+    if (!ts.isSourceFile(declaration)) continue;
+    let found: ts.Symbol | null = null;
+    const visit = (node: ts.Node): void => {
+      if (found) return;
+      if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
+        found = checker.getSymbolAtLocation(node.name) ?? null;
+        return;
+      }
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
+        found = checker.getSymbolAtLocation(node.name) ?? null;
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(declaration);
+    if (found) return found;
+  }
+  return null;
+}
+
+function declarationBackedTarget(checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol {
+  const target = resolvedSymbol(checker, symbol);
+  if (symbolOwnerPaths(target).size > 0) return target;
+  for (const declaration of symbol.declarations ?? []) {
+    const reference = externalReferenceDeclaration(declaration);
+    if (!reference) continue;
+    const local = moduleLocalDeclarationSymbol(checker, reference.moduleSpecifier, reference.importedName);
+    if (local) return resolvedSymbol(checker, local);
+  }
+  return target;
+}
+
 function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol): AuthorityIdentityOwners {
   const identities: AuthorityIdentityOwners = new Map();
   const visited = new Set<ts.Symbol>();
@@ -398,7 +459,7 @@ function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol)
   };
 
   const inspect = (symbol: ts.Symbol): void => {
-    const target = resolvedSymbol(checker, symbol);
+    const target = declarationBackedTarget(checker, symbol);
     if (visited.has(target)) return;
     visited.add(target);
 
@@ -425,7 +486,7 @@ function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol)
     }
   };
 
-  const target = resolvedSymbol(checker, exported);
+  const target = declarationBackedTarget(checker, exported);
   record(exported.getName(), target);
   for (const declaration of exported.declarations ?? []) {
     if (ts.isExportSpecifier(declaration)) {
@@ -632,6 +693,7 @@ test('T-ALIAS-01', () => {
     "export { reduceVerificationOutcome as publicReducer } from './runtime-authority-verification-facts.js';",
     'reduceVerificationOutcome',
     'publicReducer',
+    'src/runtime-authority-verification-facts.ts',
   );
 });
 
