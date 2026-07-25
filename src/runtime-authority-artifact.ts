@@ -3,15 +3,9 @@ import {
   type CanonicalDerivedProjection,
   type CanonicalPolicyProjection,
   type CompletedRuntimeAssessment,
-  type DerivedRisk,
   type GoverningSource,
 } from './runtime-authority-foundation.js';
-
-function legacyRisk(classification: DerivedRisk): 'low' | 'medium' | 'high' {
-  if (classification === 'low') return 'low';
-  if (classification === 'medium') return 'medium';
-  return 'high';
-}
+import { deriveRiskReviewCompatibility } from './runtime-authority-risk-review-projection.js';
 
 function assuranceProjection(completed: CompletedRuntimeAssessment): AssuranceProjection {
   return {
@@ -49,15 +43,14 @@ export function buildCanonicalDerivedProjection(
   const generationPlan = plan.generationPlan;
   const normalized = generationPlan.intake.normalized_inputs;
   const sources = [...plan.governingSources].sort((a, b) => a.path.localeCompare(b.path));
+  const riskReview = deriveRiskReviewCompatibility(plan.risk);
   return {
     generationPlan,
     validationLedger: completed.validationLedger,
     compatibilityValidation: completed.compatibilityValidation,
     routing: plan.routing,
     risk: plan.risk,
-    legacyRiskLevel: legacyRisk(plan.risk.classification),
-    requiresHumanReview: plan.risk.review_required,
-    reviewReason: plan.risk.review_required ? plan.risk.decision : null,
+    ...riskReview,
     assurance: assuranceProjection(completed),
     contextAttribution: { state: plan.context.attribution_state, items: plan.context.items },
     domain: plan.routing.domain,
