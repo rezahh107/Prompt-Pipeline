@@ -9,6 +9,7 @@ import {
   type CanonicalDerivedProjection,
   type CompletedRuntimeAssessment,
   type GoverningSource,
+  type RiskAssessment,
   type RuntimeArtifactEnvelope,
   type ValidationCheckRecord,
   type VerificationResult,
@@ -42,6 +43,7 @@ import {
   renderThroughStagedLegacy,
 } from './runtime-authority-execution.js';
 import { buildCanonicalDerivedProjection } from './runtime-authority-artifact.js';
+import { deriveRiskReviewCompatibility } from './runtime-authority-risk-review-projection.js';
 
 export interface SafeEnvelopeParseResult {
   envelope: RuntimeArtifactEnvelope | null;
@@ -75,7 +77,7 @@ export interface VerifiedRuntimeCompletionInternal {
 
 const EXECUTION_MODES = new Set<ExecutionMode>(['interactive', 'batch', 'ci', 'agent']);
 
-export function reduceVerificationOutcome(facts: VerificationFacts): VerificationStatus {
+function reduceVerificationOutcome(facts: VerificationFacts): VerificationStatus {
   if (
     facts.schemaContradictions.length > 0
     || facts.integrityContradictions.length > 0
@@ -309,6 +311,33 @@ function collectAuthorizationCrossFields(ctx: SourceIndependentContext, facts: V
   }
 }
 
+function collectRiskReviewMirrors(ctx: SourceIndependentContext, facts: VerificationFacts): void {
+  if (!ctx.derived) return;
+  const persistedRisk = derivedRecord(ctx, 'risk');
+  const generationPlan = derivedRecord(ctx, 'generationPlan');
+  const generationPlanRisk = generationPlan && isRecord(generationPlan.risk) ? generationPlan.risk : null;
+  if (!persistedRisk) {
+    facts.schemaContradictions.push('Canonical persisted Risk projection is malformed.');
+    return;
+  }
+  if (!['low', 'medium', 'high', 'unknown', 'clarification_required'].includes(String(persistedRisk.classification))
+    || typeof persistedRisk.review_required !== 'boolean'
+    || typeof persistedRisk.decision !== 'string') {
+    facts.schemaContradictions.push('Canonical persisted Risk compatibility inputs are malformed.');
+    return;
+  }
+  const projection = deriveRiskReviewCompatibility(persistedRisk as unknown as RiskAssessment);
+  compareInto('derived legacyRiskLevel compatibility projection', ctx.derived.legacyRiskLevel, projection.legacyRiskLevel, facts.semanticContradictions);
+  compareInto('derived requiresHumanReview compatibility projection', ctx.derived.requiresHumanReview, projection.requiresHumanReview, facts.semanticContradictions);
+  compareInto('derived reviewReason compatibility projection', ctx.derived.reviewReason, projection.reviewReason, facts.semanticContradictions);
+  compareInto('risk_level compatibility mirror', ctx.artifact.risk_level, projection.legacyRiskLevel, facts.semanticContradictions);
+  compareInto('requires_human_review compatibility mirror', ctx.artifact.requires_human_review, projection.requiresHumanReview, facts.semanticContradictions);
+  compareInto('review_reason compatibility mirror', ctx.artifact.review_reason, projection.reviewReason, facts.semanticContradictions);
+  compareInto('authorization Risk review_required mirror', ctx.authorization.review_required, projection.requiresHumanReview, facts.authorityContradictions);
+  if (!generationPlanRisk) facts.schemaContradictions.push('Generation Plan Risk mirror is malformed.');
+  else compareInto('Generation Plan Risk mirror', generationPlanRisk, persistedRisk, facts.semanticContradictions);
+}
+
 function collectSourceIndependentRelationship(
   relationship: SourceIndependentRelationship,
   ctx: SourceIndependentContext,
@@ -370,11 +399,7 @@ function collectSourceIndependentRelationship(
       if (ctx.derived) compareInto('policies compatibility mirror', ctx.artifact.policies_applied, ctx.derived.policiesApplied, facts.semanticContradictions);
       return;
     case 'risk_review_mirrors':
-      if (ctx.derived) {
-        compareInto('risk_level compatibility mirror', ctx.artifact.risk_level, ctx.derived.legacyRiskLevel, facts.semanticContradictions);
-        compareInto('requires_human_review compatibility mirror', ctx.artifact.requires_human_review, ctx.derived.requiresHumanReview, facts.semanticContradictions);
-        compareInto('review_reason compatibility mirror', ctx.artifact.review_reason, ctx.derived.reviewReason, facts.semanticContradictions);
-      }
+      collectRiskReviewMirrors(ctx, facts);
       return;
     case 'assurance_context_mirrors':
       if (ctx.derived) {
