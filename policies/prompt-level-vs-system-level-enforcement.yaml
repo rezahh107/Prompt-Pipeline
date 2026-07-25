@@ -12,6 +12,11 @@ statement: >-
   A generated prompt must distinguish prompt-level influence from system-level enforcement.
   Generation constraints, examples, roles, and templates are not hard enforcement.
 
+rules:
+  - "Distinguish prompt-level influence from system-level enforcement."
+  - "Do not claim that role framing, examples, generation constraints, or output templates guarantee deterministic model compliance."
+  - "Describe schema validation, parser rejection, validator rules, CI checks, downstream rejection, and human review gates as system-level enforcement only when those carriers actually execute."
+
 required_distinction:
   prompt_level_influence:
     - role framing

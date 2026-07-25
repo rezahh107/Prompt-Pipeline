@@ -13,6 +13,10 @@ statement: >-
   hidden telemetry, background work, or invisible metadata unless the deployment
   explicitly provides that capability.
 
+rules:
+  - "Do not claim memory, storage, hidden state, hidden telemetry, background work, or invisible metadata unless the named deployment mechanism actually provides it."
+  - "Keep state within the current conversation or name the explicit external storage or orchestrator mechanism."
+
 required_language:
   prompt_only: "Keep state only within this conversation or ask the user to paste a session summary next time."
   api_controlled: "Use explicit external storage or orchestrator state and name the mechanism."

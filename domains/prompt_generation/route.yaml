@@ -14,5 +14,6 @@ risk_overrides:
     risk: high
   - condition: "requires_current_information == true"
     risk: medium
-  - condition: "requires_structured_output == true"
+  - condition: "requires_structured_output == true && potential_downstream_execution != false"
     risk: medium
+    note: "Structured output remains medium unless Runtime has a non-executing context; benign resolution still requires all consequential factors to be absent."
