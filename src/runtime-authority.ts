@@ -69,7 +69,6 @@ export {
   type IdentityCompatibilityProjection,
 } from './runtime-authority-canonical-artifact.js';
 export {
-  reduceVerificationOutcome,
   safeParseEnvelope,
   verifyArtifact,
   type SafeEnvelopeParseResult,
