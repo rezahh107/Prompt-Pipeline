@@ -9,7 +9,6 @@ import {
   RISK_BOOLEAN_FIELDS,
   TOOL_ACTION_PATTERN,
   type AppliedRiskRule,
-  type BenignOperation,
   type BenignResolution,
   type CanonicalRiskSurface,
   type DerivedRisk,
@@ -20,6 +19,7 @@ import {
   type ValidatedIntakeEnvelope,
   assertValidatedEnvelope,
 } from './runtime-authority-foundation.js';
+import { matchBenignOperationRequest } from './runtime-authority-benign-operations.js';
 
 function normalizeText(value: unknown): string {
   return String(value ?? '').replace(/[\s\r\n\t]+/g, ' ').trim();
@@ -57,61 +57,6 @@ function surfaceText(surface: CanonicalRiskSurface): string {
   ].filter(Boolean).join(' | ');
 }
 
-const OPERATION_PATTERNS: Array<{ operation: BenignOperation; patterns: RegExp[] }> = [
-  {
-    operation: 'short_greeting',
-    patterns: [
-      /^(?:create|write|draft|make)\s+(?:a\s+)?(?:short\s+)?(?:friendly\s+)?(?:greeting|hello message|welcome message)\.?$/i,
-      /^(?:create|write|draft)\s+(?:a\s+)?(?:short\s+)?(?:reusable\s+)?prompt\s+for\s+(?:a\s+)?(?:short\s+)?friendly greeting\.?$/i,
-      /^(?:یک\s+)?(?:پیام\s+)?سلام(?:\s+کوتاه)?(?:\s+و\s+دوستانه)?\s*(?:بنویس|ایجاد کن)؟?$/i,
-    ],
-  },
-  {
-    operation: 'birthday_or_congratulation_message',
-    patterns: [
-      /^(?:create|write|draft|make)\s+(?:a\s+)?(?:short\s+)?(?:birthday wish|birthday message|congratulation message|congratulatory message)\.?$/i,
-      /^(?:create|write|draft)\s+(?:a\s+)?(?:short\s+)?(?:reusable\s+)?prompt\s+for\s+(?:a\s+)?(?:birthday wish|congratulation message)\.?$/i,
-      /^(?:یک\s+)?پیام\s+(?:تولد|تبریک)(?:\s+کوتاه)?\s*(?:بنویس|ایجاد کن)؟?$/i,
-    ],
-  },
-  {
-    operation: 'grammar_correction_of_provided_text',
-    patterns: [
-      /^(?:correct|fix)\s+(?:the\s+)?grammar(?:\s+of)?\s+(?:this|the)\s+(?:sentence|text)\s*:\s*.+$/i,
-      /^(?:correct|fix)\s+(?:the\s+)?grammar\s+of\s+.+$/i,
-      /^اصلاح\s+(?:نگارش|گرامر)\s*:\s*.+$/i,
-    ],
-  },
-  {
-    operation: 'rewrite_of_provided_text',
-    patterns: [
-      /^rewrite\s+(?:the\s+)?(?:text|sentence)(?:\s+i\s+provided|\s+provided)?(?:\s*:\s*.+)?\.?$/i,
-      /^بازنویسی\s+(?:این\s+)?(?:متن|جمله)(?:\s*:\s*.+)?$/i,
-    ],
-  },
-  {
-    operation: 'summary_of_provided_text',
-    patterns: [
-      /^summari[sz]e\s+(?:the\s+)?(?:text|content)(?:\s+i\s+provided|\s+provided)?\.?$/i,
-      /^خلاصه\s+(?:این\s+)?متن(?:\s+ارائه.?شده)?\.?$/i,
-    ],
-  },
-  {
-    operation: 'non_operational_name_brainstorm',
-    patterns: [
-      /^(?:brainstorm|suggest|generate)\s+(?:some\s+)?(?:project\s+|brand\s+|product\s+)?names(?:\s+for\s+[^.;]+)?\.?$/i,
-      /^(?:برای\s+.+\s+)?(?:چند\s+)?نام\s+(?:پیشنهاد بده|ایده بده)\.?$/i,
-    ],
-  },
-  {
-    operation: 'non_instructional_creative_poem',
-    patterns: [
-      /^(?:write|create)\s+(?:a\s+)?(?:short\s+)?(?:creative\s+)?poem(?:\s+about\s+[^.;]+)?\.?$/i,
-      /^(?:یک\s+)?شعر(?:\s+کوتاه)?(?:\s+درباره\s+[^.;]+)?\s*(?:بنویس|ایجاد کن)؟?$/i,
-    ],
-  },
-];
-
 const MIXED_INTENT_PATTERN = /\b(and then|then instruct|but include|also produce|also provide|include instructions?|preserve instructions?|convert .* into|and include|and provide|and create)\b|\b(?:then|also|but)\b|\s[;&]\s|\s(?:و سپس|سپس|همچنین|اما)\s/i;
 const CONSEQUENTIAL_OPERATION_PATTERN = /\b(machine guard|safety interlock|production backups?|energize exposed equipment|executable terminal commands?|autonomous execution|tool.?calling agent|modif(?:y|ies) the repository|operator|technician|procedure|commands?)\b/i;
 const BENIGN_DESIRED_OUTPUT_PATTERN = /^(?:a\s+)?(?:short\s+)?(?:reusable\s+)?(?:prompt|message|greeting|birthday wish|congratulation message|corrected sentence|rewritten text|summary|list of names|poem|text)$/i;
@@ -129,13 +74,9 @@ function detectConsequentialSignals(surface: CanonicalRiskSurface): string[] {
   return [...new Set(signals)].sort();
 }
 
-function detectOperation(request: string): BenignOperation | null {
-  for (const candidate of OPERATION_PATTERNS) if (candidate.patterns.some((pattern) => pattern.test(request))) return candidate.operation;
-  return null;
-}
-
 export function resolveBenignOperation(surface: CanonicalRiskSurface): BenignResolution {
-  const operation = detectOperation(surface.request);
+  const match = matchBenignOperationRequest(surface.request);
+  const operation = match?.operation ?? null;
   const secondaryActions: string[] = [];
   const unresolvedClauses: string[] = [];
   const consequentialSignals = detectConsequentialSignals(surface);
@@ -154,6 +95,10 @@ export function resolveBenignOperation(surface: CanonicalRiskSurface): BenignRes
   if (consequentialSignals.length > 0) unresolvedClauses.push('consequential_signal_present');
 
   if (operation) evidence.push(`recognized_operation:${operation}`);
+  if (match) {
+    evidence.push(`recognized_operation_pattern:${match.patternId}`);
+    evidence.push(`recognized_payload_kind:${match.payloadKind}`);
+  }
   if (operation && secondaryActions.length === 0 && unresolvedClauses.length === 0 && consequentialSignals.length === 0) evidence.push('complete_intent_covered');
 
   return {
