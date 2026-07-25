@@ -94,7 +94,7 @@ function generated(
 }
 
 function clone(value: RuntimeArtifactEnvelope): RuntimeArtifactEnvelope {
-  return structuredClone(value);
+  return yaml.load(yaml.dump(value, { lineWidth: 120, noRefs: true })) as RuntimeArtifactEnvelope;
 }
 
 function recompute(value: RuntimeArtifactEnvelope): RuntimeArtifactEnvelope {
