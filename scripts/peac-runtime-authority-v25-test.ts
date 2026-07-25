@@ -307,6 +307,7 @@ const ALLOWED_EXPORT_SURFACES: Record<AuthoritySymbolName, readonly string[]> = 
 };
 
 type AuthorityExportAliases = Map<string, Set<string>>;
+type AuthorityIdentityOwners = Map<AuthoritySymbolName, Set<string>>;
 
 interface AuthorityInventory {
   definitions: Map<AuthoritySymbolName, Set<string>>;
@@ -339,25 +340,99 @@ function resolvedSymbol(checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol {
   return current;
 }
 
-function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol): Set<AuthoritySymbolName> {
-  const identities = new Set<AuthoritySymbolName>();
-  const add = (value: string | undefined): void => {
+function symbolOwnerPaths(symbol: ts.Symbol): Set<string> {
+  return new Set(
+    (symbol.declarations ?? [])
+      .map((declaration) => repoPath(declaration.getSourceFile().fileName))
+      .filter((path) => path.startsWith('src/')),
+  );
+}
+
+function unwrapIdentityExpression(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (true) {
+    if (ts.isParenthesizedExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    if (ts.isNonNullExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    if (ts.isAsExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    if (ts.isTypeAssertionExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    if (ts.isSatisfiesExpression(current)) {
+      current = current.expression;
+      continue;
+    }
+    return current;
+  }
+}
+
+function identityReferenceSymbol(checker: ts.TypeChecker, expression: ts.Expression): ts.Symbol | null {
+  const current = unwrapIdentityExpression(expression);
+  if (ts.isIdentifier(current)) return checker.getSymbolAtLocation(current) ?? null;
+  if (ts.isPropertyAccessExpression(current)) {
+    return checker.getSymbolAtLocation(current.name) ?? checker.getSymbolAtLocation(current) ?? null;
+  }
+  return null;
+}
+
+function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol): AuthorityIdentityOwners {
+  const identities: AuthorityIdentityOwners = new Map();
+  const visited = new Set<ts.Symbol>();
+
+  const record = (value: string | undefined, ownerSymbol: ts.Symbol): void => {
     if (!value) return;
-    const name = authorityName(value);
-    if (name) identities.add(name);
+    const identity = authorityName(value);
+    if (!identity) return;
+    const owners = identities.get(identity) ?? new Set<string>();
+    for (const owner of symbolOwnerPaths(resolvedSymbol(checker, ownerSymbol))) owners.add(owner);
+    identities.set(identity, owners);
   };
 
-  add(exported.getName());
-  const target = resolvedSymbol(checker, exported);
-  add(target.getName());
+  const inspect = (symbol: ts.Symbol): void => {
+    const target = resolvedSymbol(checker, symbol);
+    if (visited.has(target)) return;
+    visited.add(target);
 
+    record(symbol.getName(), target);
+    record(target.getName(), target);
+
+    for (const declaration of symbol.declarations ?? []) {
+      if (ts.isExportSpecifier(declaration)) {
+        record((declaration.propertyName ?? declaration.name).text, target);
+      }
+    }
+
+    for (const declaration of target.declarations ?? []) {
+      if (ts.isFunctionDeclaration(declaration) && declaration.name) {
+        record(declaration.name.text, target);
+      }
+      if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) {
+        record(declaration.name.text, target);
+        if (declaration.initializer) {
+          const referenced = identityReferenceSymbol(checker, declaration.initializer);
+          if (referenced) inspect(referenced);
+        }
+      }
+    }
+  };
+
+  const target = resolvedSymbol(checker, exported);
+  record(exported.getName(), target);
   for (const declaration of exported.declarations ?? []) {
-    if (ts.isExportSpecifier(declaration)) add((declaration.propertyName ?? declaration.name).text);
+    if (ts.isExportSpecifier(declaration)) {
+      record((declaration.propertyName ?? declaration.name).text, target);
+    }
   }
-  for (const declaration of target.declarations ?? []) {
-    if (ts.isFunctionDeclaration(declaration) && declaration.name) add(declaration.name.text);
-    if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) add(declaration.name.text);
-  }
+  inspect(exported);
   return identities;
 }
 
@@ -406,13 +481,7 @@ function collectAuthorityInventory(): AuthorityInventory {
     if (!moduleSymbol) continue;
     for (const exported of checker.getExportsOfModule(moduleSymbol)) {
       const outwardName = exported.getName();
-      const target = resolvedSymbol(checker, exported);
-      const ownerPaths = new Set<string>(
-        (target.declarations ?? [])
-          .map((declaration) => repoPath(declaration.getSourceFile().fileName))
-          .filter((path) => path.startsWith('src/')),
-      );
-      for (const identity of exportAuthorityIdentities(checker, exported)) {
+      for (const [identity, ownerPaths] of exportAuthorityIdentities(checker, exported)) {
         recordAuthorityExport(exports, identity, modulePath, outwardName, ownerPaths);
       }
     }
@@ -482,11 +551,15 @@ function expectAliasFailure(
   source: string,
   identity: AuthoritySymbolName,
   outwardName: string,
+  terminalOwner?: string,
 ): void {
   withSyntheticSource(label, source, () => {
     const message = expectThrows(() => assertAuthorityInventory(), identity);
     expect(message.includes(`outward export=${outwardName}`), `${label}: outward alias missing from diagnostic: ${message}`);
     expect(message.includes(`.authority-${process.pid}-`), `${label}: exporting module missing from diagnostic: ${message}`);
+    if (terminalOwner) {
+      expect(message.includes(terminalOwner), `${label}: terminal owner missing from diagnostic: ${message}`);
+    }
   });
 }
 
@@ -605,6 +678,99 @@ test('T-ALIAS-05', () => {
     expect(owners.has('src/runtime-authority-canonical-artifact.ts'), `${barrel}: canonical generator owner missing`);
     expect(!owners.has('src/peac.ts'), `${barrel}: renderer exception resolved as official generator`);
   }
+});
+
+// M-AUTH-IDENTITY-PRESERVING-VALUE-FLOW
+
+test('T-VALIAS-01', () => {
+  expectAliasFailure(
+    'direct-reducer-value-alias',
+    [
+      "import { reduceVerificationOutcome } from './runtime-authority-verification-facts.js';",
+      'export const publicReducer = reduceVerificationOutcome;',
+    ].join('\n'),
+    'reduceVerificationOutcome',
+    'publicReducer',
+    'src/runtime-authority-verification-facts.ts',
+  );
+});
+
+test('T-VALIAS-02', () => {
+  expectAliasFailure(
+    'local-review-capability-value-alias',
+    [
+      "import { verifyArtifactForReviewInternal } from './runtime-authority-verification-facts.js';",
+      'const reviewVerifier = verifyArtifactForReviewInternal;',
+      'export { reviewVerifier };',
+    ].join('\n'),
+    'verifyArtifactForReviewInternal',
+    'reviewVerifier',
+    'src/runtime-authority-verification-facts.ts',
+  );
+});
+
+test('T-VALIAS-03', () => {
+  expectAliasFailure(
+    'multi-hop-generator-value-alias',
+    [
+      "import { generateArtifact as canonicalGenerator } from './runtime-authority-canonical-artifact.js';",
+      'const first = canonicalGenerator;',
+      'const second = (first as typeof first);',
+      'export { second as alternateGenerator };',
+    ].join('\n'),
+    'generateArtifact',
+    'alternateGenerator',
+    'src/runtime-authority-canonical-artifact.ts',
+  );
+
+  const wrapperCases: Array<[string, string, string]> = [
+    ['parenthesized', '(reduceVerificationOutcome)', 'parenthesizedReducer'],
+    ['non-null', 'reduceVerificationOutcome!', 'nonNullReducer'],
+    ['type-assertion', '<typeof reduceVerificationOutcome>reduceVerificationOutcome', 'assertedReducer'],
+    ['satisfies', 'reduceVerificationOutcome satisfies typeof reduceVerificationOutcome', 'satisfiesReducer'],
+  ];
+  for (const [label, expression, outwardName] of wrapperCases) {
+    expectAliasFailure(
+      `transparent-${label}-value-alias`,
+      [
+        "import { reduceVerificationOutcome } from './runtime-authority-verification-facts.js';",
+        `export const ${outwardName} = ${expression};`,
+      ].join('\n'),
+      'reduceVerificationOutcome',
+      outwardName,
+      'src/runtime-authority-verification-facts.ts',
+    );
+  }
+});
+
+test('T-VALIAS-04', () => {
+  expectAliasFailure(
+    'namespace-review-capability-value-alias',
+    [
+      "import * as facts from './runtime-authority-verification-facts.js';",
+      'export const reviewVerifier = facts.verifyArtifactForReviewInternal;',
+    ].join('\n'),
+    'verifyArtifactForReviewInternal',
+    'reviewVerifier',
+    'src/runtime-authority-verification-facts.ts',
+  );
+});
+
+test('T-VALIAS-05', () => {
+  const inventory = assertAuthorityInventory();
+  const value = generated();
+  expect(verifyArtifact(value.outputPath, value.config).verification_status === 'verified', 'official generation/verification regression');
+  withSyntheticSource(
+    'unrelated-value-export',
+    [
+      "import { generateArtifact } from './runtime-authority-canonical-artifact.js';",
+      "const internalLabel = 'safe';",
+      'export const publicLabel = internalLabel;',
+      'export const invokedGenerator = (...args: Parameters<typeof generateArtifact>) => generateArtifact(...args);',
+    ].join('\n'),
+    () => { assertAuthorityInventory(); },
+  );
+  expect(inventory.exports.get('reduceVerificationOutcome')!.size === 0, 'unmodified tree unexpectedly exports internal reducer');
 });
 
 test('T-REG-01', () => {
