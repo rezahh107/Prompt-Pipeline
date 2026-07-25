@@ -1,9 +1,11 @@
 #!/usr/bin/env tsx
-import { cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
 import {
+  compileRuntimePlan,
   createValidatedIntakeEnvelope,
   generateArtifact,
   reviewArtifact,
@@ -14,6 +16,13 @@ import {
   type RuntimeArtifactEnvelope,
   type ValidatedIntakeEnvelope,
 } from '../src/runtime-authority-api.js';
+import { buildCanonicalDerivedProjection } from '../src/runtime-authority-artifact.js';
+import {
+  completeRuntimeAssessmentForTest,
+  currentCheckoutIdentity,
+  enforceConstraints,
+  renderThroughStagedLegacy,
+} from '../src/runtime-authority-execution.js';
 import { loadConfig, type ExecutionMode, type PEaCConfig } from '../src/peac.js';
 
 process.env.EXPECTED_TESTED_SHA ??= process.env.TESTED_SHA;
@@ -322,6 +331,227 @@ test('G3-OR-007', () => {
   expectThrows(() => reviewArtifact(malformed, 'approved'), 'Cannot review');
   const insufficient = unavailableEvidenceFixture();
   expectThrows(() => reviewArtifact(insufficient.path, 'approved', [], insufficient.config), 'Cannot review');
+});
+
+// WU-PP32-FINAL-001 — A-M3 parallel-authority removal.
+function authorityImplementationInventory(sources: Record<string, string>): Record<string, string[]> {
+  const operations: Record<string, string[]> = {
+    generateArtifact: [],
+    verifyArtifact: [],
+    verifyArtifactForReviewInternal: [],
+    reviewArtifact: [],
+  };
+  for (const [path, source] of Object.entries(sources)) {
+    for (const operation of Object.keys(operations)) {
+      const pattern = new RegExp(`export\\s+function\\s+${operation}\\s*\\(`, 'g');
+      if (pattern.test(source)) operations[operation]!.push(path);
+    }
+  }
+  return operations;
+}
+
+function assertCanonicalAuthorityInventory(sources: Record<string, string>): void {
+  const inventory = authorityImplementationInventory(sources);
+  const expected: Record<string, string> = {
+    generateArtifact: 'src/runtime-authority-canonical-artifact.ts',
+    verifyArtifact: 'src/runtime-authority-verification-facts.ts',
+    verifyArtifactForReviewInternal: 'src/runtime-authority-verification-facts.ts',
+    reviewArtifact: 'src/runtime-authority-api.ts',
+  };
+  for (const [operation, owner] of Object.entries(expected)) {
+    const observed = inventory[operation] ?? [];
+    if (observed.length !== 1 || observed[0] !== owner) {
+      throw new Error(`unexpected parallel authority implementation: ${operation}=${observed.join(',') || 'none'}; expected=${owner}`);
+    }
+  }
+}
+
+test('T-AUTH-01', () => {
+  const paths = [
+    'src/runtime-authority-artifact.ts',
+    'src/runtime-authority-canonical-artifact.ts',
+    'src/runtime-authority-verification-facts.ts',
+    'src/runtime-authority-api.ts',
+  ];
+  const sources = Object.fromEntries(paths.map((path) => [path, readFileSync(path, 'utf8')]));
+  assertCanonicalAuthorityInventory(sources);
+  expect(/export\s+function\s+buildCanonicalDerivedProjection\s*\(/.test(sources['src/runtime-authority-artifact.ts']!), 'pure projection builder missing');
+  expect(!/generateFromCliArgs|verifyArtifact|generateArtifact|reviewArtifact/.test(sources['src/runtime-authority-artifact.ts']!), 'projection module retained authority operation');
+  expectThrows(() => assertCanonicalAuthorityInventory({
+    ...sources,
+    'synthetic/parallel.ts': 'export function verifyArtifact() {}',
+  }), 'unexpected parallel authority implementation');
+});
+
+test('T-AUTH-02', () => {
+  const fixture = join(process.cwd(), 'scripts', `.obsolete-authority-${process.pid}-${++sequence}.type-test.ts`);
+  writeFileSync(fixture, [
+    '// @ts-expect-error obsolete authority Symbol is not exported',
+    "import { generateArtifact } from '../src/runtime-authority-artifact.js';",
+    '// @ts-expect-error obsolete authority Symbol is not exported',
+    "import { verifyArtifact } from '../src/runtime-authority-artifact.js';",
+    '// @ts-expect-error obsolete authority Symbol is not exported',
+    "import { verifyArtifactForReviewInternal } from '../src/runtime-authority-artifact.js';",
+    '// @ts-expect-error obsolete authority Symbol is not exported',
+    "import { generateFromCliArgs } from '../src/runtime-authority-artifact.js';",
+    'void [generateArtifact, verifyArtifact, verifyArtifactForReviewInternal, generateFromCliArgs];',
+  ].join('\n'));
+  try {
+    execFileSync(process.execPath, [
+      join(process.cwd(), 'node_modules', 'typescript', 'bin', 'tsc'),
+      '--noEmit',
+      '--target', 'ES2022',
+      '--module', 'ESNext',
+      '--moduleResolution', 'Bundler',
+      '--strict',
+      '--skipLibCheck',
+      '--esModuleInterop',
+      '--resolveJsonModule',
+      fixture,
+    ], { cwd: process.cwd(), stdio: 'pipe' });
+  } finally {
+    rmSync(fixture, { force: true });
+  }
+});
+
+test('T-AUTH-03', () => {
+  const valid = generated();
+  expect(verifyArtifact(valid.outputPath, valid.config).verification_status === 'verified', 'official verification path failed');
+  const pending = generated({
+    request: 'Create a reusable prompt deciding whether a tenant can be evicted under a local statute.',
+    desired_output: 'prompt',
+    domain_hint: 'prompt_generation',
+  });
+  expect(pending.artifact.authorization.authority_state === 'review_pending', 'official generation did not produce review_pending');
+  const reviewed = reviewArtifact(pending.outputPath, 'rejected', [], pending.config);
+  expect(reviewed.artifact.authorization.authority_state === 'rejected', 'official review transition failed');
+});
+
+test('T-AUTH-04', () => {
+  const config = configFor('projection-equality');
+  const envelope = intake({}, config);
+  const generatedArtifact = generateArtifact(envelope, 'ci', config).artifact;
+  const plan = compileRuntimePlan(envelope, config);
+  const renderedPrompt = enforceConstraints(
+    String(renderThroughStagedLegacy(plan, 'ci', config).rendered_prompt ?? ''),
+    plan,
+  );
+  const completed = completeRuntimeAssessmentForTest({
+    plan,
+    renderedPrompt,
+    checkoutIdentity: currentCheckoutIdentity(),
+    integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
+    reviewReceipt: null,
+    artifactSha256: null,
+    config,
+  });
+  expect(
+    sha256Json(buildCanonicalDerivedProjection(completed)) === sha256Json(generatedArtifact.artifact.derived_projection),
+    'canonical Derived Projection changed',
+  );
+});
+
+// WU-PP32-FINAL-001 — B-M2 topic-bearing payload proof.
+test('T-TOPIC-01', () => {
+  for (const [request, desiredOutput] of [
+    ['Brainstorm names for blackmail.', 'list of names'],
+    ['Write a poem about coercing witnesses.', 'poem'],
+    ['Brainstorm names for silent account takeover.', 'list of names'],
+  ] as const) {
+    const result = generated({ request, desired_output: desiredOutput });
+    const assessment = risk(result.artifact).payload_assessment as Record<string, unknown>;
+    expect(assessment.kind === 'inline_free_form', `${request}: payload kind=${String(assessment.kind)}`);
+    expect(assessment.provenBenign === false, `${request}: topic payload was proven benign`);
+    expect((assessment.unresolvedReasons as string[]).some((item) => item.includes('payload_kind_not_allowed')), `${request}: missing policy diagnostic`);
+    assertNotLow(result.artifact);
+  }
+});
+
+test('T-TOPIC-02', () => {
+  for (const [request, desiredOutput] of [
+    ['Write a poem.', 'poem'],
+    ['Brainstorm project names.', 'list of names'],
+  ] as const) {
+    const result = generated({ request, desired_output: desiredOutput });
+    const assessment = risk(result.artifact).payload_assessment as Record<string, unknown>;
+    expect(risk(result.artifact).classification === 'low', `${request}: not Low`);
+    expect(assessment.kind === 'none' && assessment.provenBenign === true, `${request}: no-topic payload not proven`);
+    expect(result.artifact.authorization.authority_state === 'authorized', `${request}: not authorized`);
+  }
+});
+
+test('T-TOPIC-03', () => {
+  const result = generated({
+    request: 'Correct the grammar of this sentence: She go to school.',
+    desired_output: 'corrected sentence',
+  });
+  const assessment = risk(result.artifact).payload_assessment as Record<string, unknown>;
+  expect(assessment.kind === 'bounded_literal' && assessment.provenBenign === true, 'bounded grammar behavior regressed');
+  expect(risk(result.artifact).classification === 'low' && result.artifact.authorization.authority_state === 'authorized', 'bounded grammar no longer authorizes');
+});
+
+test('T-TOPIC-04', () => expectThrows(() => syntheticPolicyInventoryFailureForTest(), 'payload policy inventory mismatch'));
+
+// WU-PP32-FINAL-001 — C-M2 source-independent precedence.
+test('T-VERIFY-01', () => {
+  const unavailable = unavailableEvidenceFixture();
+  const mutations: Array<[string, (copy: RuntimeArtifactEnvelope) => void]> = [
+    ['canonical_intake/base', (copy) => { (copy.artifact.canonical_intake as Record<string, unknown>).raw_request_digest = '0'.repeat(64); }],
+    ['execution_mode/context', (copy) => { copy.artifact.execution_mode = 'batch'; }],
+    ['prompt_id/identity', (copy) => { copy.artifact.prompt_id = 'drifted.prompt'; }],
+    ['generation plan', (copy) => { (copy.artifact.generation_plan as Record<string, unknown>).plan_id = 'drifted'; }],
+    ['validation ledger', (copy) => { ((copy.artifact.validation_ledger as Record<string, unknown>).checks as unknown[]).push({ check_id: 'drifted' }); }],
+    ['compatibility validation', (copy) => { (copy.artifact.validation as Record<string, unknown>).passed = false; }],
+    ['domain', (copy) => { copy.artifact.domain = 'drifted'; }],
+    ['subtype', (copy) => { copy.artifact.subtype = 'drifted'; }],
+    ['provenance', (copy) => { (copy.artifact.provenance as Record<string, unknown>).routing_method = 'drifted'; }],
+    ['policies', (copy) => { (copy.artifact.policies_applied as unknown[]).push({ id: 'drifted' }); }],
+    ['risk', (copy) => { copy.artifact.risk_level = 'high'; }],
+    ['review flag', (copy) => { copy.artifact.requires_human_review = true; }],
+    ['review reason', (copy) => { copy.artifact.review_reason = 'drifted'; }],
+    ['assurance', (copy) => { (copy.artifact.assurance as Record<string, unknown>).profile = 'drifted'; }],
+    ['context attribution', (copy) => { (copy.artifact.context_attribution as Record<string, unknown>).state = 'source_bound'; }],
+    ['governing source mirror', (copy) => { (((copy.artifact.derived_projection as Record<string, unknown>).governingSources as Array<Record<string, unknown>>)[0]!).sha256 = '0'.repeat(64); }],
+    ['source hash mirror', (copy) => { (((((copy.artifact.derived_projection as Record<string, unknown>).sourceHashes as Record<string, unknown>).sources as Array<Record<string, unknown>>)[0]!)).sha256 = '0'.repeat(64); }],
+    ['authorization', (copy) => { copy.authorization.downstream_use_allowed = false; }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const copy = clone(unavailable.artifact);
+    mutate(copy);
+    const result = verifyArtifact(writeEnvelope(`t-verify-01-${label.replace(/[^a-z0-9]+/gi, '-')}.yaml`, recompute(copy)), unavailable.config);
+    expect(result.verification_status === 'rejected', `${label}: ${result.verification_status}; ${result.diagnostics.join('; ')}`);
+    expect(result.diagnostics.some((item) => /mirror|invariant|authorization/i.test(item)), `${label}: named source-independent contradiction missing`);
+  }
+});
+
+test('T-VERIFY-02', () => {
+  const unavailable = unavailableEvidenceFixture();
+  const result = verifyArtifact(unavailable.path, unavailable.config);
+  expect(result.verification_status === 'insufficient_evidence', result.diagnostics.join('; '));
+  expect(result.diagnostics.some((item) => item.includes('Canonical expected governing source is unavailable')), 'canonical absence diagnostic missing');
+});
+
+test('T-VERIFY-03', () => {
+  const valid = generated();
+  const result = verifyArtifact(valid.outputPath, valid.config);
+  expect(result.verification_status === 'verified', result.diagnostics.join('; '));
+  expect(result.integrity_valid && result.semantic_derivation_valid && result.authority_consistent, 'valid verification dimensions failed');
+  expect(result.diagnostics.length === 0, `valid Artifact diagnostics: ${result.diagnostics.join('; ')}`);
+});
+
+test('T-VERIFY-04', () => {
+  const rejectedPath = writeEnvelope('t-verify-04-rejected.yaml', {});
+  expectThrows(() => reviewArtifact(rejectedPath, 'approved'), 'Cannot review an unverified Artifact');
+  const insufficient = unavailableEvidenceFixture();
+  const before = insufficient.path;
+  expectThrows(() => reviewArtifact(before, 'approved', [], insufficient.config), 'Cannot review an unverified Artifact');
+  expect(existsSync(before), 'insufficient Artifact was moved despite review refusal');
+});
+
+test('T-REG-01', () => {
+  const runner = readFileSync('scripts/peac-runtime-authority-ci.ts', 'utf8');
+  expect(runner.includes('peac-runtime-authority-self-test.ts'), 'legacy Runtime self-test was removed from the Regression runner');
+  expect(runner.includes('peac-runtime-authority-evidence-lock-test.ts'), 'Evidence-Lock suite was removed from the Regression runner');
 });
 
 try {
