@@ -38,6 +38,40 @@ export {
   type ContractField,
   type DomainContract,
 } from './runtime-authority-foundation.js';
-export { buildCanonicalRiskSurface, resolveBenignOperation, buildRoutingDecision, deriveRisk, seedDomainInputs } from './runtime-authority-risk.js';
-export { compileRuntimePlan, compileGenerationPlan, validateContractForTest } from './runtime-authority-plan.js';
-export { generateArtifact, generateFromCliArgs, verifyArtifact } from './runtime-authority-artifact.js';
+export {
+  BENIGN_OPERATION_PAYLOAD_POLICIES,
+  assertBenignOperationPolicyInventory,
+  assessBenignPayload,
+  buildCanonicalRiskSurface,
+  buildRoutingDecision,
+  compileGenerationPlan,
+  compileRuntimePlan,
+  deriveRisk,
+  payloadAssessmentForTest,
+  resolveBenignOperation,
+  seedDomainInputs,
+  syntheticPolicyInventoryFailureForTest,
+  validateContractForTest,
+  type PayloadKind,
+  type BenignOperationPayloadPolicy,
+  type BenignPayloadAssessment,
+} from './runtime-authority-payload-policy.js';
+export {
+  buildCanonicalArtifactBase,
+  canonicalIntakeProjection,
+  deriveCanonicalPromptIdentity,
+  generateArtifact,
+  generateFromCliArgs,
+  identityCompatibilityProjection,
+  type PersistedCanonicalIntake,
+  type CanonicalArtifactBase,
+  type CanonicalPromptIdentity,
+  type IdentityCompatibilityProjection,
+} from './runtime-authority-canonical-artifact.js';
+export {
+  reduceVerificationOutcome,
+  safeParseEnvelope,
+  verifyArtifact,
+  type SafeEnvelopeParseResult,
+  type VerificationFacts,
+} from './runtime-authority-verification-facts.js';
