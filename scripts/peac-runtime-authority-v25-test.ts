@@ -306,9 +306,11 @@ const ALLOWED_EXPORT_SURFACES: Record<AuthoritySymbolName, readonly string[]> = 
   reduceVerificationOutcome: [],
 };
 
+type AuthorityExportAliases = Map<string, Set<string>>;
+
 interface AuthorityInventory {
   definitions: Map<AuthoritySymbolName, Set<string>>;
-  exports: Map<AuthoritySymbolName, Map<string, Set<string>>>;
+  exports: Map<AuthoritySymbolName, Map<string, AuthorityExportAliases>>;
 }
 
 function repoPath(path: string): string {
@@ -337,11 +339,48 @@ function resolvedSymbol(checker: ts.TypeChecker, symbol: ts.Symbol): ts.Symbol {
   return current;
 }
 
+function exportAuthorityIdentities(checker: ts.TypeChecker, exported: ts.Symbol): Set<AuthoritySymbolName> {
+  const identities = new Set<AuthoritySymbolName>();
+  const add = (value: string | undefined): void => {
+    if (!value) return;
+    const name = authorityName(value);
+    if (name) identities.add(name);
+  };
+
+  add(exported.getName());
+  const target = resolvedSymbol(checker, exported);
+  add(target.getName());
+
+  for (const declaration of exported.declarations ?? []) {
+    if (ts.isExportSpecifier(declaration)) add((declaration.propertyName ?? declaration.name).text);
+  }
+  for (const declaration of target.declarations ?? []) {
+    if (ts.isFunctionDeclaration(declaration) && declaration.name) add(declaration.name.text);
+    if (ts.isVariableDeclaration(declaration) && ts.isIdentifier(declaration.name)) add(declaration.name.text);
+  }
+  return identities;
+}
+
+function recordAuthorityExport(
+  exports: AuthorityInventory['exports'],
+  identity: AuthoritySymbolName,
+  modulePath: string,
+  outwardName: string,
+  ownerPaths: Iterable<string>,
+): void {
+  const byModule = exports.get(identity)!;
+  const aliases = byModule.get(modulePath) ?? new Map<string, Set<string>>();
+  const owners = aliases.get(outwardName) ?? new Set<string>();
+  for (const owner of ownerPaths) owners.add(owner);
+  aliases.set(outwardName, owners);
+  byModule.set(modulePath, aliases);
+}
+
 function collectAuthorityInventory(): AuthorityInventory {
   const program = authorityProgram();
   const checker = program.getTypeChecker();
   const definitions = new Map<AuthoritySymbolName, Set<string>>();
-  const exports = new Map<AuthoritySymbolName, Map<string, Set<string>>>();
+  const exports = new Map<AuthoritySymbolName, Map<string, AuthorityExportAliases>>();
   for (const name of AUTHORITY_SYMBOLS) {
     definitions.set(name, new Set());
     exports.set(name, new Map());
@@ -366,15 +405,16 @@ function collectAuthorityInventory(): AuthorityInventory {
     const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
     if (!moduleSymbol) continue;
     for (const exported of checker.getExportsOfModule(moduleSymbol)) {
-      const name = authorityName(exported.getName());
-      if (!name) continue;
+      const outwardName = exported.getName();
       const target = resolvedSymbol(checker, exported);
       const ownerPaths = new Set<string>(
         (target.declarations ?? [])
           .map((declaration) => repoPath(declaration.getSourceFile().fileName))
           .filter((path) => path.startsWith('src/')),
       );
-      exports.get(name)!.set(modulePath, ownerPaths);
+      for (const identity of exportAuthorityIdentities(checker, exported)) {
+        recordAuthorityExport(exports, identity, modulePath, outwardName, ownerPaths);
+      }
     }
   }
   return { definitions, exports };
@@ -382,6 +422,18 @@ function collectAuthorityInventory(): AuthorityInventory {
 
 function sorted(values: Iterable<string>): string[] {
   return [...values].sort();
+}
+
+function authorityExportOwners(
+  inventory: AuthorityInventory,
+  identity: AuthoritySymbolName,
+  modulePath: string,
+): Set<string> {
+  const owners = new Set<string>();
+  for (const ownerPaths of inventory.exports.get(identity)?.get(modulePath)?.values() ?? []) {
+    for (const owner of ownerPaths) owners.add(owner);
+  }
+  return owners;
 }
 
 function assertAuthorityInventory(): AuthorityInventory {
@@ -392,6 +444,18 @@ function assertAuthorityInventory(): AuthorityInventory {
     if (JSON.stringify(definitions) !== JSON.stringify(expectedDefinitions)) {
       throw new Error(`${name}: definition owners=${definitions.join(',') || 'none'}; expected=${expectedDefinitions.join(',')}`);
     }
+
+    const allowedSurfaces = new Set(ALLOWED_EXPORT_SURFACES[name]);
+    for (const [modulePath, aliases] of inventory.exports.get(name)!) {
+      for (const [outwardName, ownerPaths] of aliases) {
+        if (!allowedSurfaces.has(modulePath) || outwardName !== name) {
+          throw new Error(
+            `${name}: outward export=${outwardName}; exporting module=${modulePath}; resolved owners=${sorted(ownerPaths).join(',') || 'none'}; unauthorized authority export`,
+          );
+        }
+      }
+    }
+
     const surfaces = sorted(inventory.exports.get(name)!.keys());
     const expectedSurfaces = [...ALLOWED_EXPORT_SURFACES[name]].sort();
     if (JSON.stringify(surfaces) !== JSON.stringify(expectedSurfaces)) {
@@ -400,9 +464,9 @@ function assertAuthorityInventory(): AuthorityInventory {
   }
 
   for (const barrel of ['src/runtime-authority.ts', 'src/runtime-authority-api.ts']) {
-    const canonicalOwner = inventory.exports.get('generateArtifact')!.get(barrel);
-    expect(canonicalOwner?.has('src/runtime-authority-canonical-artifact.ts'), `generateArtifact: ${barrel} does not resolve to canonical owner`);
-    expect(!canonicalOwner?.has('src/peac.ts'), `generateArtifact: ${barrel} resolves to renderer exception`);
+    const canonicalOwner = authorityExportOwners(inventory, 'generateArtifact', barrel);
+    expect(canonicalOwner.has('src/runtime-authority-canonical-artifact.ts'), `generateArtifact: ${barrel} does not resolve to canonical owner`);
+    expect(!canonicalOwner.has('src/peac.ts'), `generateArtifact: ${barrel} resolves to renderer exception`);
   }
   return inventory;
 }
@@ -411,6 +475,19 @@ function withSyntheticSource(name: string, source: string, fn: () => void): void
   const path = join(process.cwd(), 'src', `.authority-${process.pid}-${++sequence}-${name}.ts`);
   writeFileSync(path, source);
   try { fn(); } finally { rmSync(path, { force: true }); }
+}
+
+function expectAliasFailure(
+  label: string,
+  source: string,
+  identity: AuthoritySymbolName,
+  outwardName: string,
+): void {
+  withSyntheticSource(label, source, () => {
+    const message = expectThrows(() => assertAuthorityInventory(), identity);
+    expect(message.includes(`outward export=${outwardName}`), `${label}: outward alias missing from diagnostic: ${message}`);
+    expect(message.includes(`.authority-${process.pid}-`), `${label}: exporting module missing from diagnostic: ${message}`);
+  });
 }
 
 test('T-AUTH-01', () => {
@@ -470,8 +547,64 @@ test('T-AUTH-04', () => {
   const inventory = assertAuthorityInventory();
   const rendererSurfaces = inventory.exports.get('generateArtifact')!;
   expect(rendererSurfaces.has('src/peac.ts'), 'documented renderer exception missing');
-  expect(!rendererSurfaces.get('src/runtime-authority.ts')?.has('src/peac.ts'), 'renderer exception leaked through Runtime barrel');
-  expect(!rendererSurfaces.get('src/runtime-authority-api.ts')?.has('src/peac.ts'), 'renderer exception leaked through API barrel');
+  expect(!authorityExportOwners(inventory, 'generateArtifact', 'src/runtime-authority.ts').has('src/peac.ts'), 'renderer exception leaked through Runtime barrel');
+  expect(!authorityExportOwners(inventory, 'generateArtifact', 'src/runtime-authority-api.ts').has('src/peac.ts'), 'renderer exception leaked through API barrel');
+});
+
+// M-AUTH-RESOLVED-TARGET-IDENTITY
+
+test('T-ALIAS-01', () => {
+  expectAliasFailure(
+    'hidden-reducer-alias',
+    "export { reduceVerificationOutcome as publicReducer } from './runtime-authority-verification-facts.js';",
+    'reduceVerificationOutcome',
+    'publicReducer',
+  );
+});
+
+test('T-ALIAS-02', () => {
+  expectAliasFailure(
+    'hidden-review-capability-alias',
+    "export { verifyArtifactForReviewInternal as reviewVerifier } from './runtime-authority-verification-facts.js';",
+    'verifyArtifactForReviewInternal',
+    'reviewVerifier',
+  );
+});
+
+test('T-ALIAS-03', () => {
+  expectAliasFailure(
+    'alternate-generator-alias',
+    "export { generateArtifact as alternateGenerator } from './runtime-authority-canonical-artifact.js';",
+    'generateArtifact',
+    'alternateGenerator',
+  );
+});
+
+test('T-ALIAS-04', () => {
+  const cases: Array<[string, AuthoritySymbolName, string]> = [
+    ['exported-const-regression', 'verifyArtifact', 'export const verifyArtifact = () => ({})'],
+    ['outward-authority-alias-regression', 'reviewArtifact', 'const local = () => ({}); export { local as reviewArtifact };'],
+    ['named-reexport-regression', 'verifyArtifact', "export { verifyArtifact } from './runtime-authority-verification-facts.js';"],
+    ['export-star-regression', 'verifyArtifact', "export * from './runtime-authority-verification-facts.js';"],
+    ['duplicate-owner-regression', 'completeRuntimeAssessmentInternal', 'function completeRuntimeAssessmentInternal() {}'],
+  ];
+  for (const [label, identity, source] of cases) {
+    withSyntheticSource(label, source, () => {
+      const message = expectThrows(() => assertAuthorityInventory(), identity);
+      expect(message.includes(`.authority-${process.pid}-`), `${label}: synthetic module missing from diagnostic: ${message}`);
+    });
+  }
+});
+
+test('T-ALIAS-05', () => {
+  const inventory = assertAuthorityInventory();
+  const value = generated();
+  expect(verifyArtifact(value.outputPath, value.config).verification_status === 'verified', 'official generation/verification regression');
+  for (const barrel of ['src/runtime-authority.ts', 'src/runtime-authority-api.ts']) {
+    const owners = authorityExportOwners(inventory, 'generateArtifact', barrel);
+    expect(owners.has('src/runtime-authority-canonical-artifact.ts'), `${barrel}: canonical generator owner missing`);
+    expect(!owners.has('src/peac.ts'), `${barrel}: renderer exception resolved as official generator`);
+  }
 });
 
 test('T-REG-01', () => {
