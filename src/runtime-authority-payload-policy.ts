@@ -196,7 +196,7 @@ export function assessBenignPayload(
   if (!operation) unresolvedReasons.push('no_supported_benign_operation');
   if (operation) {
     const policy = BENIGN_OPERATION_PAYLOAD_POLICIES[operation];
-    if (!policy.allowedPayloadKinds.includes(kind)) unresolvedReasons.push(`payload_kind_not_allowed:${operation}:${kind}`);
+    if (!(policy.allowedPayloadKinds as readonly PayloadKind[]).includes(kind)) unresolvedReasons.push(`payload_kind_not_allowed:${operation}:${kind}`);
   }
   if (risk.benign_resolution.secondaryActions.length > 0) unresolvedReasons.push('secondary_action_present');
   if (risk.benign_resolution.consequentialSignals.length > 0) unresolvedReasons.push('consequential_control_instruction_present');
