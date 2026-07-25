@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import yaml from 'js-yaml';
@@ -88,6 +88,29 @@ function generated(overrides: Record<string, unknown> = {}, config?: PEaCConfig)
   const result = generateArtifact(createIntake(overrides, config), 'ci', config);
   created.add(result.outputPath);
   return { path: result.outputPath, envelope: result.artifact };
+}
+
+function unavailableEvidenceFixture(): { path: string; config: PEaCConfig } {
+  const base = loadConfig();
+  const root = join(temp, `unavailable-${Math.random().toString(16).slice(2)}`);
+  const pipeline = join(root, 'pipeline');
+  const domains = join(root, 'domains');
+  const policies = join(root, 'policies');
+  cpSync(base.pipeline_path, pipeline, { recursive: true });
+  cpSync(base.domains_path, domains, { recursive: true });
+  cpSync(base.policies_path, policies, { recursive: true });
+  const outputs = join(root, 'outputs');
+  const config: PEaCConfig = {
+    ...base,
+    pipeline_path: pipeline,
+    domains_path: domains,
+    policies_path: policies,
+    outputs_path: outputs,
+    artifact: { ...base.artifact, output_dir: outputs },
+  };
+  const result = generateArtifact(createIntake({}, config), 'ci', config);
+  rmSync(join(pipeline, 'artifact.schema.json'));
+  return { path: result.outputPath, config };
 }
 
 function fixtureFile(inputs: Record<string, unknown>, domain = 'general'): string {
@@ -347,12 +370,9 @@ test('REV-001 review rejects hash-consistent persisted plan mutation before tran
   expectThrows(() => reviewArtifact(path, 'approved'), 'unverified');
 });
 test('REV-002 insufficient-evidence Artifact cannot be reviewed', () => {
-  const copy = cloneEnvelope(pending.envelope);
-  const sources = copy.artifact.governing_sources as Array<Record<string, unknown>>;
-  sources[0]!.path = join(temp, 'missing-source.yaml');
-  const path = writeEnvelope('review-insufficient.yaml', recomputeEnvelopeDigests(copy));
-  expect(verifyArtifact(path).verification_status === 'insufficient_evidence', 'not insufficient');
-  expectThrows(() => reviewArtifact(path, 'approved'), 'unverified');
+  const unavailable = unavailableEvidenceFixture();
+  expect(verifyArtifact(unavailable.path, unavailable.config).verification_status === 'insufficient_evidence', 'not insufficient');
+  expectThrows(() => reviewArtifact(unavailable.path, 'approved', [], unavailable.config), 'unverified');
 });
 test('REV-003 rejected Artifact cannot be reviewed', () => {
   const another = generated({ request: 'Create a reusable prompt deciding whether a tenant can be evicted under a local statute.', desired_output: 'prompt', domain_hint: 'prompt_generation' });
