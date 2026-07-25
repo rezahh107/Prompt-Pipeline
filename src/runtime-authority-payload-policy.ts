@@ -18,6 +18,7 @@ import {
   resolveBenignOperation,
   seedDomainInputs,
 } from './runtime-authority-risk.js';
+import { matchBenignOperationRequest } from './runtime-authority-benign-operations.js';
 
 export type PayloadKind =
   | 'none'
@@ -37,13 +38,6 @@ export interface BenignPayloadAssessment {
   payloadSources: string[];
   unresolvedReasons: string[];
 }
-
-const SIMPLE_GRAMMAR_WORDS = new Set([
-  'a', 'an', 'and', 'are', 'at', 'book', 'boy', 'cat', 'child', 'class', 'dog', 'friend',
-  'girl', 'go', 'goes', 'good', 'has', 'have', 'he', 'home', 'i', 'in', 'is', 'it', 'learn',
-  'likes', 'love', 'my', 'read', 'reads', 'school', 'she', 'student', 'teacher', 'the', 'they',
-  'to', 'we', 'work', 'works', 'you', 'your',
-]);
 
 export const BENIGN_OPERATION_PAYLOAD_POLICIES = {
   short_greeting: {
@@ -119,28 +113,6 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(normalize).filter(Boolean).sort() : [];
 }
 
-function boundedGrammarLiteral(request: string): boolean {
-  const separator = request.indexOf(':');
-  if (separator < 0) return false;
-  const literal = request.slice(separator + 1).trim();
-  if (!/^[A-Za-z][A-Za-z' ]{1,78}\.$/.test(literal)) return false;
-  const words = literal.slice(0, -1).toLowerCase().split(/\s+/);
-  return words.length <= 12 && words.every((word) => SIMPLE_GRAMMAR_WORDS.has(word));
-}
-
-function requestCarriesFreeFormPayload(operation: BenignOperation, request: string): boolean {
-  if (operation === 'grammar_correction_of_provided_text') return request.includes(':') && !boundedGrammarLiteral(request);
-  if (operation === 'rewrite_of_provided_text') return request.includes(':');
-  if (operation === 'non_operational_name_brainstorm' || operation === 'non_instructional_creative_poem') {
-    return /\b(?:for|about)\b/i.test(request);
-  }
-  return false;
-}
-
-function requestCarriesBoundedLiteral(operation: BenignOperation, request: string): boolean {
-  return operation === 'grammar_correction_of_provided_text' && boundedGrammarLiteral(request);
-}
-
 export function assertBenignOperationPolicyInventory(operations: readonly string[]): void {
   const policyKeys = Object.keys(BENIGN_OPERATION_PAYLOAD_POLICIES).sort();
   const expected = [...operations].sort();
@@ -160,6 +132,7 @@ export function assessBenignPayload(
   const payloadSources: string[] = [];
   const unresolvedReasons: string[] = [];
   const request = normalize(intake.request);
+  const operationMatch = matchBenignOperationRequest(request);
   const desiredOutput = normalize(intake.desired_output).toLowerCase();
   const constraints = stringArray(intake.constraints).map((item) => item.toLowerCase());
   const requestedActions = stringArray(intake.requested_actions);
@@ -180,11 +153,13 @@ export function assessBenignPayload(
 
   let kind: PayloadKind = 'none';
   if (availableSources.length > 0 || contextItems.length > 0) kind = 'referenced_or_unavailable';
-  else if (operation && requestCarriesFreeFormPayload(operation, request)) kind = 'inline_free_form';
-  else if (operation && requestCarriesBoundedLiteral(operation, request)) kind = 'bounded_literal';
+  else if (operation && operationMatch && operationMatch.operation === operation) kind = operationMatch.payloadKind;
   else if (payloadSources.length > 0) kind = 'inline_free_form';
 
   if (!operation) unresolvedReasons.push('no_supported_benign_operation');
+  if (operation && (!operationMatch || operationMatch.operation !== operation)) {
+    unresolvedReasons.push('shared_operation_match_missing_or_inconsistent');
+  }
   if (operation) {
     const policy = BENIGN_OPERATION_PAYLOAD_POLICIES[operation];
     if (!(policy.allowedPayloadKinds as readonly PayloadKind[]).includes(kind)) unresolvedReasons.push(`payload_kind_not_allowed:${operation}:${kind}`);
