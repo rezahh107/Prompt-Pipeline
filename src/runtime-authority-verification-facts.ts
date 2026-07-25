@@ -233,39 +233,214 @@ function baseRejectedResult(diagnostics: string[]): VerificationResult {
   };
 }
 
-function crossFieldFacts(
+const SOURCE_INDEPENDENT_RELATIONSHIPS = [
+  'canonical_intake_base',
+  'execution_context_projection',
+  'prompt_identity_projection',
+  'identity_derived_links',
+  'canonical_intake_derived_links',
+  'generation_plan_mirror',
+  'validation_ledger_mirror',
+  'compatibility_validation_mirror',
+  'domain_subtype_mirrors',
+  'provenance_mirror',
+  'policies_mirror',
+  'risk_review_mirrors',
+  'assurance_context_mirrors',
+  'governing_source_mirrors',
+  'runtime_checkout_mirror',
+  'authorization_cross_fields',
+] as const;
+
+type SourceIndependentRelationship = typeof SOURCE_INDEPENDENT_RELATIONSHIPS[number];
+
+interface SourceIndependentContext {
+  envelope: RuntimeArtifactEnvelope;
+  artifact: Dict;
+  authorization: Dict;
+  base: CanonicalArtifactBase | null;
+  identity: CanonicalPromptIdentity | null;
+  derived: Dict | null;
+}
+
+function derivedRecord(ctx: SourceIndependentContext, key: string): Dict | null {
+  const value = ctx.derived?.[key];
+  return isRecord(value) ? value : null;
+}
+
+function collectAuthorizationCrossFields(ctx: SourceIndependentContext, facts: VerificationFacts): void {
+  const state = authorityState(ctx.authorization.authority_state);
+  if (!state) facts.schemaContradictions.push('Authorization authority_state is invalid.');
+  if (typeof ctx.authorization.downstream_use_allowed !== 'boolean') facts.schemaContradictions.push('Authorization downstream_use_allowed must be boolean.');
+  if (typeof ctx.authorization.review_required !== 'boolean') facts.schemaContradictions.push('Authorization review_required must be boolean.');
+
+  const downstreamAllowed = ctx.authorization.downstream_use_allowed === true;
+  const reviewRequired = ctx.authorization.review_required === true;
+  const receipt = ctx.authorization.review_receipt;
+
+  compareInto(
+    'authorization review_required compatibility mirror',
+    ctx.authorization.review_required,
+    ctx.artifact.requires_human_review,
+    facts.authorityContradictions,
+  );
+
+  if (state === 'review_pending' && (!reviewRequired || downstreamAllowed || receipt !== null)) {
+    facts.authorityContradictions.push('review_pending cross-field invariant failed.');
+  }
+  if ((state === 'rejected' || state === 'non_authoritative_fixture') && downstreamAllowed) {
+    facts.authorityContradictions.push(`${state} cannot allow downstream use.`);
+  }
+  if (state === 'authorized' && !downstreamAllowed) {
+    facts.authorityContradictions.push('authorized state must allow downstream use.');
+  }
+  if (state === 'authorized' && reviewRequired) {
+    if (!isRecord(receipt)
+      || receipt.decision !== 'approved'
+      || receipt.artifact_sha256 !== ctx.envelope.artifact_sha256) {
+      facts.authorityContradictions.push('Reviewed authorization lacks an exact approved Artifact-bound receipt.');
+    }
+  }
+  if (state === 'authorized' && !reviewRequired && receipt !== null) {
+    facts.authorityContradictions.push('Automatic authorization cannot carry a review receipt.');
+  }
+  if (isRecord(receipt) && receipt.artifact_sha256 !== ctx.envelope.artifact_sha256) {
+    facts.authorityContradictions.push('Review receipt is not bound to the exact Artifact SHA-256.');
+  }
+}
+
+function collectSourceIndependentRelationship(
+  relationship: SourceIndependentRelationship,
+  ctx: SourceIndependentContext,
+  facts: VerificationFacts,
+): void {
+  switch (relationship) {
+    case 'canonical_intake_base':
+      if (ctx.base) compareInto('canonical intake compatibility mirror', ctx.artifact.canonical_intake, ctx.base.canonicalIntake, facts.semanticContradictions);
+      return;
+    case 'execution_context_projection':
+      if (ctx.base) compareInto('execution_mode compatibility mirror', ctx.artifact.execution_mode, ctx.base.executionContext.mode, facts.semanticContradictions);
+      return;
+    case 'prompt_identity_projection':
+      if (ctx.identity) compareInto('prompt_id compatibility mirror', ctx.artifact.prompt_id, ctx.identity.promptId, facts.semanticContradictions);
+      return;
+    case 'identity_derived_links': {
+      if (!ctx.identity || !ctx.derived) return;
+      const provenance = derivedRecord(ctx, 'provenance');
+      compareInto('Prompt identity domain mirror', ctx.identity.domain, ctx.derived.domain, facts.semanticContradictions);
+      compareInto('Prompt identity subtype mirror', ctx.identity.subtype, ctx.derived.subtype, facts.semanticContradictions);
+      if (provenance) {
+        compareInto('Prompt identity template path mirror', ctx.identity.templatePath, provenance.template_used, facts.semanticContradictions);
+        compareInto('Prompt identity template version mirror', ctx.identity.templateVersion, provenance.template_version, facts.semanticContradictions);
+      }
+      return;
+    }
+    case 'canonical_intake_derived_links': {
+      if (!ctx.base || !ctx.derived) return;
+      const provenance = derivedRecord(ctx, 'provenance');
+      const generationPlan = derivedRecord(ctx, 'generationPlan');
+      const intake = generationPlan && isRecord(generationPlan.intake) ? generationPlan.intake : null;
+      if (provenance) compareInto('canonical intake provenance digest mirror', ctx.base.canonicalIntake.intake_digest, provenance.canonical_intake_digest, facts.semanticContradictions);
+      if (intake) compareInto('canonical intake Generation Plan digest mirror', ctx.base.canonicalIntake.intake_digest, intake.digest, facts.semanticContradictions);
+      return;
+    }
+    case 'generation_plan_mirror':
+      if (ctx.derived) compareInto('generation plan compatibility mirror', ctx.artifact.generation_plan, ctx.derived.generationPlan, facts.semanticContradictions);
+      return;
+    case 'validation_ledger_mirror': {
+      if (!ctx.derived) return;
+      const ledger = isRecord(ctx.artifact.validation_ledger) ? ctx.artifact.validation_ledger : null;
+      if (!ledger) facts.schemaContradictions.push('Legacy validation_ledger compatibility projection is malformed.');
+      else compareInto('validation ledger compatibility mirror', ledger.checks, ctx.derived.validationLedger, facts.semanticContradictions);
+      return;
+    }
+    case 'compatibility_validation_mirror':
+      if (ctx.derived) compareInto('validation compatibility mirror', ctx.artifact.validation, ctx.derived.compatibilityValidation, facts.semanticContradictions);
+      return;
+    case 'domain_subtype_mirrors':
+      if (ctx.derived) {
+        compareInto('domain compatibility mirror', ctx.artifact.domain, ctx.derived.domain, facts.semanticContradictions);
+        compareInto('subtype compatibility mirror', ctx.artifact.subtype, ctx.derived.subtype, facts.semanticContradictions);
+      }
+      return;
+    case 'provenance_mirror':
+      if (ctx.derived) compareInto('provenance compatibility mirror', ctx.artifact.provenance, ctx.derived.provenance, facts.semanticContradictions);
+      return;
+    case 'policies_mirror':
+      if (ctx.derived) compareInto('policies compatibility mirror', ctx.artifact.policies_applied, ctx.derived.policiesApplied, facts.semanticContradictions);
+      return;
+    case 'risk_review_mirrors':
+      if (ctx.derived) {
+        compareInto('risk_level compatibility mirror', ctx.artifact.risk_level, ctx.derived.legacyRiskLevel, facts.semanticContradictions);
+        compareInto('requires_human_review compatibility mirror', ctx.artifact.requires_human_review, ctx.derived.requiresHumanReview, facts.semanticContradictions);
+        compareInto('review_reason compatibility mirror', ctx.artifact.review_reason, ctx.derived.reviewReason, facts.semanticContradictions);
+      }
+      return;
+    case 'assurance_context_mirrors':
+      if (ctx.derived) {
+        compareInto('assurance compatibility mirror', ctx.artifact.assurance, ctx.derived.assurance, facts.semanticContradictions);
+        compareInto('context attribution compatibility mirror', ctx.artifact.context_attribution, ctx.derived.contextAttribution, facts.semanticContradictions);
+      }
+      return;
+    case 'governing_source_mirrors': {
+      if (!ctx.derived) return;
+      compareInto('governing sources compatibility mirror', ctx.artifact.governing_sources, ctx.derived.governingSources, facts.semanticContradictions);
+      const sourceHashes = derivedRecord(ctx, 'sourceHashes');
+      if (!sourceHashes) facts.schemaContradictions.push('Canonical sourceHashes projection is malformed.');
+      else compareInto('governing source hash mirror', sourceHashes.sources, ctx.derived.governingSources, facts.semanticContradictions);
+      return;
+    }
+    case 'runtime_checkout_mirror': {
+      if (!ctx.derived) return;
+      const runtime = isRecord(ctx.artifact.runtime) ? ctx.artifact.runtime : null;
+      const provenance = derivedRecord(ctx, 'provenance');
+      const checkout = provenance && isRecord(provenance.checkout) ? provenance.checkout : null;
+      if (!runtime || !checkout) {
+        facts.schemaContradictions.push('Runtime checkout compatibility projection is malformed.');
+        return;
+      }
+      compareInto('runtime actual checkout SHA mirror', runtime.git_commit_sha, checkout.actual_sha, facts.semanticContradictions);
+      compareInto('runtime expected checkout SHA mirror', runtime.expected_tested_sha, checkout.expected_sha, facts.semanticContradictions);
+      compareInto('runtime checkout source mirror', runtime.provenance_source, checkout.source, facts.semanticContradictions);
+      return;
+    }
+    case 'authorization_cross_fields':
+      collectAuthorizationCrossFields(ctx, facts);
+      return;
+    default: {
+      const exhaustive: never = relationship;
+      throw new Error(`Unhandled source-independent relationship: ${String(exhaustive)}`);
+    }
+  }
+}
+
+function collectSourceIndependentFacts(
+  envelope: RuntimeArtifactEnvelope,
+  base: CanonicalArtifactBase | null,
+  identity: CanonicalPromptIdentity | null,
+  facts: VerificationFacts,
+): void {
+  const artifact = envelope.artifact as unknown as Dict;
+  const authorization = envelope.authorization as unknown as Dict;
+  const derived = isRecord(artifact.derived_projection) ? artifact.derived_projection : null;
+  if (!derived) facts.schemaContradictions.push('Canonical derived_projection must be an object.');
+  const context: SourceIndependentContext = { envelope, artifact, authorization, base, identity, derived };
+  for (const relationship of SOURCE_INDEPENDENT_RELATIONSHIPS) {
+    collectSourceIndependentRelationship(relationship, context, facts);
+  }
+}
+
+function collectCompletedAuthorityFacts(
   envelope: RuntimeArtifactEnvelope,
   completed: CompletedRuntimeAssessment,
   facts: VerificationFacts,
 ): void {
   const authorization = envelope.authorization;
-  const derived = isRecord(envelope.artifact.derived_projection)
-    ? envelope.artifact.derived_projection as unknown as CanonicalDerivedProjection
-    : null;
   if (completed.validationLedger.length === 0) facts.authorityContradictions.push('Authorized state cannot exist without a non-empty completed validation ledger.');
   if (
     authorization.authority_state === 'authorized'
     && completed.validationLedger.some((item) => item.applicable && item.blocking && (!item.executed || item.passed !== true))
   ) facts.authorityContradictions.push('Authorized state has an unsatisfied blocking Check.');
-  if (
-    authorization.authority_state === 'review_pending'
-    && (!authorization.review_required || authorization.downstream_use_allowed || authorization.review_receipt !== null)
-  ) facts.authorityContradictions.push('review_pending cross-field invariant failed.');
-  if (
-    authorization.authority_state === 'authorized'
-    && authorization.review_required
-    && (!authorization.review_receipt
-      || authorization.review_receipt.decision !== 'approved'
-      || authorization.review_receipt.artifact_sha256 !== envelope.artifact_sha256)
-  ) facts.authorityContradictions.push('Reviewed authorization lacks an exact approved Artifact-bound receipt.');
-  if (derived && envelope.artifact.requires_human_review !== derived.risk.review_required) {
-    facts.semanticContradictions.push('Legacy requires_human_review contradicts canonical risk.review_required.');
-  }
-  const canonicalRisk = derived?.risk.classification;
-  const expectedLegacyRisk = canonicalRisk === 'low' ? 'low' : canonicalRisk === 'medium' ? 'medium' : 'high';
-  if (derived && envelope.artifact.risk_level !== expectedLegacyRisk) {
-    facts.semanticContradictions.push('Legacy risk_level contradicts canonical risk classification.');
-  }
 }
 
 function verifyArtifactDetailed(
@@ -292,22 +467,20 @@ function verifyArtifactDetailed(
   const base = baseResult.base;
   const persistedIdentity = identityResult.identity;
 
-  if (base) {
-    compareInto('canonical intake compatibility projection', artifact.canonical_intake, base.canonicalIntake, facts.semanticContradictions);
-    compareInto('execution_mode compatibility projection', artifact.execution_mode, base.executionContext.mode, facts.semanticContradictions);
-  }
-  if (persistedIdentity) compareInto('prompt_id compatibility projection', artifact.prompt_id, persistedIdentity.promptId, facts.semanticContradictions);
+  // Phase A: source-independent persisted contradictions always execute.
+  collectSourceIndependentFacts(envelope, base, persistedIdentity, facts);
 
   let completed: CompletedRuntimeAssessment | null = null;
   let rebuiltIdentity: CanonicalPromptIdentity | null = null;
   let canonicalEvidenceAvailable = true;
+
+  // Phase B: canonical source-dependent reconstruction and recomputation.
   if (base) {
     try {
       const canonicalEnvelope = rehydrateEnvelope(base.canonicalIntake as unknown as Dict, config);
       const plan = compileRuntimePlan(canonicalEnvelope, config);
       rebuiltIdentity = deriveCanonicalPromptIdentity(plan);
       if (persistedIdentity) compareInto('canonical Prompt identity', persistedIdentity, rebuiltIdentity, facts.semanticContradictions);
-      compareInto('canonical Artifact Base', artifact.canonical_base, buildCanonicalArtifactBase(canonicalEnvelope, base.executionContext.mode), facts.semanticContradictions);
       const projectedIdentity = identityCompatibilityProjection(buildCanonicalArtifactBase(canonicalEnvelope, base.executionContext.mode), rebuiltIdentity);
       compareInto('identity compatibility projection', { prompt_id: artifact.prompt_id, execution_mode: artifact.execution_mode }, projectedIdentity, facts.semanticContradictions);
 
@@ -344,7 +517,7 @@ function verifyArtifactDetailed(
         const expectedDerived = buildCanonicalDerivedProjection(completed);
         compareInto('canonical derived projection', artifact.derived_projection, expectedDerived, facts.semanticContradictions);
         const expectedLegacy = projectLegacyArtifactFields(expectedDerived);
-        const actualLegacy = extractLegacyArtifactFields(artifact);
+        const actualLegacy = extractLegacyArtifactFields(artifact as unknown as Dict);
         if (!actualLegacy) facts.schemaContradictions.push('Legacy compatibility projection is malformed.');
         else compareInto('legacy compatibility projection', actualLegacy, expectedLegacy, facts.semanticContradictions);
         const expectedHashes = buildArtifactHashes(base.canonicalIntake, expectedRenderedPrompt, expectedDerived);
@@ -357,7 +530,7 @@ function verifyArtifactDetailed(
           diagnostics: completed.authorityDecision.diagnostics,
         };
         compareInto('authorization', envelope.authorization, expectedAuthorization, facts.authorityContradictions);
-        crossFieldFacts(envelope, completed, facts);
+        collectCompletedAuthorityFacts(envelope, completed, facts);
       }
     } catch (error) {
       if (facts.canonicalEvidenceUnavailable.length === 0) {
