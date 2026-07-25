@@ -37,7 +37,47 @@ Authority-bearing implementations have exactly one canonical owner each:
 
 `src/runtime-authority-artifact.ts` contains only the pure `buildCanonicalDerivedProjection(...)` compatibility builder. It exports no generator, verifier, review-capability issuer, review transition or CLI adapter.
 
-The authority inventory is implemented with a TypeScript Program and type checker over the complete `src` TypeScript tree. It resolves direct declarations, exported const/function expressions, aliases, named re-exports and export-star surfaces. Exact owner and visibility allowlists cover `generateArtifact`, `generateFromCliArgs`, `verifyArtifact`, `verifyArtifactForReviewInternal`, `reviewArtifact`, `completeRuntimeAssessmentInternal` and `reduceVerificationOutcome`. `src/peac.ts#generateArtifact` is the sole documented non-authoritative renderer exception and does not resolve through the official Runtime barrels.
+## Authority inventory
+
+The authority inventory is implemented with a TypeScript Program and type checker over the complete `src` TypeScript tree. Exact owner and visibility allowlists cover:
+
+- `generateArtifact`;
+- `generateFromCliArgs`;
+- `verifyArtifact`;
+- `verifyArtifactForReviewInternal`;
+- `reviewArtifact`;
+- `completeRuntimeAssessmentInternal`;
+- `reduceVerificationOutcome`.
+
+`src/peac.ts#generateArtifact` is the sole documented non-authoritative renderer exception and does not resolve through the official Runtime barrels.
+
+### Declaration and export identity
+
+The inventory resolves direct declarations, exported const and function expressions, outward aliases, named re-exports, export-star surfaces and terminal declaration owners. Export identity is not determined only from the outward property name.
+
+For import or export aliases whose TypeScript alias target has no usable declaration owner, the inventory resolves the referenced module and locates the matching module-local function or variable declaration. This preserves the real terminal owner for internal and non-exported authority symbols instead of accepting an `unknownSymbol` or ownerless alias.
+
+### Identity-preserving value flow
+
+Variable initializer value identity is followed recursively and cycle-safely when the initializer is:
+
+- an `Identifier`;
+- a namespace or object `PropertyAccessExpression`;
+- a parenthesized expression;
+- a non-null assertion;
+- an `as` expression;
+- a TypeScript type assertion;
+- a `satisfies` expression.
+
+The traversal follows direct, local and multi-hop aliases and records the terminal authority owner. This closes value-alias exports such as an exported const that points to an internal reducer or review capability under a benign outward name.
+
+The traversal is deliberately narrow. Function calls, arrow-function wrappers, newly constructed functions, arbitrary computed expressions and unrelated exported values are not treated as identity-preserving aliases. This prevents invocation wrappers and ordinary values from being misclassified as alternate authority owners.
+
+The focused suite covers:
+
+- resolved outward aliases and re-exports (`T-ALIAS-01` through `T-ALIAS-05`);
+- direct, local, multi-hop, transparent-wrapper and namespace value aliases (`T-VALIAS-01` through `T-VALIAS-04`);
+- false-positive and official-path regression controls (`T-VALIAS-05`).
 
 ## Operation-aware exhaustive payload proof
 
@@ -171,6 +211,13 @@ pnpm peac:runtime-authority-test
 
 ## Scope boundary
 
-Work unit `WU-PP32-ROOT-CLOSURE-002` implements `M-TOPIC-SHARED-OPERATION-MATCH`, `M-RISK-SHARED-COMPATIBILITY-PROJECTION` and `M-AUTH-FULL-SRC-AST-INVENTORY` without changing public Runtime signatures or status meanings. It preserves the Type-State completion path, canonical Check ledger, one complete Derived Projection builder, internal reducers, single review transition, exact checkout binding and atomic publication.
+Work unit `WU-PP32-ROOT-CLOSURE-002` implements `M-TOPIC-SHARED-OPERATION-MATCH`, `M-RISK-SHARED-COMPATIBILITY-PROJECTION` and `M-AUTH-FULL-SRC-AST-INVENTORY` without changing public Runtime signatures or status meanings.
 
-It does not add a topic registry, semantic allowlist, danger-Regex primary repair, LLM classifier, caller-authoritative benignness assertion, public Intake field, runtime dependency, cryptographic signing, HMAC, RBAC, authentication, external authorization service, compliance infrastructure, operating-system anti-tamper control, hostile-owner protection, AIGOV conformance or target-model behavioral assurance.
+Follow-up authority-inventory repairs add:
+
+- `M-AUTH-RESOLVED-TARGET-IDENTITY`, which binds outward aliases to their terminal declaration owner;
+- `M-AUTH-IDENTITY-PRESERVING-VALUE-FLOW`, implemented by `WU-PP32-AUTH-VALUE-ALIAS-FAST-003` for `FND-PP32-AUTHORITY-VALUE-ALIAS-BYPASS-015`.
+
+These repairs preserve the Type-State completion path, canonical Check ledger, one complete Derived Projection builder, internal reducers, single review transition, exact checkout binding and atomic publication. They change only focused authority-inventory validation and do not change Runtime behavior or public contracts.
+
+The Runtime work does not add a topic registry, semantic allowlist, danger-Regex primary repair, LLM classifier, caller-authoritative benignness assertion, public Intake field, runtime dependency, cryptographic signing, HMAC, RBAC, authentication, external authorization service, compliance infrastructure, operating-system anti-tamper control, hostile-owner protection, AIGOV conformance or target-model behavioral assurance.
