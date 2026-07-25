@@ -73,13 +73,13 @@ export const BENIGN_OPERATION_PAYLOAD_POLICIES = {
   },
   non_operational_name_brainstorm: {
     operation: 'non_operational_name_brainstorm',
-    allowedPayloadKinds: ['none', 'bounded_literal'],
-    payloadProof: 'bounded_deterministic',
+    allowedPayloadKinds: ['none'],
+    payloadProof: 'none_required',
   },
   non_instructional_creative_poem: {
     operation: 'non_instructional_creative_poem',
-    allowedPayloadKinds: ['none', 'bounded_literal'],
-    payloadProof: 'bounded_deterministic',
+    allowedPayloadKinds: ['none'],
+    payloadProof: 'none_required',
   },
 } as const satisfies Record<BenignOperation, BenignOperationPayloadPolicy>;
 
@@ -128,26 +128,17 @@ function boundedGrammarLiteral(request: string): boolean {
   return words.length <= 12 && words.every((word) => SIMPLE_GRAMMAR_WORDS.has(word));
 }
 
-function boundedTopicLiteral(request: string): boolean {
-  const match = request.match(/\b(?:for|about)\s+([A-Za-z][A-Za-z0-9 -]{0,40})\.?$/i);
-  if (!match) return false;
-  const topic = match[1].trim();
-  return /^[A-Za-z][A-Za-z0-9 -]{0,40}$/.test(topic) && !/[;:]/.test(topic);
-}
-
 function requestCarriesFreeFormPayload(operation: BenignOperation, request: string): boolean {
   if (operation === 'grammar_correction_of_provided_text') return request.includes(':') && !boundedGrammarLiteral(request);
   if (operation === 'rewrite_of_provided_text') return request.includes(':');
   if (operation === 'non_operational_name_brainstorm' || operation === 'non_instructional_creative_poem') {
-    return /\b(?:for|about)\b/i.test(request) && !boundedTopicLiteral(request);
+    return /\b(?:for|about)\b/i.test(request);
   }
   return false;
 }
 
 function requestCarriesBoundedLiteral(operation: BenignOperation, request: string): boolean {
-  if (operation === 'grammar_correction_of_provided_text') return boundedGrammarLiteral(request);
-  if (operation === 'non_operational_name_brainstorm' || operation === 'non_instructional_creative_poem') return boundedTopicLiteral(request);
-  return false;
+  return operation === 'grammar_correction_of_provided_text' && boundedGrammarLiteral(request);
 }
 
 export function assertBenignOperationPolicyInventory(operations: readonly string[]): void {
