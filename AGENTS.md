@@ -65,9 +65,13 @@ High-risk areas include `.github/workflows/**`, public schemas, authentication o
 
 Do not create new Prompt Quality receipts, raw GitHub payload copies, lifecycle events, impact entries, immutable Scope amendments, or governance hash chains. Historical v1 records are read-only and are not current completion authorities.
 
-A persisted Task completion field is a claim, not proof. Task completion and dependency eligibility require trusted normalized Git and GitHub Actions evidence bound to this repository, the claimed commit, an allowed ancestor relation, the canonical workflow, and its canonical job. Local-only evidence may be reported but cannot unlock dependent Tasks.
+<!-- completion-authority-contract.v1|task_fields=completion_contract,completion_validation|contract_fields=contract_id,contract_version,task_id,required_changed_paths,required_artifact_paths,required_validation_script_ids,forbidden_changed_paths|claim_fields=validation_status,tested_commit,source,validation_profile,ci_run_reference|authority_sequence=closure>subject>authority_anchor>authority_blobs>preactivated_contract>contract_satisfaction>subject_profile>anchor_ci>subject_ci -->
 
-A validation claim must identify the tested commit, source, commands actually executed, and CI run when available. Do not claim PASS for a different or unverified commit.
+A persisted Task completion field is a claim, not proof. Every Task has a Schema-required `completion_contract` field. It may remain `null` before activation; a completed Task requires a non-null contract already present in the completion subject's first parent and unchanged through the subject, metadata-only closure, and later validation Heads.
+
+Completion authority is derived in this order: unique closure, direct-parent subject, subject first-parent authority anchor, anchor-owned authority blobs, preactivated Task contract, first-parent contract satisfaction, canonical subject profile, exact-SHA anchor CI, and exact-SHA subject CI. A completing subject may not change any completion-authority inventory path or activate/change its own contract. Required changes present only in another Merge parent do not satisfy the contract.
+
+`completion_validation` is only a consistency assertion with exactly `validation_status`, `tested_commit`, `source`, `validation_profile`, and `ci_run_reference`. Local-only evidence may be reported but cannot unlock dependent Tasks. Do not claim PASS for a different or unverified commit.
 
 ## Important boundaries
 
