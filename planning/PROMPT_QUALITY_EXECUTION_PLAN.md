@@ -1,60 +1,177 @@
 # Prompt Quality and Migration Execution Plan
 
+<!-- completion-authority-contract.v1|task_fields=completion_contract,completion_validation|contract_fields=contract_id,contract_version,task_id,required_changed_paths,required_artifact_paths,required_validation_script_ids,forbidden_changed_paths|claim_fields=validation_status,tested_commit,source,validation_profile,ci_run_reference|authority_sequence=closure>subject>authority_anchor>authority_blobs>preactivated_contract>contract_satisfaction>subject_profile>anchor_ci>subject_ci -->
+
 ## Authority boundary
 
-This document is the durable human-readable execution-plan authority. It does not carry mutable task state.
+This document is the durable architecture, rationale, sequencing, and policy authority. It does not carry mutable Task status.
 
-Normative machine-readable authority:
+- Mutable current status: `planning/NEXT_WORK.md`
+- Machine-readable Task and dependency authority: `planning/prompt-quality/prompt-quality-execution-program.v2.json`
+- Historical v1 records: read-only under `planning/prompt-quality/`
+- Repository and validation facts: Git and GitHub
+- Runtime behavior and authority: the existing Runtime Authority sources, schemas, tests, workflow stages, and `pipeline/RUNTIME_AUTHORITY.md`
 
-`planning/prompt-quality/prompt-quality-execution-program.v1.json`
+## Operating model
 
-Mutable current status authority:
+The active target model is `BALANCED_PERSONAL_REPOSITORY`.
 
-`planning/NEXT_WORK.md`
+The repository preserves controls that materially improve prompt quality, deterministic validation, regression detection, reproducibility, truthful reporting, provenance, recoverability, and basic security. Enterprise-style administrative evidence is retired from active use when Git and GitHub already provide the authoritative fact.
 
-## Activation effect
+## Current-main integration invariant
 
-The activation registers and authorizes the fifteen `PPQR` tasks. It implements governance infrastructure only. It does not implement any substantive Prompt Quality or Migration deliverable, change production routing, improve a quality score, promote a migration, retire a legacy path, integrate Promptfoo, execute a model, or add a semantic judge.
+The balanced governance model is applied to the current `main` tree, not to the obsolete PR #31 base.
+
+The final tree must preserve:
+
+- `peac:verify-artifact`, `peac:review-artifact`, `peac:runtime-authority-test`, and `peac:runtime-cli-help`;
+- smoke generation in `ci` mode;
+- the full Runtime Authority source, schema, policy, and test surface;
+- exact tested-commit checkout and the existing Node 20/22 matrix;
+- vendored exact-blob PR-Inspector v1.11.1 compatibility verification;
+- truthful PR #29, PR #32, and PR #33 repository facts;
+- `Repository Implementation Assurance Lite` as registered future work.
+
+Conflict resolution may not accept obsolete shared files wholesale or create parallel Runtime or status authorities.
+
+## Blocking quality and integrity controls
+
+Canonical CI continues to enforce:
+
+- schema and static validation;
+- deterministic valid and invalid cases;
+- routing and subtype-selection tests;
+- output-contract and behavioral-rule coverage;
+- knowledge and rule drift checks;
+- production-grade input requirements;
+- model-profile and context-policy checks;
+- artifact metadata, provenance, and path containment;
+- Runtime Authority invariants and CLI help;
+- PR-Inspector renderer and pack checks;
+- bundle and smoke checks.
+
+## Trusted Task-completion authority
+
+Persisted `completion_validation` values are claims. They do not independently authorize completion. Every Task has a Schema-required `completion_contract` field, which may remain `null` before activation.
+
+For every completed Task, the pure validator consumes normalized trusted evidence derived in this exact order:
+
+1. unique first non-complete-to-complete closure;
+2. single-parent direct completion subject;
+3. subject first-parent authority anchor;
+4. anchor-owned completion-authority inventory and unchanged authority blobs;
+5. non-null Task contract already present at the anchor and unchanged through subject, closure, and validation Head;
+6. contract satisfaction through the authority-anchor-to-subject first-parent delta and subject tree;
+7. validator-owned canonical subject profile;
+8. successful canonical exact-SHA authority-anchor run;
+9. successful canonical exact-SHA subject run.
+
+The authority inventory includes the Prompt Quality core, evidence adapter, validator, CLI entrypoint, focused self-test, active v2 Schema, `package.json`, and canonical workflow. A completing subject may not change any listed path. A legitimate authority revision or Task-contract activation must occur in an earlier separate non-completion commit and pass canonical exact-SHA CI before a later subject relies on it.
+
+A non-null `completion_contract` contains exactly:
+
+```text
+contract_id
+contract_version
+task_id
+required_changed_paths
+required_artifact_paths
+required_validation_script_ids
+forbidden_changed_paths
+```
+
+Required changed paths must appear in the first-parent subject delta; required artifacts must exist as regular files in the subject tree; required validation script IDs must be bindings verified by `peac-canonical-ci.v1`; forbidden paths must not change. Contract evidence present only in another Merge parent is insufficient. An unrelated successful repository change cannot complete a Task.
+
+`completion_validation` contains exactly `validation_status`, `tested_commit`, `source`, `validation_profile`, and `ci_run_reference`. No free-form commands field is authoritative or supported. Local execution may support development reporting but cannot unlock dependent Tasks.
+
+Missing anchor, authority drift, missing or mutated contract, unsatisfied predicates, invalid profile, unavailable exact-SHA run, wrong repository/workflow/job/SHA, or later Task/contract drift fails closed with stable `PQG_COMPLETION_*` diagnostics.
+
+No raw GitHub payload is persisted as authority. No receipt, replay, lifecycle, owner-identity, immutable-Scope, or hash-chain model is reintroduced.
+
+## Invalid-root boundary
+
+`validateProgram(...)` and `validateStatus(...)` reject `null`, arrays, strings, numbers, booleans, and every other non-object program root before `taskMap(...)` or property access.
+
+The guard returns `PQG_SCHEMA_INVALID`; it does not swallow exceptions or weaken required-property enforcement.
+
+`completion_contract` and `completion_validation` remain required on every Task. `last_completed_task` remains required in the bounded status object. Loose-null behavior is not used to accept missing fields.
+
+## Risk-based Scope and review
+
+Routine low-risk changes require:
+
+- a clear PR summary;
+- changed-file review;
+- canonical CI;
+- ordinary review.
+
+High-risk or cross-cutting changes require:
+
+- explicit scope and risk;
+- rollback or recovery notes;
+- independent review;
+- path-sensitive checks where useful;
+- canonical CI.
+
+High-risk areas include workflows, public schemas, authentication or authorization, security controls, dependency upgrades, destructive migrations, production routing, release authority, secret handling, and repository permissions.
+
+## Historical v1 model
+
+The v1 program, Scope, lifecycle, evidence, impact, schema, diagnostic, and related files remain preserved for audit history.
+
+They are not active completion authorities. Normal work must not create new v1 receipts, raw GitHub payload copies, lifecycle events, impact entries, immutable Scope amendments, reconciliation carriers, owner-Merge locks, or governance hash chains.
 
 ## Approved architecture
 
 ### A. Quality-first hybrid evaluation
-Repository artifacts remain authoritative for quality definitions, rules, corpora, thresholds, migration readiness, production routing, task completion, and release approval. External harnesses may execute models and return raw evidence only. `promptfoo` is the preferred future execution-only adapter when a task supplies evidence and pins its version.
+
+Repository artifacts remain authoritative for quality definitions, rules, corpora, thresholds, migration readiness, production routing, Task completion, and release approval. External harnesses may execute models and return raw evidence only.
 
 ### B. Domain contracts
-Future domain contracts are JSON Schema-first, with schema-valid YAML or JSON instances. They must separate required, optional, conditional, forbidden, clarification, default, trust-boundary, output-obligation, and risk-trigger semantics. Critical inputs may not receive silent defaults.
+
+Future domain contracts are JSON Schema-first, with schema-valid YAML or JSON instances. They separate required, optional, conditional, forbidden, clarification, default, trust-boundary, output-obligation, and risk-trigger semantics. Critical inputs may not receive silent defaults.
 
 ### C. Executable rules
-Future rules must define applicability, carriers, consumption receipts, validators, mutation tests, diagnostics, and gates. Prose presence alone is not enforcement.
+
+Future rules define applicability, carriers, validators, mutation tests, diagnostics, and gates. Prose presence alone is not enforcement.
 
 ### D. Thin templates
-Templates remain presentation and ordering mechanisms. They do not own domain inputs, behavioral rules, migration state, or quality decisions. Existing template technology is preserved unless later repository evidence authorizes replacement.
+
+Templates remain presentation and ordering mechanisms. They do not own domain inputs, behavioral rules, migration state, or quality decisions.
 
 ### E. Domain quality packs
-Each future pack owns or references its quality policy, contract, rules, templates, corpora, mutations, justified metamorphic relations, model support profile, rubric, and evidence receipts. Development, release, and regression are default corpus layers. Calibration is required before semantic evaluation can become blocking.
+
+Each future pack owns or references its quality policy, contract, rules, templates, corpora, mutations, justified metamorphic relations, model support profile, rubric, and evidence. Development, release, and regression are default corpus layers. Calibration is required before semantic evaluation can become blocking.
 
 ### F. Risk-tiered evaluation
+
 Risk derives from `domain.subtype + consumer_path + execution_profile`. The registered future tiers are `Tier_1_Basic`, `Tier_2_Standard`, `Tier_3_High_Risk`, and `Tier_4_Critical`.
 
 ### G. Model capability profiles
+
 A model name is not a tested execution identity. Future support is domain-specific, profile-versioned, and conformance-derived.
 
 ### H. Semantic evaluation
-Semantic evaluation begins non-authoritative and non-blocking. Blocking use requires versioning, schema-valid results, defect-specific rubrics, human-labelled calibration, false-pass measurement, order-bias controls, disagreement handling, and calibration across at least two materially different domains. Failure to evaluate never yields PASS.
+
+Semantic evaluation begins non-authoritative and non-blocking. Blocking use requires versioning, schema-valid results, defect-specific rubrics, human-labelled calibration, false-pass measurement, order-bias controls, disagreement handling, and calibration across materially different domains. Failure to evaluate never yields PASS.
 
 ### I. Selective shadow
+
 Universal shadow execution is prohibited. Shadow is authorized only from evidence of material risk, weak observability, rollback need, or sensitive automated consumption.
 
 ### J. Migration authority
-Exactly one path may be production-authoritative. `Migration Promotion Gate` is the sole transition authority; `Quality Delta Gate` is a required subgate. Low-risk and high-risk lifecycle paths remain distinct, and `new_only` requires retirement evidence.
+
+Exactly one path may be production-authoritative. `Migration Promotion Gate` is the sole transition authority; `Quality Delta Gate` is a required subgate.
 
 ### K. Complexity budgets
+
 No universal Prompt IR is authorized. Generic semantic containers, arbitrary metadata blobs, unbounded nesting, prompt graphs, role hierarchies, and reasoning-plan trees are prohibited.
 
 ### L. Repository Implementation Assurance Lite
-`Repository Implementation Assurance Lite` is a cross-cutting adaptive profile, not a new domain and not a target-repository enforcement platform. It is selected only for repository-modification consumer paths when risk tier or task complexity justifies the overhead. Simple repository requests retain the lightweight default path.
 
-The future bundle shape is intentionally bounded:
+`Repository Implementation Assurance Lite` is a cross-cutting adaptive profile, not a new domain and not a target-repository enforcement platform. It is selected only for repository-modification consumer paths when risk tier or task complexity justifies the overhead.
+
+The future bundle is bounded to:
 
 ```text
 implementation-prompt.md
@@ -62,138 +179,12 @@ implementation-prompt.md
 assurance-lite.yaml
 ```
 
-The single linked `assurance-lite.yaml` artifact contains:
+Prompt-Pipeline validation is structural only. Downstream independent review remains the responsibility of `PR-Inspector`. Assurance Lite begins non-authoritative and non-blocking and is promoted only from measured held-out benefit.
 
-- atomic requirements and completion conditions;
-- risks and failure scenarios;
-- acceptance and evidence mappings;
-- an implementation-report contract requiring requirement status, changed files, tests, evidence, and residual risks.
+## Registered Task sequence
 
-Prompt-Pipeline validation is structural only. It checks schema validity, unique identifiers, complete cross-references, requirement-to-acceptance mappings, High/Critical risk-to-mitigation-and-verification mappings, and forbidden lifecycle claims. It does not resolve target-repository files, execute target commands, prove semantic correctness, or claim implementation completion.
+The exact titles, purposes, dependencies, states, completion contracts, and completion claims for `PPQR-001` through `PPQR-015` are normative in the v2 program.
 
-The implementation prompt must explicitly consume the linked artifact and must not treat artifact receipt as implementation proof. Downstream independent review remains the responsibility of `PR-Inspector`. A target-repository validator is not required for the initial pilot.
+Eligibility is derived from both the declared dependency graph and authoritative completion evidence. A dependency with `state: complete` remains blocking unless its preactivated Task contract, authority anchor, exact-SHA runs, and all other trusted evidence pass.
 
-Assurance Lite begins non-authoritative and non-blocking. Promotion requires held-out evidence showing fewer first-review Critical/High findings or fewer repair/rereview cycles after accounting for token, execution, review, and cycle-time overhead. No benefit, material cross-domain leakage, or disproportionate complexity blocks promotion.
-
-The following machine-readable projection is required and must remain byte-equivalent in meaning to the normative program registration:
-
-<!-- repository-implementation-assurance-lite:start -->
-```json
-{
-  "architecture_key": "repository_implementation_assurance_lite",
-  "architecture_revision": "sha256:d34599ca0858231a66ce7de35d53ceb7c1494a5353711b8547f3ad9af7f866b1",
-  "registration": {
-    "status": "registered_future_work",
-    "role": "cross_cutting_adaptive_profile",
-    "new_domain_required": false,
-    "new_task_required": false,
-    "profile_name": "assurance_lite",
-    "selection_basis": [
-      "consumer_path",
-      "risk_tier",
-      "task_complexity"
-    ],
-    "activation_mode": "adaptive",
-    "simple_requests_default": "disabled",
-    "bundle_shape": "implementation_prompt_plus_one_linked_assurance_artifact",
-    "artifact_name": "assurance-lite.yaml",
-    "required_sections": [
-      "requirements",
-      "risks",
-      "acceptance_and_evidence",
-      "implementation_report_contract"
-    ],
-    "structural_validation": [
-      "schema_validity",
-      "identifier_uniqueness",
-      "requirement_to_acceptance_mapping",
-      "high_or_critical_risk_to_mitigation_and_verification_mapping",
-      "cross_reference_completeness",
-      "forbidden_lifecycle_claims"
-    ],
-    "implementation_report_required_fields": [
-      "requirement_id",
-      "status",
-      "changed_files",
-      "tests",
-      "evidence",
-      "residual_risks"
-    ],
-    "states": [
-      "declared",
-      "implemented",
-      "verified"
-    ],
-    "target_repository_validator_required_for_initial_pilot": false,
-    "downstream_independent_review": "PR-Inspector",
-    "initial_authority": "non_authoritative_non_blocking",
-    "task_integration": {
-      "PPQR-001": [
-        "measure baseline defects and repair-cycle cost",
-        "classify PR-Inspector findings by preventability"
-      ],
-      "PPQR-002": [
-        "select none or lite adaptively for repository-modification consumer paths"
-      ],
-      "PPQR-003": [
-        "define the schema-first single-artifact contract"
-      ],
-      "PPQR-004": [
-        "define structural mapping and lifecycle-claim rules"
-      ],
-      "PPQR-005": [
-        "render and bind the linked artifact to the implementation prompt"
-      ],
-      "PPQR-006": [
-        "pilot valid, invalid, and adversarial cases non-blockingly"
-      ],
-      "PPQR-007": [
-        "implement bounded structural validation and stable diagnostics"
-      ],
-      "PPQR-009": [
-        "bind activation to risk tier and measure overhead"
-      ],
-      "PPQR-010": [
-        "decide promotion from held-out quality delta and cost evidence"
-      ],
-      "PPQR-012": [
-        "prove cross-domain containment"
-      ],
-      "PPQR-015": [
-        "prevent silent fallback activation"
-      ]
-    },
-    "promotion_requires": [
-      "held_out_quality_delta_evidence",
-      "reduced_first_review_critical_or_high_findings_or_repair_cycles",
-      "measured_token_execution_review_and_cycle_time_overhead",
-      "no_material_cross_domain_leakage"
-    ],
-    "not_claimed": [
-      "semantic_correctness",
-      "target_repository_enforcement",
-      "implementation_completion",
-      "merge_readiness",
-      "exact_main_validation",
-      "zero_defect_guarantee"
-    ]
-  }
-}
-```
-<!-- repository-implementation-assurance-lite:end -->
-
-## Registered task sequence
-
-The exact titles, purposes, dependencies, and state dimensions for `PPQR-001` through `PPQR-015` are normative in the machine-readable program. Eligibility is validator-derived. Immediately after activation, only `PPQR-001` is eligible; all other tasks are dependency-blocked.
-
-`Repository Implementation Assurance Lite` is implemented incrementally through the existing task sequence rather than through a sixteenth task: baseline measurement in `PPQR-001`, adaptive routing in `PPQR-002`, contract and rule semantics in `PPQR-003` and `PPQR-004`, linked rendering in `PPQR-005`, pilot coverage in `PPQR-006`, bounded structural validation in `PPQR-007`, risk-tier activation in `PPQR-009`, Quality Delta decision in `PPQR-010`, cross-domain containment in `PPQR-012`, and fallback protection in `PPQR-015`.
-
-## Evidence and lifecycle
-
-- Scope authority: current selector plus immutable scope revisions under `planning/prompt-quality/scopes/`
-- Append-only impact chronology: `planning/prompt-quality/impacts/`
-- Lifecycle evidence authority: `planning/prompt-quality/lifecycle/PROMPT-QUALITY-PROGRAM-ACTIVATION.ledger.json`
-- Stable diagnostics: `planning/prompt-quality/diagnostics/prompt-quality-diagnostics.v1.json`
-- Deterministic validator: `scripts/peac-prompt-quality-governance.mjs`
-
-A branch implementation may be implemented and exact-head validated while lifecycle completion remains pending owner merge and exact-main verification.
+Immediately after activation, all fifteen `completion_contract` values are `null`, all Task states are `not_started`, only `PPQR-001` is eligible, and `PPQR-002` through `PPQR-015` are dependency-blocked.
