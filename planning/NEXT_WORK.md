@@ -2,7 +2,9 @@
 
 This file is the **sole mutable current-status authority** for the Prompt Quality and Migration execution program.
 
-The machine-readable v2 program defines Task IDs, titles, purposes, dependencies, Task state, and completion-evidence policy. Git and GitHub remain authoritative for repository identity, commits, ancestry, pull requests, workflow runs, and checks.
+The machine-readable v2 program defines Task IDs, titles, purposes, dependencies, Task state, completion contracts, and completion-evidence policy. Git and GitHub remain authoritative for repository identity, commits, ancestry, pull requests, workflow runs, and checks.
+
+<!-- completion-authority-contract.v1|task_fields=completion_contract,completion_validation|contract_fields=contract_id,contract_version,task_id,required_changed_paths,required_artifact_paths,required_validation_script_ids,forbidden_changed_paths|claim_fields=validation_status,tested_commit,source,validation_profile,ci_run_reference|authority_sequence=closure>subject>authority_anchor>authority_blobs>preactivated_contract>contract_satisfaction>subject_profile>anchor_ci>subject_ci -->
 
 <!-- prompt-quality-status:start -->
 ```json
@@ -28,6 +30,8 @@ The machine-readable v2 program defines Task IDs, titles, purposes, dependencies
 planning/prompt-quality/prompt-quality-execution-program.v2.json
 ```
 
+All fifteen current `completion_contract` values are `null`. A Task contract must be activated in an earlier separate non-completion commit before a later implementation subject can complete that Task.
+
 The balanced model retires active v1 receipt, lifecycle, impact-hash, immutable-Scope, owner-Merge-lock, and post-Merge reconciliation ceremonies. Historical v1 records remain read-only and are not prerequisites for substantive work.
 
 ## Preserved repository facts
@@ -43,16 +47,11 @@ No quality credit, migration promotion, production-authority change, release-rea
 
 A Task whose persisted `state` is `complete` is not authoritatively complete merely because its `completion_validation` object is schema-valid.
 
-Authoritative completion requires trusted normalized evidence proving:
+Authoritative completion requires the unique closure and direct-parent subject, the subject's first-parent authority anchor, unchanged anchor-owned authority blobs, a non-null Task-specific contract already present at that anchor, first-parent contract satisfaction, a valid canonical subject profile, and successful canonical exact-SHA runs for both anchor and subject.
 
-- repository identity is `rezahh107/Prompt-Pipeline`;
-- the claimed commit exists;
-- the claimed commit is the validation Head or its ancestor;
-- the referenced canonical GitHub Actions run belongs to this repository;
-- the run Head SHA equals the claimed commit;
-- the allowed `CI` workflow and `PEaC canonical exact-head CI` job completed successfully.
+A completing subject may not change the Prompt Quality authority inventory or activate/change its own contract. Required changes present only in another Merge parent do not satisfy the contract. Local validation remains reporting-only and cannot unlock dependent Tasks.
 
-Local validation remains useful reporting evidence but cannot unlock dependent Tasks. A previously verified completion remains valid on a later descendant Head when the exact-SHA canonical workflow evidence remains valid.
+A previously verified completion remains valid on a later descendant Head when the historical anchor, subject, closure, authority blobs, contract, exact-SHA runs, and completed Task data remain valid.
 
 ## Registered architecture amendment
 
@@ -167,15 +166,14 @@ The future pilot is limited to one linked `assurance-lite.yaml` artifact beside 
 
 ## Validation reporting
 
-Every validation claim must identify the tested commit and the commands actually executed:
+`completion_validation` is a consistency assertion with the exact active Schema shape:
 
 ```yaml
-validation_status: passed | failed | not_run | unavailable
-tested_commit: <sha-or-null>
-source: github_actions | local | unavailable
-commands:
-  - <executed-command>
-ci_run_reference: <run-id-or-null>
+validation_status: passed
+tested_commit: <exact-subject-sha>
+source: github_actions | local
+validation_profile: peac-canonical-ci.v1
+ci_run_reference: <subject-run-id-or-null>
 ```
 
-Do not infer CI success from documentation, a stale PR description, or a different commit.
+The validator derives authority anchor and canonical runs from Git and GitHub. No free-form `commands` field selects or proves completion. Do not infer CI success from documentation, a stale PR description, or a different commit.
