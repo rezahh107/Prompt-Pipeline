@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -77,12 +78,13 @@ jobs:
     timeout-minutes: 15
     env:
       TESTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout exact tested commit
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ env.TESTED_SHA }}
-          fetch-depth: 1
+          fetch-depth: 0
           persist-credentials: false
       - name: Verify exact tested commit identity
         run: |
