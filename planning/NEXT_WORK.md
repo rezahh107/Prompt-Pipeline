@@ -1,68 +1,64 @@
 # Next Work — Prompt Quality and Migration Program
 
-This file is the **single mutable current-status authority** for the Prompt Quality and Migration execution program. The machine-readable v1 program remains normative for task identities, dependencies and derived eligibility until a replacement governance model is merged.
+This file is the **sole mutable current-status authority** for the Prompt Quality and Migration execution program.
+
+The machine-readable v2 program defines Task IDs, titles, purposes, dependencies, Task state, and completion-evidence policy. Git and GitHub remain authoritative for repository identity, commits, ancestry, pull requests, workflow runs, and checks.
 
 <!-- prompt-quality-status:start -->
 ```json
 {
   "active_program": "PROMPT-QUALITY-MIGRATION-EXECUTION-PROGRAM",
-  "authoritative_activation_state": "candidate_pending_merge",
-  "current_status_authority": "planning/NEXT_WORK.md",
-  "durable_execution_plan_authority": "planning/PROMPT_QUALITY_EXECUTION_PLAN.md",
-  "machine_readable_program_authority": "planning/prompt-quality/prompt-quality-execution-program.v1.json",
-  "current_immediately_executable_task": "PPQR-001",
-  "dependency_blocked_tasks": [
-    "PPQR-002",
-    "PPQR-003",
-    "PPQR-004",
-    "PPQR-005",
-    "PPQR-006",
-    "PPQR-007",
-    "PPQR-008",
-    "PPQR-009",
-    "PPQR-010",
-    "PPQR-011",
-    "PPQR-012",
-    "PPQR-013",
-    "PPQR-014",
-    "PPQR-015"
-  ],
-  "quality_promotion_effect": false,
-  "migration_promotion_effect": "none",
-  "production_authority_effect": "none",
-  "activation_validation_state": "validated_exact_head",
-  "merge_state": "merged",
-  "exact_main_state": "pending_formal_v1_reconciliation",
-  "observed_activation_pull_request": 29,
-  "observed_activation_pr_head": "c028f7009909fa57ef55ff0a922477f0c32ef484",
-  "observed_activation_merge_commit": "e3f98e007bba01ba02310b01377f617c94ca8b09",
-  "observed_runtime_pull_request": 32,
-  "observed_runtime_pr_head": "abfa6fbde9225721a83bec5919cf52d10a0fb93c",
-  "observed_main_head_at_reconciliation_start": "a0e2210e6e921942abc206f0fdc70c023881c266",
-  "latest_impact": "planning/prompt-quality/impacts/0001-PROMPT-QUALITY-PROGRAM-ACTIVATION.json",
-  "current_scope": "planning/prompt-quality/scopes/POST-MERGE-DOCUMENTATION-RECONCILIATION.scope.json"
+  "operating_model": "BALANCED_PERSONAL_REPOSITORY",
+  "current_task": "PPQR-001",
+  "task_status": "not_started",
+  "blocked_by": [],
+  "last_completed_task": null,
+  "next_action": "After PR #31 receives fresh exact-Head review and the owner makes the separate Merge decision, implement PPQR-001 in a focused change."
 }
 ```
 <!-- prompt-quality-status:end -->
 
 ## Current decision
 
-The repository facts and the legacy v1 administrative state are now reported separately:
+`PPQR-001 — Program Ledger and Legacy Quality Baseline` is the next eligible substantive Task. It has not started and is not implemented by the governance-simplification change.
 
-- Prompt Quality activation PR #29 was merged into `main` as `e3f98e007bba01ba02310b01377f617c94ca8b09` after successful exact-Head CI on `c028f7009909fa57ef55ff0a922477f0c32ef484`.
-- Runtime Authority PR #32 was merged into `main` as `a0e2210e6e921942abc206f0fdc70c023881c266` after successful exact-Head CI on `abfa6fbde9225721a83bec5919cf52d10a0fb93c`.
-- The machine-readable v1 program still carries its historical `candidate_pending_merge` activation field. This maintenance change does not fabricate missing v1 lifecycle receipts or rewrite append-only history.
-- PR #31 remains a separate, unmodified proposal to replace the heavy v1 administrative model. Its eventual disposition is not decided by this documentation reconciliation.
+`PPQR-002` through `PPQR-015` remain governed by the exact dependency graph in:
 
-No quality credit, migration promotion, production-authority change, release-readiness claim, production-readiness claim or legacy-retirement effect is created by the observed merges or by this maintenance change.
+```text
+planning/prompt-quality/prompt-quality-execution-program.v2.json
+```
+
+The balanced model retires active v1 receipt, lifecycle, impact-hash, immutable-Scope, owner-Merge-lock, and post-Merge reconciliation ceremonies. Historical v1 records remain read-only and are not prerequisites for substantive work.
+
+## Preserved repository facts
+
+- Prompt Quality activation PR #29 was merged as `e3f98e007bba01ba02310b01377f617c94ca8b09` after exact-Head CI on `c028f7009909fa57ef55ff0a922477f0c32ef484`.
+- Runtime Authority PR #32 was merged as `a0e2210e6e921942abc206f0fdc70c023881c266` after exact-Head CI on `abfa6fbde9225721a83bec5919cf52d10a0fb93c`.
+- Runtime documentation reconciliation PR #33 was merged as `c3f496180e117991bb1514b0c0c4a9ca6badcf95` from exact Head `f46f73767374de024ef1356725e9ce76f8ea5306`.
+- PR #31 applies the balanced governance model on top of that current-main tree. It does not remove or weaken Runtime Authority implementation, commands, schemas, tests, workflow stages, documentation, or vendored PR-Inspector compatibility.
+
+No quality credit, migration promotion, production-authority change, release-readiness claim, production-readiness claim, or legacy-retirement effect is created by this governance change.
+
+## Trusted completion evidence
+
+A Task whose persisted `state` is `complete` is not authoritatively complete merely because its `completion_validation` object is schema-valid.
+
+Authoritative completion requires trusted normalized evidence proving:
+
+- repository identity is `rezahh107/Prompt-Pipeline`;
+- the claimed commit exists;
+- the claimed commit is the validation Head or its ancestor;
+- the referenced canonical GitHub Actions run belongs to this repository;
+- the run Head SHA equals the claimed commit;
+- the allowed `CI` workflow and `PEaC canonical exact-head CI` job completed successfully.
+
+Local validation remains useful reporting evidence but cannot unlock dependent Tasks. A previously verified completion remains valid on a later descendant Head when the exact-SHA canonical workflow evidence remains valid.
 
 ## Registered architecture amendment
 
-`Repository Implementation Assurance Lite` is registered as bounded future work inside the existing `PPQR-001` through `PPQR-015` sequence. It is an adaptive cross-cutting profile, not a new domain, not a sixteenth task, and not a target-repository enforcement platform.
+`Repository Implementation Assurance Lite` remains registered as bounded future work inside the existing `PPQR-001` through `PPQR-015` sequence. It is an adaptive cross-cutting profile, not a new domain, not a sixteenth task, and not a target-repository enforcement platform.
 
-The future pilot is limited to one linked `assurance-lite.yaml` artifact beside the implementation prompt, structural validation inside Prompt-Pipeline, required implementer reporting, and downstream independent review by `PR-Inspector`. It remains non-authoritative and non-blocking until `PPQR-010` demonstrates measurable defect reduction after accounting for token, execution, review and cycle-time overhead.
-
-This registration implements no Assurance Lite runtime schema, renderer, routing behavior, model execution, target-repository gate, semantic judge, migration promotion, or substantive `PPQR` deliverable. The registration itself is schema-constrained and synchronized below for governance validation.
+The future pilot is limited to one linked `assurance-lite.yaml` artifact beside the implementation prompt, structural validation inside Prompt-Pipeline, required implementer reporting, and downstream independent review by `PR-Inspector`. It remains non-authoritative and non-blocking until `PPQR-010` demonstrates measurable defect reduction after accounting for token, execution, review, and cycle-time overhead.
 
 <!-- repository-implementation-assurance-lite:start -->
 ```json
@@ -169,12 +165,17 @@ This registration implements no Assurance Lite runtime schema, renderer, routing
 ```
 <!-- repository-implementation-assurance-lite:end -->
 
-## Exact next executable task
+## Validation reporting
 
-`PPQR-001 — Program Ledger and Legacy Quality Baseline`
+Every validation claim must identify the tested commit and the commands actually executed:
 
-`PPQR-001` remains the only dependency-free substantive task. `PPQR-002` through `PPQR-015` remain registered and authorized but dependency-blocked until their declared predecessors are complete.
+```yaml
+validation_status: passed | failed | not_run | unavailable
+tested_commit: <sha-or-null>
+source: github_actions | local | unavailable
+commands:
+  - <executed-command>
+ci_run_reference: <run-id-or-null>
+```
 
-## Completion boundary
-
-A feature branch or successful CI run does not by itself make a substantive task complete. The active v1 machine program and any future replacement governance model determine formal task completion. Observed GitHub Merge facts must not be silently rewritten into missing historical lifecycle evidence.
+Do not infer CI success from documentation, a stale PR description, or a different commit.
