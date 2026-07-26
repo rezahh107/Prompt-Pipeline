@@ -1,19 +1,63 @@
 # Prompt Quality Completion Closure
 
-## Authority
+<!-- completion-authority-contract.v1|task_fields=completion_contract,completion_validation|contract_fields=contract_id,contract_version,task_id,required_changed_paths,required_artifact_paths,required_validation_script_ids,forbidden_changed_paths|claim_fields=validation_status,tested_commit,source,validation_profile,ci_run_reference|authority_sequence=closure>subject>authority_anchor>authority_blobs>preactivated_contract>contract_satisfaction>subject_profile>anchor_ci>subject_ci -->
 
-A persisted `completion_validation` object is a consistency assertion. It does not select the authoritative commit, execution profile, or GitHub Actions run.
+## Authority sequence
 
-For every Task whose state is `complete`, the validator derives authority from Git history:
+A persisted `completion_validation` object is a consistency assertion. It does not select the authoritative commit, authority definition, Task contract, execution profile, or GitHub Actions run.
 
-1. Find the unique first commit where that Task changes from a non-complete state to `complete`.
-2. Treat that commit as the **closure commit**.
-3. Require the closure to have exactly one parent.
-4. Treat the direct parent as the only valid **completion subject**.
-5. Derive and verify the subject's validator-owned canonical execution profile.
-6. Require canonical GitHub Actions evidence whose exact Head SHA is that subject.
+For every Task whose state is `complete`, the validator derives authority from Git history in this exact order:
 
-The persisted `tested_commit`, `validation_profile`, and `ci_run_reference` must equal the derived subject, the validator-owned profile identifier, and the uniquely accepted canonical run. They cannot select another ancestor, redefine the profile, or select another successful run.
+1. Find the unique first commit where that Task changes from non-complete to `complete`; this is the **closure commit**.
+2. Require the closure to have exactly one parent; that direct parent is the **completion subject**.
+3. Require the subject to have a first parent; that first parent is the **authority anchor**.
+4. Load the completion-authority inventory from the anchor and require every listed regular-file blob to be identical between anchor and subject.
+5. Load the Task's non-null `completion_contract` from the anchor and require it to remain identical in subject, closure, and validation Head.
+6. Require the subject first-parent delta and subject tree to satisfy the contract.
+7. Validate the subject's canonical `peac-canonical-ci.v1` profile.
+8. Require successful canonical exact-SHA CI for the authority anchor.
+9. Require successful canonical exact-SHA CI for the completion subject.
+
+The persisted `tested_commit`, `validation_profile`, and `ci_run_reference` must match the derived subject, fixed profile identifier, and uniquely accepted subject run. They cannot select an older ancestor, redefine authority, or select another successful run.
+
+## Authority inventory boundary
+
+The inventory is declared in `scripts/prompt-quality-program/evidence.mjs` at the authority anchor and includes at least:
+
+```text
+scripts/prompt-quality-program/core.mjs
+scripts/prompt-quality-program/evidence.mjs
+scripts/prompt-quality-program/program.mjs
+scripts/peac-prompt-quality-program.mjs
+scripts/peac-prompt-quality-program-self-test.mjs
+planning/prompt-quality/schemas/prompt-quality-execution-program.v2.schema.json
+package.json
+.github/workflows/ci.yml
+```
+
+A completing subject may not add, remove, replace, or mutate any authority-inventory path. A legitimate authority revision must be an earlier non-completion commit, receive canonical exact-SHA CI, and then serve as or precede the later subject's authority anchor. Green subject CI does not excuse authority drift.
+
+## Task completion contract
+
+Every v2 Task contains Schema-required `completion_contract` and `completion_validation` fields. `completion_contract` may be `null` before activation. A completed Task requires a non-null contract already present at the authority anchor.
+
+The contract has exactly:
+
+```text
+contract_id
+contract_version
+task_id
+required_changed_paths
+required_artifact_paths
+required_validation_script_ids
+forbidden_changed_paths
+```
+
+The contract must be non-vacuous, Task-matched, and repository-relative. `required_changed_paths` must appear in the authority-anchor-to-subject first-parent delta. `required_artifact_paths` must exist as regular files in the subject tree. `required_validation_script_ids` must be bindings verified by the canonical profile. `forbidden_changed_paths` must not appear in the first-parent delta.
+
+A contract created or changed by the completing subject is invalid. A contract changed by the closure or a later descendant invalidates completion. Required changes or artifacts present only in another Merge parent are insufficient.
+
+All current `PPQR-001` through `PPQR-015` contracts remain `null`; this repair does not complete or activate a Task contract.
 
 ## Closure boundary
 
@@ -24,7 +68,7 @@ planning/prompt-quality/prompt-quality-execution-program.v2.json
 planning/NEXT_WORK.md
 ```
 
-Within the program, only one Task may transition to `complete`, and only its `state` and `completion_validation` fields may change.
+Within the program, only one Task may transition to `complete`, and only its `state` and `completion_validation` fields may change. `completion_contract` must remain unchanged.
 
 Within `planning/NEXT_WORK.md`, text outside the bounded status block must remain unchanged. Changes inside the block are limited to:
 
@@ -36,85 +80,39 @@ last_completed_task
 next_action
 ```
 
-`last_completed_task` must become the completed Task ID.
+`last_completed_task` must become the completed Task ID. A closure containing implementation, schema, workflow, test, architecture-plan, contract activation, or unrelated Task changes is invalid.
 
-The subject commit must contain at least one change outside those two bookkeeping paths. A closure containing implementation, schema, workflow, test, architecture-plan, or unrelated Task changes is invalid.
+## First-parent subject semantics
 
-## Subject tree comparison
+A zero-parent subject is rejected. A one-parent subject is compared with its only parent. A multi-parent Merge subject is compared only with its first parent. The validator does not union paths across parents and does not treat a Merge commit as automatically substantive.
 
-Subject scope is derived from Git parentage and trees:
-
-- a zero-parent subject is rejected because no predecessor tree is available;
-- a one-parent subject is compared with its only parent;
-- a multi-parent merge subject is compared only with its first parent.
-
-The validator does not use bare merge `diff-tree` output and does not union paths across parents. A substantive path that exists only in another merge parent cannot satisfy the subject-scope requirement when it is absent from the first-parent-to-subject tree difference.
-
-The closure remains a single-parent direct child of the subject regardless of whether the subject itself is a normal commit or a merge commit.
+The subject must satisfy its activated contract through this first-parent delta. An unrelated non-bookkeeping change is not sufficient.
 
 ## Validator-owned canonical profile
 
-`peac-canonical-ci.v1` is defined by the Prompt Quality validator. The subject versions of `.github/workflows/ci.yml` and `package.json` are candidate implementations of that profile; they are not profile authorities.
+`peac-canonical-ci.v1` remains defined by the Prompt Quality validator. The subject versions of `.github/workflows/ci.yml` and `package.json` are candidate implementations checked against the anchor-owned authority blobs and the normalized profile; they are not independent authorities.
 
-The package profile requires:
-
-- `scripts.ci` to be a closed, ordered `&&` chain;
-- the exact required typecheck, runtime CLI, self, router, domain, intake, validation, evaluation, output-contract, behavioral, production, human-review, model, context, artifact, provenance, Runtime Authority, Prompt Quality, renderer, bundle, and smoke stages;
-- validator-owned bindings for the scripts invoked by that chain;
-- smoke execution with `--mode ci`;
-- no alternate shell control operator or success-suppression mechanism.
-
-The canonical workflow profile requires:
-
-- job name `PEaC canonical exact-head CI`;
-- checkout of `${{ env.TESTED_SHA }}` with complete history;
-- mechanical verification that checked-out `HEAD` equals `TESTED_SHA`;
-- `pnpm install --frozen-lockfile`;
-- blocking renderer test and renderer pack-check commands;
-- blocking `pnpm run ci` execution;
-- explicit bundle-output verification;
-- no `continue-on-error`, `|| true`, `set +e`, terminal `true`, or equivalent failure suppression in required steps.
-
-A same-name green workflow does not authorize completion when the subject profile is missing, unparsable, weakened, bypassed, or otherwise different from the validator-owned v1 semantics. A materially different future topology requires an intentional new profile version or an explicit validator-owned revision.
+The profile preserves the closed ordered `scripts.ci` chain, exact script bindings, Runtime Authority, Prompt Quality validation, renderer checks, bundle checks, smoke `--mode ci`, exact checkout, frozen install, blocking execution, and rejection of failure suppression.
 
 ## Canonical run evidence
 
-After subject profile validation succeeds, the derived subject requires exactly one accepted run with:
+After local authority, contract, and profile checks succeed, the adapter derives canonical runs by exact SHA. Both anchor and subject runs must belong to `rezahh107/Prompt-Pipeline`, workflow ID `302284939`, workflow name `CI`, and successful job `PEaC canonical exact-head CI`.
 
-```yaml
-repository: rezahh107/Prompt-Pipeline
-workflow_id: 302284939
-workflow_name: CI
-job_name: PEaC canonical exact-head CI
-run_status: completed
-run_conclusion: success
-job_status: completed
-job_conclusion: success
-head_sha: <derived direct-parent subject>
-validation_profile: peac-canonical-ci.v1
-```
-
-The adapter queries runs by the derived subject SHA. It does not fetch a run selected by `ci_run_reference`, and run success cannot replace profile validation.
+The adapter queries by derived SHAs. It does not fetch a run selected by `ci_run_reference`. Anchor success does not replace subject success, and subject success does not replace authority or contract validation.
 
 ## Descendant behavior
 
-A valid historical completion remains authoritative on ordinary descendant Heads when:
-
-- the closure remains an ancestor;
-- the completed Task object and completion assertion remain byte-equivalent in parsed JSON meaning;
-- the first transition history is unchanged;
-- the subject profile remains valid at the exact historical subject;
-- the canonical exact-subject evidence remains valid.
-
-A later mutation of the completed Task or its assertion invalidates completion with `PQG_COMPLETION_HISTORY_DRIFT`.
+A valid historical completion remains authoritative on ordinary descendant Heads when closure ancestry, anchor and subject identities, authority blobs, contract, subject profile, anchor run, subject run, and completed Task data remain valid. A later legitimate authority revision does not invalidate an earlier completion when it does not mutate that historical Task or contract.
 
 ## Non-authoritative mechanisms
 
 The following do not authorize completion:
 
-- arbitrary older successful ancestor runs;
-- a profile label without matching subject topology;
-- workflow or job names without parsed profile validation;
+- arbitrary repository changes;
+- Task purpose prose without a preactivated contract;
+- contract activation by the completing subject;
+- a profile label without matching anchor-owned topology;
+- workflow or job names without exact-SHA evidence;
 - local-only validation;
 - free-form command strings;
 - raw GitHub payload files;
