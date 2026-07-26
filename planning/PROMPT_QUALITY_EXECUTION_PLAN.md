@@ -1,5 +1,7 @@
 # Prompt Quality and Migration Execution Plan
 
+<!-- completion-authority-contract.v1|task_fields=completion_contract,completion_validation|contract_fields=contract_id,contract_version,task_id,required_changed_paths,required_artifact_paths,required_validation_script_ids,forbidden_changed_paths|claim_fields=validation_status,tested_commit,source,validation_profile,ci_run_reference|authority_sequence=closure>subject>authority_anchor>authority_blobs>preactivated_contract>contract_satisfaction>subject_profile>anchor_ci>subject_ci -->
+
 ## Authority boundary
 
 This document is the durable architecture, rationale, sequencing, and policy authority. It does not carry mutable Task status.
@@ -48,28 +50,43 @@ Canonical CI continues to enforce:
 - PR-Inspector renderer and pack checks;
 - bundle and smoke checks.
 
-## Trusted Task-completion evidence
+## Trusted Task-completion authority
 
-Persisted `completion_validation` values are claims. They do not independently authorize completion.
+Persisted `completion_validation` values are claims. They do not independently authorize completion. Every Task has a Schema-required `completion_contract` field, which may remain `null` before activation.
 
-The pure v2 validator consumes a normalized trusted context. The GitHub/Git adapter is separate and supplies that context only from live repository facts.
+For every completed Task, the pure validator consumes normalized trusted evidence derived in this exact order:
 
-For every Task whose state is `complete`, authoritative evidence must prove:
+1. unique first non-complete-to-complete closure;
+2. single-parent direct completion subject;
+3. subject first-parent authority anchor;
+4. anchor-owned completion-authority inventory and unchanged authority blobs;
+5. non-null Task contract already present at the anchor and unchanged through subject, closure, and validation Head;
+6. contract satisfaction through the authority-anchor-to-subject first-parent delta and subject tree;
+7. validator-owned canonical subject profile;
+8. successful canonical exact-SHA authority-anchor run;
+9. successful canonical exact-SHA subject run.
 
-1. the claim source is `github_actions`, not local-only;
-2. the tested commit exists in `rezahh107/Prompt-Pipeline`;
-3. the tested commit is the current validation Head or its ancestor;
-4. the referenced run belongs to this repository;
-5. the run uses the allowed `CI` workflow;
-6. the run completed successfully;
-7. the run Head SHA equals the claimed tested commit;
-8. the canonical `PEaC canonical exact-head CI` job completed successfully.
+The authority inventory includes the Prompt Quality core, evidence adapter, validator, CLI entrypoint, focused self-test, active v2 Schema, `package.json`, and canonical workflow. A completing subject may not change any listed path. A legitimate authority revision or Task-contract activation must occur in an earlier separate non-completion commit and pass canonical exact-SHA CI before a later subject relies on it.
 
-Missing, malformed, inaccessible, failed, cancelled, queued, stale, wrong-repository, wrong-workflow, wrong-job, or wrong-SHA evidence fails closed with stable `PQG_*` diagnostics.
+A non-null `completion_contract` contains exactly:
 
-Local execution may support development reporting but cannot unlock dependent Tasks. Historical exact-SHA completion remains valid on descendant Heads; current Head equality is not required for every historical completion.
+```text
+contract_id
+contract_version
+task_id
+required_changed_paths
+required_artifact_paths
+required_validation_script_ids
+forbidden_changed_paths
+```
 
-No raw GitHub payload is persisted as authority. No receipt, replay, lifecycle, owner-identity, or hash-chain model is reintroduced.
+Required changed paths must appear in the first-parent subject delta; required artifacts must exist as regular files in the subject tree; required validation script IDs must be bindings verified by `peac-canonical-ci.v1`; forbidden paths must not change. Contract evidence present only in another Merge parent is insufficient. An unrelated successful repository change cannot complete a Task.
+
+`completion_validation` contains exactly `validation_status`, `tested_commit`, `source`, `validation_profile`, and `ci_run_reference`. No free-form commands field is authoritative or supported. Local execution may support development reporting but cannot unlock dependent Tasks.
+
+Missing anchor, authority drift, missing or mutated contract, unsatisfied predicates, invalid profile, unavailable exact-SHA run, wrong repository/workflow/job/SHA, or later Task/contract drift fails closed with stable `PQG_COMPLETION_*` diagnostics.
+
+No raw GitHub payload is persisted as authority. No receipt, replay, lifecycle, owner-identity, immutable-Scope, or hash-chain model is reintroduced.
 
 ## Invalid-root boundary
 
@@ -77,7 +94,7 @@ No raw GitHub payload is persisted as authority. No receipt, replay, lifecycle, 
 
 The guard returns `PQG_SCHEMA_INVALID`; it does not swallow exceptions or weaken required-property enforcement.
 
-`completion_validation` remains required on every Task. `last_completed_task` remains required in the bounded status object. Loose-null behavior is not used to accept missing fields.
+`completion_contract` and `completion_validation` remain required on every Task. `last_completed_task` remains required in the bounded status object. Loose-null behavior is not used to accept missing fields.
 
 ## Risk-based Scope and review
 
@@ -166,8 +183,8 @@ Prompt-Pipeline validation is structural only. Downstream independent review rem
 
 ## Registered Task sequence
 
-The exact titles, purposes, dependencies, states, and completion claims for `PPQR-001` through `PPQR-015` are normative in the v2 program.
+The exact titles, purposes, dependencies, states, completion contracts, and completion claims for `PPQR-001` through `PPQR-015` are normative in the v2 program.
 
-Eligibility is derived from both the declared dependency graph and authoritative completion evidence. A dependency with `state: complete` remains blocking unless its trusted completion evidence passes.
+Eligibility is derived from both the declared dependency graph and authoritative completion evidence. A dependency with `state: complete` remains blocking unless its preactivated Task contract, authority anchor, exact-SHA runs, and all other trusted evidence pass.
 
-Immediately after activation, only `PPQR-001` is eligible. `PPQR-002` through `PPQR-015` are dependency-blocked.
+Immediately after activation, all fifteen `completion_contract` values are `null`, all Task states are `not_started`, only `PPQR-001` is eligible, and `PPQR-002` through `PPQR-015` are dependency-blocked.
