@@ -1,4 +1,5 @@
 import {MODEL,N,P,PID,PS,REPO,d,eq,isRecord,json,schema,txt,uniq} from './core.mjs';
+import {CANONICAL_WORKFLOW,COMPLETION_PROFILE} from './evidence.mjs';
 
 export const IDS=Array.from({length:15},(_,index)=>`PPQR-${String(index+1).padStart(3,'0')}`);
 export const DEPS={
@@ -19,8 +20,7 @@ export const DEPS={
   'PPQR-015':['PPQR-014']
 };
 
-export const ALLOWED_WORKFLOW={id:302284939,name:'CI',job:'PEaC canonical exact-head CI'};
-
+export const ALLOWED_WORKFLOW=CANONICAL_WORKFLOW;
 export const taskMap=program=>new Map((isRecord(program)&&Array.isArray(program.tasks)?program.tasks:[]).map(task=>[task.task_id,task]));
 
 function completionDiagnostic(code,message,task){
@@ -32,25 +32,36 @@ export function completionDiagnostics(task,context={}){
   const claim=task.completion_validation;
   if(!isRecord(claim))return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_MISSING','completed Task has no completion claim',task)];
   if(claim.source!=='github_actions')return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_NOT_AUTHORITATIVE','local-only completion evidence cannot authorize Task completion',task)];
+  if(claim.validation_profile!==COMPLETION_PROFILE)return[completionDiagnostic('PQG_COMPLETION_PROFILE_INVALID','completion claim does not use the fixed canonical validation profile',task)];
   if(context?.trusted!==true)return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_NOT_AUTHORITATIVE','trusted GitHub Actions evidence context is unavailable',task)];
   if(context.repository!==REPO)return[completionDiagnostic('PQG_COMPLETION_REPOSITORY_MISMATCH','trusted evidence context belongs to another repository',task)];
 
   const evidence=context.completions?.[task.task_id];
   if(!isRecord(evidence))return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_MISSING','trusted completion evidence is missing',task)];
   if(evidence.repository!==REPO)return[completionDiagnostic('PQG_COMPLETION_REPOSITORY_MISMATCH','completion evidence belongs to another repository',task)];
-  if(evidence.tested_commit!==claim.tested_commit)return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_MISMATCH','trusted evidence is bound to a different claimed commit',task)];
-  if(evidence.commit_exists!==true)return[completionDiagnostic('PQG_COMPLETION_COMMIT_NOT_FOUND','claimed completion commit does not exist in this repository',task)];
-  if(evidence.is_ancestor_of_validation_head!==true)return[completionDiagnostic('PQG_COMPLETION_COMMIT_NOT_ANCESTOR','claimed completion commit is not the validation Head or its ancestor',task)];
+  if(evidence.history_available!==true)return[completionDiagnostic('PQG_COMPLETION_HISTORY_UNAVAILABLE','completion-transition history is unavailable',task)];
+  if(evidence.transition_count!==1)return[completionDiagnostic('PQG_COMPLETION_TRANSITION_INVALID','Task must have exactly one first non-complete to complete transition',task)];
+  if(evidence.closure_parent_count!==1)return[completionDiagnostic('PQG_COMPLETION_CLOSURE_PARENT_INVALID','completion closure must have exactly one parent',task)];
+  if(evidence.closure_is_ancestor_of_validation_head!==true)return[completionDiagnostic('PQG_COMPLETION_CLOSURE_NOT_ANCESTOR','completion closure is not the validation Head or its ancestor',task)];
+  if(evidence.subject_commit_exists!==true)return[completionDiagnostic('PQG_COMPLETION_COMMIT_NOT_FOUND','derived completion subject commit does not exist',task)];
+  if(claim.tested_commit!==evidence.subject_commit)return[completionDiagnostic('PQG_COMPLETION_SUBJECT_NOT_PARENT','tested_commit must equal the completion closure direct parent',task)];
+  if(evidence.subject_task_was_complete===true||!eq(evidence.transitioned_task_ids,[task.task_id])){
+    return[completionDiagnostic('PQG_COMPLETION_TRANSITION_INVALID','closure must complete exactly one previously non-complete Task',task)];
+  }
+  if(evidence.closure_scope_valid!==true)return[completionDiagnostic('PQG_COMPLETION_CLOSURE_SCOPE_INVALID','closure must change only the exact completion and synchronized status metadata',task)];
+  if(evidence.subject_has_non_closure_change!==true)return[completionDiagnostic('PQG_COMPLETION_SUBJECT_SCOPE_INVALID','completion subject must contain a non-bookkeeping implementation change',task)];
+  if(evidence.history_drift===true)return[completionDiagnostic('PQG_COMPLETION_HISTORY_DRIFT','completed Task or completion assertion changed after its closure',task)];
   if(evidence.unavailable_reason)return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_UNAVAILABLE',`trusted evidence unavailable: ${evidence.unavailable_reason}`,task)];
+  if(evidence.accepted_run_count>1)return[completionDiagnostic('PQG_COMPLETION_RUN_AMBIGUOUS','more than one canonical successful run was derived for the completion subject',task)];
 
   const run=evidence.workflow_run;
   if(!isRecord(run))return[completionDiagnostic('PQG_COMPLETION_EVIDENCE_MISSING','canonical workflow-run evidence is missing',task)];
   if(run.repository!==REPO)return[completionDiagnostic('PQG_COMPLETION_REPOSITORY_MISMATCH','workflow run belongs to another repository',task)];
-  if(run.run_id!==claim.ci_run_reference)return[completionDiagnostic('PQG_COMPLETION_RUN_REFERENCE_MISMATCH','workflow run does not match ci_run_reference',task)];
   if(run.workflow_id!==ALLOWED_WORKFLOW.id||run.workflow_name!==ALLOWED_WORKFLOW.name)return[completionDiagnostic('PQG_COMPLETION_WORKFLOW_INVALID','workflow identity is not the allowed canonical CI workflow',task)];
   if(run.status!=='completed')return[completionDiagnostic('PQG_COMPLETION_RUN_INCOMPLETE','canonical workflow run is not completed',task)];
   if(run.conclusion!=='success')return[completionDiagnostic('PQG_COMPLETION_RUN_FAILED',`canonical workflow run conclusion is ${run.conclusion||'missing'}`,task)];
-  if(run.head_sha!==claim.tested_commit)return[completionDiagnostic('PQG_COMPLETION_RUN_SHA_MISMATCH','canonical workflow run Head SHA differs from the completion claim',task)];
+  if(run.head_sha!==evidence.subject_commit)return[completionDiagnostic('PQG_COMPLETION_RUN_SHA_MISMATCH','canonical workflow run Head SHA differs from the derived completion subject',task)];
+  if(run.run_id!==claim.ci_run_reference)return[completionDiagnostic('PQG_COMPLETION_RUN_REFERENCE_MISMATCH','ci_run_reference differs from the uniquely derived canonical run',task)];
 
   const job=(Array.isArray(run.jobs)?run.jobs:[]).find(item=>item?.name===ALLOWED_WORKFLOW.job);
   if(!job)return[completionDiagnostic('PQG_COMPLETION_JOB_MISSING','canonical CI job is missing from the workflow run',task)];
@@ -60,11 +71,7 @@ export function completionDiagnostics(task,context={}){
 }
 
 export const isAuthoritativelyComplete=(task,context={})=>isRecord(task)&&task.state==='complete'&&completionDiagnostics(task,context).length===0;
-
-export const dependencyBlockers=(task,map,context={})=>(task?.depends_on||[])
-  .filter(id=>!isAuthoritativelyComplete(map.get(id),context))
-  .sort();
-
+export const dependencyBlockers=(task,map,context={})=>(task?.depends_on||[]).filter(id=>!isAuthoritativelyComplete(map.get(id),context)).sort();
 export const eligibility=(task,map,context={})=>{
   if(!isRecord(task))return'invalid';
   if(task.state==='complete')return isAuthoritativelyComplete(task,context)?'complete':'invalid';
