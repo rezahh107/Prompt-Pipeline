@@ -9,7 +9,7 @@ import {
   sha256Json,
 } from './runtime-authority-foundation.js';
 import { completeRuntimeAssessmentInternal } from './runtime-authority-execution.js';
-import { verifyArtifactForReviewInternal } from './runtime-authority-verification-facts.js';
+import { verifyArtifactForReviewInternal } from './runtime-authority-verification.js';
 
 export * from './runtime-authority.js';
 
@@ -72,7 +72,7 @@ export function reviewArtifact(
   };
   const { envelope_sha256: _previousEnvelopeSha256, ...baseEnvelope } = envelope;
   const withoutEnvelopeDigest = { ...baseEnvelope, authorization };
-  const reviewed: RuntimeArtifactEnvelope = { ...withoutEnvelopeDigest, envelope_sha256: sha256Json(withoutEnvelopeDigest) };
+  const reviewed = { ...withoutEnvelopeDigest, envelope_sha256: sha256Json(withoutEnvelopeDigest) } as RuntimeArtifactEnvelope;
   const outputPath = join(
     authorityDirectory(config, expectedState),
     `${verified.canonicalPromptIdentity.promptId.replaceAll('.', '-')}-${envelope.artifact_sha256.slice(0, 16)}.yaml`,
