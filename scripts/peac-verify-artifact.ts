@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import yaml from 'js-yaml';
 import { parseArgs } from '../src/peac.js';
-import { verifyArtifact } from '../src/runtime-authority-api.js';
+import { verifyRuntimeArtifact } from '../src/runtime-authority-api.js';
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help === true) {
@@ -14,6 +14,6 @@ if (!artifactPath) {
   console.error('Artifact path is required.');
   process.exit(1);
 }
-const result = verifyArtifact(artifactPath);
+const result = verifyRuntimeArtifact(artifactPath);
 console.log(yaml.dump(result, { lineWidth: 120, noRefs: true }));
 if (result.verification_status !== 'verified') process.exit(1);
