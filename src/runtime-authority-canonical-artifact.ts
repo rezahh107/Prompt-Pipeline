@@ -18,6 +18,7 @@ import {
   parseDataFile,
   sha256Json,
   sha256Text,
+  walkFiles,
 } from './runtime-authority-foundation.js';
 import { compileRuntimePlan } from './runtime-authority-payload-policy.js';
 import {
@@ -237,10 +238,34 @@ export function isRecord(value: unknown): value is Dict {
 
 export function canonicalExpectedSourcePaths(
   plan: RuntimePlanAssessment,
-  _identity: CanonicalPromptIdentity,
-  _config: PEaCConfig,
+  identity: CanonicalPromptIdentity,
+  config: PEaCConfig,
 ): string[] {
-  return [...new Set(plan.governingSources.map((source) => source.path))].sort();
+  const delegated = delegatedTargetFromPlan(plan);
+  const delegatedSources = delegated && Array.isArray(delegated.governing_sources)
+    ? delegated.governing_sources
+        .filter((item): item is Dict => isRecord(item) && typeof item.path === 'string')
+        .map((item) => String(item.path))
+    : [];
+  const paths = new Set<string>([
+    'peac.config.yaml',
+    join(config.pipeline_path, 'intake.schema.json'),
+    join(config.pipeline_path, 'artifact.schema.json'),
+    join(config.pipeline_path, delegated ? 'runtime-artifact.v2.schema.json' : 'runtime-artifact.schema.json'),
+    join(config.pipeline_path, 'quality-gates.yaml'),
+    join(config.pipeline_path, 'context-policy.yaml'),
+    join(config.pipeline_path, 'model-profiles.yaml'),
+    plan.contract.source_path,
+    join(config.domains_path, plan.routing.domain, 'route.yaml'),
+    join(config.domains_path, plan.routing.domain, 'rules.yaml'),
+    join(config.domains_path, plan.routing.domain, 'validators.yaml'),
+    identity.templatePath ?? '',
+    ...plan.policies.applied.map((record) => record.source_path),
+    ...plan.rules.applied.map((record) => record.source_path),
+    ...delegatedSources,
+    ...walkFiles('evals').filter((path) => /\.ya?ml$/.test(path)),
+  ].filter(Boolean));
+  return [...paths].sort();
 }
 
 function rawIntakeFromRequestArgument(value: string): unknown {
