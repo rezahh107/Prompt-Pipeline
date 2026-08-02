@@ -45,7 +45,7 @@ export function buildCanonicalDerivedProjection(
   const normalized = generationPlan.intake.normalized_inputs;
   const sources = [...plan.governingSources].sort((a, b) => a.path.localeCompare(b.path));
   const riskReview = deriveRiskReviewCompatibility(plan.risk);
-  return {
+  const base = {
     generationPlan,
     validationLedger: completed.validationLedger,
     compatibilityValidation: completed.compatibilityValidation,
@@ -73,6 +73,7 @@ export function buildCanonicalDerivedProjection(
     policiesApplied: policyProjection(completed),
     governingSources: sources,
     sourceHashes: { sources },
-    delegation: delegationProvenance(plan),
-  } as CanonicalDerivedProjection;
+  };
+  const delegation = delegationProvenance(plan);
+  return (delegation ? { ...base, delegation } : base) as CanonicalDerivedProjection;
 }
