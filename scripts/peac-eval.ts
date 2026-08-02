@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import yaml from 'js-yaml';
-import { loadConfig, type Dict } from '../src/peac.js';
+import { evaluateConditionForTest, loadConfig, type Dict } from '../src/peac.js';
 import { createFixtureEnvelope, generateArtifact } from '../src/runtime-authority-api.js';
 import { validatorDefinitions } from '../src/runtime-authority-plan.js';
 
@@ -42,11 +42,14 @@ function record(value: unknown): Dict { return value !== null && typeof value ==
 function arrayOfRecords(value: unknown): Dict[] { return Array.isArray(value) ? value.filter((item) => item !== null && typeof item === 'object' && !Array.isArray(item)) as Dict[] : []; }
 function normalizedPath(value: unknown): string { return String(value ?? '').replaceAll('\\', '/'); }
 
+const config = loadConfig();
+
 function assertCanonicalEvidence(caseFile: string, payload: Dict, failures: string[]): void {
   const derived = record(payload.derived_projection);
   const routing = record(derived.routing);
   const plan = record(derived.generationPlan);
   const contract = record(plan.contract);
+  const resolvedInputs = record(contract.resolved_inputs);
   const applicableRules = arrayOfRecords(record(plan.rules).applicable);
   const ledger = arrayOfRecords(derived.validationLedger);
   const identity = record(payload.canonical_prompt_identity);
@@ -58,9 +61,23 @@ function assertCanonicalEvidence(caseFile: string, payload: Dict, failures: stri
   if (!String(routing.method ?? '').trim()) failures.push(`${caseFile}: routing method is missing`);
   if (!String(contract.source_path ?? '').trim() || !String(contract.source_sha256 ?? '').trim()) failures.push(`${caseFile}: contract provenance is incomplete`);
   for (const rule of applicableRules) if (rule.execution_result !== 'applied') failures.push(`${caseFile}: applicable rule was not applied: ${String(rule.rule_id ?? '<missing>')}`);
-  for (const validatorId of validatorDefinitions(loadConfig(), domain).checks.map((check) => String(check.id ?? 'unnamed_check'))) {
+  for (const definition of validatorDefinitions(config, domain).checks) {
+    const validatorId = String(definition.id ?? 'unnamed_check');
     const observed = ledger.find((item) => String(item.check_id ?? '') === validatorId);
-    if (!observed || observed.executed !== true) failures.push(`${caseFile}: validator did not execute: ${validatorId}`);
+    if (!observed) {
+      failures.push(`${caseFile}: validator ledger record is missing: ${validatorId}`);
+      continue;
+    }
+    let expectedApplicable = true;
+    try {
+      expectedApplicable = definition.applies_when === undefined || evaluateConditionForTest(String(definition.applies_when), resolvedInputs);
+    } catch (error) {
+      failures.push(`${caseFile}: validator applicability evaluation failed for ${validatorId}: ${(error as Error).message}`);
+      continue;
+    }
+    if (observed.applicable !== expectedApplicable) failures.push(`${caseFile}: validator applicability mismatch: ${validatorId}`);
+    if (expectedApplicable && observed.executed !== true) failures.push(`${caseFile}: applicable validator did not execute: ${validatorId}`);
+    if (!expectedApplicable && observed.executed !== false) failures.push(`${caseFile}: non-applicable validator executed: ${validatorId}`);
   }
   const templatePath = normalizedPath(identity.templatePath);
   if (!templatePath) failures.push(`${caseFile}: canonical template identity is missing`);
@@ -69,7 +86,6 @@ function assertCanonicalEvidence(caseFile: string, payload: Dict, failures: stri
   if (templatePath && !sources.includes(templatePath)) failures.push(`${caseFile}: canonical template is absent from governing sources`);
 }
 
-const config = loadConfig();
 const rubrics = loadRubrics();
 if (rubrics.length === 0) { console.log('No PEaC rubrics found. Add evals/*.yaml to enable local rubric checks.'); process.exit(0); }
 const failures: string[] = [];
@@ -104,7 +120,7 @@ for (const caseFile of walkCases(config.domains_path)) {
       if (check.expected_contract_source && normalizedPath(check.expected_contract_source) !== normalizedPath(contract.source_path)) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} contract source mismatch`);
       if (check.expected_template_path && normalizedPath(check.expected_template_path) !== normalizedPath(identity.templatePath)) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} template path mismatch`);
       for (const ruleId of check.required_rule_ids ?? []) if (!rules.find((item) => String(item.rule_id ?? '') === ruleId && item.execution_result === 'applied')) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} missing applied rule ${ruleId}`);
-      for (const validatorId of check.required_validator_ids ?? []) if (!ledger.find((item) => String(item.check_id ?? '') === validatorId && item.executed === true)) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} missing executed validator ${validatorId}`);
+      for (const validatorId of check.required_validator_ids ?? []) if (!ledger.find((item) => String(item.check_id ?? '') === validatorId && item.applicable === true && item.executed === true)) failures.push(`${caseFile}: ${rubric.rubric_id}/${check.id} missing executed validator ${validatorId}`);
     }
   } catch (error) { failures.push(`${caseFile}: canonical generation failed: ${(error as Error).message}`); }
   finally { if (outputPath) rmSync(outputPath, { force: true }); }
