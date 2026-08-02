@@ -166,7 +166,9 @@ cases:
       no_target: true
       plan_version: generation-plan.v2
       artifact_schema: runtime-artifact-envelope.v1
-      risk: low
+      risk: unknown
+      review_required: true
+      authority_state: rejected
       template_suffix: prompt_generation/templates/master-prompt.j2
       verification_status: verified
 
@@ -190,7 +192,9 @@ cases:
   - id: D-11-UNRESOLVED-TARGET
     category: negative
     operation: compile_error
-    request: "Create a prompt for something entirely unspecified."
+    request: "Design a reusable prompt specification."
+    inputs:
+      target_request: something entirely unspecified
     expected:
       error_contains: did not resolve to a specialized target Domain
 
@@ -232,9 +236,11 @@ cases:
       target_subtype: repository_audit
       plan_version: generation-plan.v3
       artifact_schema: runtime-artifact-envelope.v2
-      risk: high
+      risk: unknown
+      target_risk: high
+      risk_at_least_target: true
       review_required: true
-      authority_state: review_pending
+      authority_state: rejected
       template_suffix: repo_review/templates/repository-audit.j2
       verification_status: verified
 
