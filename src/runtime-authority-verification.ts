@@ -74,7 +74,7 @@ function rawSchemaVersion(path: string): string | null {
   }
 }
 
-export function safeParseEnvelope(path: string): SafeEnvelopeParseResult {
+export function safeParseRuntimeEnvelope(path: string): SafeEnvelopeParseResult {
   if (rawSchemaVersion(path) !== 'runtime-artifact-envelope.v2') return safeParseEnvelopeV1(path);
   try {
     const value = parseDataFile(path);
@@ -132,7 +132,7 @@ function verifyV2Detailed(
   path: string,
   config: PEaCConfig,
 ): { result: VerificationResult; capability: VerifiedRuntimeCompletionInternal | null } {
-  const parsed = safeParseEnvelope(path);
+  const parsed = safeParseRuntimeEnvelope(path);
   if (!parsed.envelope) return { result: rejected(parsed.structuralDiagnostics), capability: null };
   const envelope = parsed.envelope;
   const diagnostics = schemaDiagnostics(envelope, config);
@@ -239,7 +239,7 @@ function verifyV2Detailed(
   return { result, capability };
 }
 
-export function verifyArtifact(path: string, configOverride?: PEaCConfig): VerificationResult {
+export function verifyRuntimeArtifact(path: string, configOverride?: PEaCConfig): VerificationResult {
   const config = configOverride ?? loadConfig();
   if (rawSchemaVersion(path) !== 'runtime-artifact-envelope.v2') return verifyArtifactV1(path, config);
   try {
@@ -250,7 +250,7 @@ export function verifyArtifact(path: string, configOverride?: PEaCConfig): Verif
 }
 
 /** @internal Official review API only. */
-export function verifyArtifactForReviewInternal(
+export function verifyRuntimeArtifactForReviewInternal(
   path: string,
   configOverride?: PEaCConfig,
 ): VerifiedRuntimeCompletionInternal {
