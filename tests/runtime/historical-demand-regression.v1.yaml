@@ -168,7 +168,7 @@ cases:
       artifact_schema: runtime-artifact-envelope.v1
       risk: unknown
       review_required: true
-      authority_state: rejected
+      authority_state: review_pending
       template_suffix: prompt_generation/templates/master-prompt.j2
       verification_status: verified
 
@@ -240,7 +240,7 @@ cases:
       target_risk: high
       risk_at_least_target: true
       review_required: true
-      authority_state: rejected
+      authority_state: review_pending
       template_suffix: repo_review/templates/repository-audit.j2
       verification_status: verified
 
