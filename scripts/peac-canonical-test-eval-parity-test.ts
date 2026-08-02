@@ -134,9 +134,12 @@ test('CANONICAL-VERSUS-LEGACY-COMPATIBILITY-FIXTURE', () => {
   const legacy = generateLegacyArtifact({ case: casePath, mode: 'ci' });
   generatedPaths.push(canonical.outputPath, legacy.outputPath);
   const payload = canonical.artifact.artifact as Dict;
+  const canonicalPrompt = String(payload.rendered_prompt ?? '');
+  const legacyPrompt = legacy.artifact.rendered_prompt.trim();
   expect(payload.domain === legacy.artifact.domain, 'legacy Domain differs from canonical Domain');
   expect(payload.subtype === legacy.artifact.subtype, 'legacy Subtype differs from canonical Subtype');
-  expect(String(payload.rendered_prompt) === legacy.artifact.rendered_prompt, 'legacy rendered prompt differs from canonical rendered prompt');
+  expect(canonicalPrompt.startsWith(legacyPrompt), 'canonical prompt does not preserve the legacy base render');
+  expect(canonicalPrompt.includes('## Runtime-enforced constraints'), 'canonical prompt lacks Runtime-owned enforcement after legacy rendering');
   expect(basename(String(record(payload.canonical_prompt_identity).templatePath)) === basename(legacy.artifact.provenance.template_used), 'legacy template differs from canonical template');
   expect(canonical.artifact.authorization.authority_state === 'non_authoritative_fixture', 'compatibility fixture gained authority');
 });
