@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, wri
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import yaml from 'js-yaml';
-import { generateArtifact as generateLegacyArtifact, loadConfig, type Dict, type PEaCConfig } from '../src/peac.js';
+import { evaluateConditionForTest, generateArtifact as generateLegacyArtifact, loadConfig, type Dict, type PEaCConfig } from '../src/peac.js';
 import { compileRuntimePlan, createFixtureEnvelope, createValidatedIntakeEnvelope, generateArtifact as generateCanonicalArtifact } from '../src/runtime-authority-api.js';
 import { validatorDefinitions } from '../src/runtime-authority-plan.js';
 import { validateActiveDomainRoutes } from '../src/runtime-authority-route-schema.js';
@@ -59,16 +59,22 @@ for (const sample of samples) test(`CANONICAL-SMOKE-${sample.domain}`, () => {
   const derived = record(payload.derived_projection);
   const plan = record(derived.generationPlan);
   const routing = record(derived.routing);
+  const contract = record(plan.contract);
+  const resolvedInputs = record(contract.resolved_inputs);
   const ledger = arrayOfRecords(derived.validationLedger);
   const identity = record(payload.canonical_prompt_identity);
   const provenance = record(payload.provenance);
   expect(String(routing.domain) === sample.domain, 'artifact routing Domain differs from canonical plan');
   expect(String(routing.subtype) === sample.subtype, 'artifact routing Subtype differs from canonical plan');
-  expect(String(record(plan.contract).source_path) === assessment.contract.source_path, 'artifact contract source differs from canonical plan');
+  expect(String(contract.source_path) === assessment.contract.source_path, 'artifact contract source differs from canonical plan');
   expect(resolve(String(identity.templatePath)) === resolve(String(provenance.template_used)), 'artifact template provenance differs from canonical identity');
-  for (const validatorId of validatorDefinitions(temporaryConfig, sample.domain).checks.map((check) => String(check.id ?? 'unnamed_check'))) {
-    const check = ledger.find((item) => String(item.check_id ?? '') === validatorId);
-    expect(check?.executed === true, `validator did not execute: ${sample.domain}.${validatorId}`);
+  for (const definition of validatorDefinitions(temporaryConfig, sample.domain).checks) {
+    const validatorId = String(definition.id ?? 'unnamed_check');
+    const observed = ledger.find((item) => String(item.check_id ?? '') === validatorId);
+    expect(observed, `validator ledger record missing: ${sample.domain}.${validatorId}`);
+    const expectedApplicable = definition.applies_when === undefined || evaluateConditionForTest(String(definition.applies_when), resolvedInputs);
+    expect(observed.applicable === expectedApplicable, `validator applicability differs: ${sample.domain}.${validatorId}`);
+    expect(expectedApplicable ? observed.executed === true : observed.executed === false, `validator execution state differs: ${sample.domain}.${validatorId}`);
   }
 });
 
@@ -83,6 +89,30 @@ test('ROUTING-BOUNDARY-FIXTURE', () => {
   expect(plan.routing.hint_conflict === true, 'routing boundary did not record hint conflict');
 });
 test('SUBTYPE-AMBIGUITY-FIXTURE', () => expectThrows(() => resolveSubtypeDefinitionForTest({ subtypes: [{ id: 'one', triggers: ['flag == true'], templates: { primary: 'one.j2' } }, { id: 'two', triggers: ['flag == true'], templates: { primary: 'two.j2' } }] }, { flag: true }), 'Multiple matching Subtypes'));
+
+test('DECLARED-FIXTURE-DOMAIN-IS-NON-AUTHORITATIVE', () => {
+  const fixturePath = 'domains/prompt_generation/cases/master-prompt-basic.yaml';
+  const result = generateCanonicalArtifact(createFixtureEnvelope(fixturePath), 'ci');
+  generatedPaths.push(result.outputPath);
+  const payload = result.artifact.artifact as Dict;
+  const routing = record(record(payload.derived_projection).routing);
+  expect(payload.domain === 'prompt_generation', `fixture description overrode declared Domain: ${String(payload.domain)}`);
+  expect(routing.method === 'fixture_declared_non_authoritative', 'fixture route was not explicitly marked non-authoritative');
+  expect(result.artifact.authorization.authority_state === 'non_authoritative_fixture', 'fixture gained authority');
+  expect(result.artifact.authorization.downstream_use_allowed === false, 'fixture allowed downstream use');
+});
+
+test('WARNING-COMBINATION-REMAINS-NONBLOCKING', () => {
+  const fixturePath = 'domains/repo_review/cases/irreversible-action-warning.yaml';
+  const result = generateCanonicalArtifact(createFixtureEnvelope(fixturePath), 'ci');
+  generatedPaths.push(result.outputPath);
+  const payload = result.artifact.artifact as Dict;
+  const ledger = arrayOfRecords(record(payload.derived_projection).validationLedger);
+  const warning = ledger.find((item) => String(item.check_id ?? '') === 'forbidden_combinations_clear');
+  expect(warning?.applicable === true && warning.executed === true, 'warning validator did not execute');
+  expect(warning?.blocking === false && warning.passed === false, 'warning-level combination was not preserved as nonblocking evidence');
+  expect(result.artifact.authorization.authority_state === 'non_authoritative_fixture', 'warning fixture gained authority');
+});
 
 function mutateRoute(domain: string, mutation: (route: Dict) => void): ReturnType<typeof validateActiveDomainRoutes> {
   const routePath = join(temporaryConfig.domains_path, domain, 'route.yaml');
