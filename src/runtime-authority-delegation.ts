@@ -78,6 +78,7 @@ function extractedWrapperTargets(request: string): Array<{ id: string; target: s
 
 export function deriveDelegatedTargetRequest(envelope: ValidatedIntakeEnvelope): DerivedDelegatedTargetRequest | null {
   const intake = envelope.normalized_inputs;
+  if (envelope.source_mode === 'fixture_validation' && intake.target_request === undefined) return null;
   const request = normalize(intake.request);
   const explicitTarget = intake.target_request === undefined ? '' : normalize(intake.target_request);
   const targetInputs = asTargetInputs(intake.target_inputs);
