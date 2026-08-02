@@ -6,6 +6,7 @@ import {
   type GoverningSource,
 } from './runtime-authority-foundation.js';
 import { deriveRiskReviewCompatibility } from './runtime-authority-risk-review-projection.js';
+import { delegationProvenance } from './runtime-authority-delegation.js';
 
 function assuranceProjection(completed: CompletedRuntimeAssessment): AssuranceProjection {
   return {
@@ -72,5 +73,6 @@ export function buildCanonicalDerivedProjection(
     policiesApplied: policyProjection(completed),
     governingSources: sources,
     sourceHashes: { sources },
-  };
+    delegation: delegationProvenance(plan),
+  } as CanonicalDerivedProjection;
 }
