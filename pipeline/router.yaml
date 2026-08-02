@@ -177,18 +177,23 @@ domains:
       - id: repository_review_intent
         weight: 4
         keywords:
+          - repository audit
+          - audit repository
           - repository critique
           - repository analysis
           - source critique
           - بررسی ریپو
           - بررسی مخزن
+          - ممیزی ریپو
+          - ممیزی مخزن
           - ممیزی سورس
           - بررسی سورس
         patterns:
           - 'repository[\s\S]{0,80}audit'
+          - 'audit[\s\S]{0,80}repository'
           - 'source[\s\S]{0,80}audit'
-          - 'بررسی[\s\S]{0,80}ریپو'
-          - 'بررسی[\s\S]{0,80}مخزن'
+          - '(بررسی|ممیزی)[\s\S]{0,80}ریپو'
+          - '(بررسی|ممیزی)[\s\S]{0,80}مخزن'
 
   coding_debugging:
     enabled: true
