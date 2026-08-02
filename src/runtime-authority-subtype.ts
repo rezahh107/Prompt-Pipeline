@@ -90,11 +90,8 @@ export function templatePathForResolvedSubtype(
   const subtypes = subtypeInventory(route);
   const definition = subtypes.find((item) => item.id === subtype);
   if (!definition) throw new Error(`Resolved Subtype does not exist in route: ${domain}.${subtype}`);
-  const template = normalizedId(definition.templates?.primary);
-  if (!template) throw new Error(`Resolved Subtype has no primary template: ${domain}.${subtype}`);
-  const templatePath = join(config.domains_path, domain, 'templates', template);
-  if (!existsSync(templatePath)) throw new Error(`Resolved Subtype template does not exist: ${templatePath}`);
-  return templatePath;
+  const template = normalizedId(definition.templates?.primary) || `${subtype}.j2`;
+  return join(config.domains_path, domain, 'templates', template);
 }
 
 export function resolveCanonicalSubtype(
