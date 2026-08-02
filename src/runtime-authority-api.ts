@@ -9,7 +9,7 @@ import {
   sha256Json,
 } from './runtime-authority-foundation.js';
 import { completeRuntimeAssessmentInternal } from './runtime-authority-execution.js';
-import { verifyArtifactForReviewInternal } from './runtime-authority-verification.js';
+import { verifyRuntimeArtifactForReviewInternal } from './runtime-authority-verification.js';
 
 export * from './runtime-authority.js';
 
@@ -32,7 +32,7 @@ export function reviewArtifact(
   configOverride?: PEaCConfig,
 ): { artifact: RuntimeArtifactEnvelope; outputPath: string } {
   const config = configOverride ?? loadConfig();
-  const verified = verifyArtifactForReviewInternal(path, config);
+  const verified = verifyRuntimeArtifactForReviewInternal(path, config);
   const envelope = verified.artifactEnvelope;
   const preReview = verified.completedAssessment;
   if (verified.verificationResult.verification_status !== 'verified') throw new Error('Artifact verification did not produce a verified canonical completion.');
