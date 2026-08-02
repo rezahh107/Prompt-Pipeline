@@ -123,6 +123,7 @@ export function resolveAndValidateContract(
   if (contract.additional_properties === false) for (const key of Object.keys(resolved)) if (!known.has(key) && key !== 'domain' && key !== 'subtype') errors.push(`${key}: additional property is not allowed`);
   for (const field of [...required, ...optional, ...inferred]) if (resolved[field.name] !== undefined) errors.push(...validateField(field, resolved[field.name]));
   for (const combination of contract.fields?.forbidden_combinations ?? []) {
+    if (combination.severity === 'warning') continue;
     if (combination.fields.length > 0 && combination.fields.every((field) => active(resolved[field]))) errors.push(`forbidden combination: ${combination.fields.join(' + ')}${combination.reason ? ` — ${combination.reason}` : ''}`);
   }
   return { resolved, defaulted: defaulted.sort(), errors };

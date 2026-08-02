@@ -3,6 +3,8 @@ process.env.EXPECTED_TESTED_SHA ??= process.env.TESTED_SHA;
 
 for (const source of [
   './peac-canonical-planning-closure-test.ts',
+  './peac-route-schema-test.ts',
+  './peac-canonical-test-eval-parity-test.ts',
   './peac-runtime-authority-self-test.ts',
   './peac-runtime-authority-evidence-lock-test.ts',
   './peac-runtime-authority-v25-test.ts',

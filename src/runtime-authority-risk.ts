@@ -114,7 +114,24 @@ export function resolveBenignOperation(surface: CanonicalRiskSurface): BenignRes
 export function buildRoutingDecision(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): RoutingDecision {
   const intake = envelope.normalized_inputs;
   const request = String(intake.request ?? '');
-  const hint = typeof intake.domain_hint === 'string' ? intake.domain_hint : null;
+  const hint = typeof intake.domain_hint === 'string' ? intake.domain_hint.trim() : null;
+  if (envelope.source_mode === 'fixture_validation') {
+    if (!hint) throw new Error('Non-authoritative fixture must declare a Domain.');
+    const routePath = join(config.domains_path, hint, 'route.yaml');
+    if (!existsSync(routePath)) throw new Error(`Non-authoritative fixture declares an unknown Domain: ${hint}`);
+    const fixtureSubtype = typeof intake.fixture_subtype === 'string' && intake.fixture_subtype.trim() ? intake.fixture_subtype.trim() : null;
+    return {
+      domain: hint,
+      subtype: fixtureSubtype,
+      method: 'fixture_declared_non_authoritative',
+      candidates: [{ domain: hint, confidence: 1 }],
+      confidence: 1,
+      fallback_used: false,
+      hint,
+      hint_conflict: false,
+      evidence: [`fixture_declared_domain:${hint}`, fixtureSubtype ? `fixture_declared_subtype:${fixtureSubtype}` : 'fixture_subtype_unset'],
+    };
+  }
   const routed = routeRequestForTest(request, config);
   const strongDerived = routed.domain !== 'general' && !routed.method.includes('fallback');
   const hintConflict = Boolean(hint && strongDerived && hint !== routed.domain);
@@ -137,7 +154,7 @@ export function buildRoutingDecision(envelope: ValidatedIntakeEnvelope, config: 
   }
   return {
     domain,
-    subtype: typeof intake.fixture_subtype === 'string' ? intake.fixture_subtype : domain === routed.domain ? routed.subtype : null,
+    subtype: domain === routed.domain ? routed.subtype : null,
     method,
     candidates: routed.evidence?.competing_candidates?.map((candidate) => ({ domain: candidate.domain, confidence: candidate.confidence })) ?? [],
     confidence,
