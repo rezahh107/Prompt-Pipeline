@@ -81,4 +81,8 @@ export {
   verifyArtifact,
   type SafeEnvelopeParseResult,
   type VerifiedRuntimeCompletionInternal,
+} from './runtime-authority-verification-facts.js';
+export {
+  safeParseRuntimeEnvelope,
+  verifyRuntimeArtifact,
 } from './runtime-authority-verification.js';
