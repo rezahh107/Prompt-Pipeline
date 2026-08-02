@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "peac-runtime-artifact-envelope-v2",
+  "title": "PEaC Delegated Runtime Artifact Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "artifact_sha256", "artifact", "authorization", "envelope_sha256"],
+  "definitions": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "path", "sha256"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["domain", "subtype", "method", "candidates", "confidence", "fallback_used", "hint", "hint_conflict", "evidence"],
+      "properties": {
+        "domain": { "type": "string", "minLength": 1 },
+        "subtype": { "type": ["string", "null"] },
+        "method": { "type": "string", "minLength": 1 },
+        "candidates": { "type": "array", "items": { "type": "object" } },
+        "confidence": { "type": "number" },
+        "fallback_used": { "type": "boolean" },
+        "hint": { "type": ["string", "null"] },
+        "hint_conflict": { "type": "boolean" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["rule_id", "source_path", "source_sha256", "applicable", "trigger_evidence", "carrier", "enforcement_kind", "execution_result", "diagnostics"],
+      "properties": {
+        "rule_id": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "applicable": { "type": "boolean" },
+        "trigger_evidence": { "type": "array", "items": { "type": "string" } },
+        "carrier": { "type": "string" },
+        "enforcement_kind": { "type": "string" },
+        "execution_result": { "enum": ["applied", "not_applicable", "failed"] },
+        "diagnostics": { "type": "array", "items": { "type": "string" } },
+        "constraint_text": { "type": "string" }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "source_path", "source_sha256", "resolved_inputs", "defaulted_inputs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "resolved_inputs": { "type": "object" },
+        "defaulted_inputs": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["classification", "factors", "applied_rules", "benign_resolution", "risk_surface", "unknowns", "review_required", "decision", "signals"],
+      "properties": {
+        "classification": { "enum": ["low", "medium", "high", "unknown", "clarification_required"] },
+        "factors": { "type": "array" },
+        "applied_rules": { "type": "array" },
+        "benign_resolution": { "type": "object" },
+        "risk_surface": { "type": "object" },
+        "unknowns": { "type": "array", "items": { "type": "string" } },
+        "review_required": { "type": "boolean" },
+        "decision": { "type": "string" },
+        "signals": { "type": "array" }
+      }
+    },
+    "validatorIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_id", "source_path", "source_sha256"],
+      "properties": {
+        "check_id": { "type": "string", "pattern": "^target:[^:]+:.+" },
+        "source_path": { "type": "string", "minLength": 1 },
+        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "requiredCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_id"],
+      "properties": { "check_id": { "type": "string", "minLength": 1 } }
+    },
+    "delegatedTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_request", "derivation_method", "routing", "subtype", "contract", "rules", "risk", "validators", "template", "governing_sources", "required_checks"],
+      "properties": {
+        "target_request": { "type": "string", "minLength": 1 },
+        "derivation_method": { "enum": ["explicit_target_request", "registered_wrapper"] },
+        "routing": { "$ref": "#/definitions/routing" },
+        "subtype": { "type": "string", "minLength": 1 },
+        "contract": { "$ref": "#/definitions/contract" },
+        "rules": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applicable", "applied"],
+          "properties": {
+            "applicable": { "type": "array", "items": { "$ref": "#/definitions/constraint" } },
+            "applied": { "type": "array", "items": { "$ref": "#/definitions/constraint" } }
+          }
+        },
+        "risk": { "$ref": "#/definitions/risk" },
+        "validators": { "type": "array", "items": { "$ref": "#/definitions/validatorIdentity" } },
+        "template": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        },
+        "governing_sources": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/source" } },
+        "required_checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/requiredCheck" } }
+      }
+    },
+    "generationPlanV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_id", "plan_version", "intake", "routing", "risk", "contract", "policies", "rules", "context", "evaluation", "delegated_target", "required_checks", "publication"],
+      "properties": {
+        "plan_id": { "const": "peac.validated-generation-plan" },
+        "plan_version": { "const": "generation-plan.v3" },
+        "intake": { "type": "object" },
+        "routing": { "$ref": "#/definitions/routing" },
+        "risk": { "$ref": "#/definitions/risk" },
+        "contract": { "$ref": "#/definitions/contract" },
+        "policies": { "type": "object" },
+        "rules": { "type": "object" },
+        "context": { "type": "object" },
+        "evaluation": { "type": "object" },
+        "delegated_target": { "$ref": "#/definitions/delegatedTarget" },
+        "required_checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/requiredCheck" } },
+        "publication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["intended_authority_state"],
+          "properties": {
+            "intended_authority_state": { "enum": ["authorized", "review_pending", "rejected", "non_authoritative_fixture"] }
+          }
+        }
+      }
+    },
+    "delegationProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outer", "target"],
+      "properties": {
+        "outer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["domain", "subtype", "contract"],
+          "properties": {
+            "domain": { "const": "prompt_generation" },
+            "subtype": { "const": "delegated_domain_prompt" },
+            "contract": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version", "source_path", "source_sha256"],
+              "properties": {
+                "id": { "type": "string" },
+                "version": { "type": "string" },
+                "source_path": { "type": "string" },
+                "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
+            }
+          }
+        },
+        "target": { "$ref": "#/definitions/delegatedTarget" }
+      }
+    }
+  },
+  "properties": {
+    "schema_id": { "const": "peac.runtime-artifact-envelope" },
+    "schema_version": { "const": "runtime-artifact-envelope.v2" },
+    "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["prompt_id", "execution_mode", "generated_at", "rendered_prompt", "canonical_base", "canonical_prompt_identity", "canonical_intake", "derived_projection", "delegation_provenance", "domain", "subtype", "generation_plan", "validation_ledger", "governing_sources", "hashes", "runtime"],
+      "properties": {
+        "prompt_id": { "type": "string", "minLength": 1 },
+        "execution_mode": { "enum": ["interactive", "batch", "ci", "agent"] },
+        "generated_at": { "type": "string" },
+        "rendered_prompt": { "type": "string", "minLength": 1 },
+        "canonical_base": { "type": "object" },
+        "canonical_prompt_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["promptId", "domain", "subtype", "templatePath", "templateVersion"],
+          "properties": {
+            "promptId": { "type": "string" },
+            "domain": { "const": "prompt_generation" },
+            "subtype": { "const": "delegated_domain_prompt" },
+            "templatePath": { "type": "string", "minLength": 1 },
+            "templateVersion": { "type": "string" }
+          }
+        },
+        "canonical_intake": { "type": "object" },
+        "derived_projection": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["generationPlan", "validationLedger", "routing", "risk", "domain", "subtype", "provenance", "governingSources", "delegation"],
+          "properties": {
+            "generationPlan": { "$ref": "#/definitions/generationPlanV3" },
+            "validationLedger": { "type": "array", "minItems": 1 },
+            "routing": { "$ref": "#/definitions/routing" },
+            "risk": { "$ref": "#/definitions/risk" },
+            "domain": { "const": "prompt_generation" },
+            "subtype": { "const": "delegated_domain_prompt" },
+            "provenance": { "type": "object" },
+            "governingSources": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/source" } },
+            "delegation": { "$ref": "#/definitions/delegationProvenance" }
+          }
+        },
+        "delegation_provenance": { "$ref": "#/definitions/delegationProvenance" },
+        "domain": { "const": "prompt_generation" },
+        "subtype": { "const": "delegated_domain_prompt" },
+        "generation_plan": { "$ref": "#/definitions/generationPlanV3" },
+        "validation_ledger": { "type": "object" },
+        "governing_sources": { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/source" } },
+        "hashes": { "type": "object" },
+        "runtime": { "type": "object" }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_state", "downstream_use_allowed", "review_required", "review_receipt", "diagnostics"],
+      "properties": {
+        "authority_state": { "enum": ["authorized", "review_pending", "rejected", "non_authoritative_fixture"] },
+        "downstream_use_allowed": { "type": "boolean" },
+        "review_required": { "type": "boolean" },
+        "review_receipt": { "type": ["object", "null"] },
+        "diagnostics": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "envelope_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
