@@ -18,7 +18,6 @@ import {
   parseDataFile,
   sha256Json,
   sha256Text,
-  walkFiles,
 } from './runtime-authority-foundation.js';
 import { compileRuntimePlan } from './runtime-authority-payload-policy.js';
 import {
@@ -28,6 +27,7 @@ import {
   renderThroughStagedLegacy,
 } from './runtime-authority-execution.js';
 import { buildCanonicalDerivedProjection } from './runtime-authority-artifact.js';
+import { delegatedRenderProjection, delegatedTargetFromPlan, delegationProvenance } from './runtime-authority-delegation.js';
 
 export interface PersistedCanonicalIntake {
   schema_id: 'peac.validated-intake';
@@ -237,27 +237,10 @@ export function isRecord(value: unknown): value is Dict {
 
 export function canonicalExpectedSourcePaths(
   plan: RuntimePlanAssessment,
-  identity: CanonicalPromptIdentity,
-  config: PEaCConfig,
+  _identity: CanonicalPromptIdentity,
+  _config: PEaCConfig,
 ): string[] {
-  const paths = new Set<string>([
-    'peac.config.yaml',
-    join(config.pipeline_path, 'intake.schema.json'),
-    join(config.pipeline_path, 'artifact.schema.json'),
-    join(config.pipeline_path, 'runtime-artifact.schema.json'),
-    join(config.pipeline_path, 'quality-gates.yaml'),
-    join(config.pipeline_path, 'context-policy.yaml'),
-    join(config.pipeline_path, 'model-profiles.yaml'),
-    plan.contract.source_path,
-    join(config.domains_path, plan.routing.domain, 'route.yaml'),
-    join(config.domains_path, plan.routing.domain, 'rules.yaml'),
-    join(config.domains_path, plan.routing.domain, 'validators.yaml'),
-    identity.templatePath ?? '',
-    ...plan.policies.applied.map((record) => record.source_path),
-    ...plan.rules.applied.map((record) => record.source_path),
-    ...walkFiles('evals').filter((path) => /\.ya?ml$/.test(path)),
-  ].filter(Boolean));
-  return [...paths].sort();
+  return [...new Set(plan.governingSources.map((source) => source.path))].sort();
 }
 
 function rawIntakeFromRequestArgument(value: string): unknown {
@@ -266,18 +249,22 @@ function rawIntakeFromRequestArgument(value: string): unknown {
 }
 
 function assertLegacyRenderIdentity(
+  plan: RuntimePlanAssessment,
   identity: CanonicalPromptIdentity,
   legacyArtifact: Dict,
 ): void {
+  const delegated = delegatedRenderProjection(plan);
+  const expectedDomain = delegated?.domain ?? identity.domain;
+  const expectedSubtype = delegated?.subtype ?? identity.subtype;
   const observedDomain = String(legacyArtifact.domain ?? '');
   const observedSubtype = legacyArtifact.subtype === null ? null : String(legacyArtifact.subtype ?? '');
   const provenance = isRecord(legacyArtifact.provenance) ? legacyArtifact.provenance : {};
   const observedTemplate = typeof provenance.template_used === 'string' ? provenance.template_used : null;
-  if (observedDomain !== identity.domain) {
-    throw new Error(`Legacy renderer changed canonical Domain: expected ${identity.domain}, got ${observedDomain || '<missing>'}.`);
+  if (observedDomain !== expectedDomain) {
+    throw new Error(`Legacy renderer changed canonical render Domain: expected ${expectedDomain}, got ${observedDomain || '<missing>'}.`);
   }
-  if (observedSubtype !== identity.subtype) {
-    throw new Error(`Legacy renderer changed canonical Subtype: expected ${String(identity.subtype)}, got ${String(observedSubtype)}.`);
+  if (observedSubtype !== expectedSubtype) {
+    throw new Error(`Legacy renderer changed canonical render Subtype: expected ${String(expectedSubtype)}, got ${String(observedSubtype)}.`);
   }
   if (!identity.templatePath || !observedTemplate || resolve(identity.templatePath) !== resolve(observedTemplate)) {
     throw new Error(`Legacy renderer changed canonical template identity: expected ${String(identity.templatePath)}, got ${String(observedTemplate)}.`);
@@ -292,9 +279,10 @@ export function generateArtifact(
   assertValidatedEnvelope(envelope);
   const config = configOverride ?? loadConfig();
   const plan = compileRuntimePlan(envelope, config);
+  const delegated = delegatedTargetFromPlan(plan);
   const canonicalIdentity = deriveCanonicalPromptIdentity(plan);
   const legacyArtifact = renderThroughStagedLegacy(plan, mode, config);
-  assertLegacyRenderIdentity(canonicalIdentity, legacyArtifact);
+  assertLegacyRenderIdentity(plan, canonicalIdentity, legacyArtifact);
   const renderedPrompt = enforceConstraints(String(legacyArtifact.rendered_prompt ?? ''), plan);
   const checkout = currentCheckoutIdentity();
   const completed = completeRuntimeAssessmentInternal({
@@ -319,6 +307,7 @@ export function generateArtifact(
     canonical_prompt_identity: canonicalIdentity,
     canonical_intake: canonicalBase.canonicalIntake,
     derived_projection: derived,
+    delegation_provenance: delegationProvenance(plan),
     ...compatibility,
     runtime: {
       node_version: String(observedRuntime.node_version ?? process.version),
@@ -338,9 +327,10 @@ export function generateArtifact(
     integrity: { artifact_valid: true, envelope_valid: true, governing_sources_valid: true },
     config,
   });
-  const partial: Omit<RuntimeArtifactEnvelope, 'envelope_sha256'> = {
+  const schemaVersion = delegated ? 'runtime-artifact-envelope.v2' : 'runtime-artifact-envelope.v1';
+  const partial = {
     schema_id: 'peac.runtime-artifact-envelope',
-    schema_version: 'runtime-artifact-envelope.v1',
+    schema_version: schemaVersion,
     artifact_sha256: artifactSha,
     artifact: artifactPayload,
     authorization: {
@@ -351,7 +341,7 @@ export function generateArtifact(
       diagnostics: finalCompleted.authorityDecision.diagnostics,
     },
   };
-  const artifact: RuntimeArtifactEnvelope = { ...partial, envelope_sha256: sha256Json(partial) };
+  const artifact = { ...partial, envelope_sha256: sha256Json(partial) } as unknown as RuntimeArtifactEnvelope;
   const outputPath = join(
     publicationDirectory(config, finalCompleted.authorityDecision.authority_state),
     `${canonicalIdentity.promptId.replaceAll('.', '-')}-${artifact.artifact_sha256.slice(0, 16)}.yaml`,
