@@ -8,7 +8,6 @@ import {
   compileRuntimePlan,
   createValidatedIntakeEnvelope,
   type RuntimePlanAssessment,
-  type SourceMode,
 } from '../src/runtime-authority-api.js';
 
 class IntakeValidationError extends Error {
@@ -124,7 +123,10 @@ function writeYaml(path: string, data: unknown): void {
   writeFileSync(path, yaml.dump(data, { lineWidth: 120, noRefs: true }));
 }
 
-export function planCanonicalIntake(raw: unknown, sourceMode: SourceMode = 'api_request'): RuntimePlanAssessment {
+export function planCanonicalIntake(
+  raw: unknown,
+  sourceMode: 'interactive_request' | 'api_request' = 'api_request',
+): RuntimePlanAssessment {
   return compileRuntimePlan(createValidatedIntakeEnvelope(raw, sourceMode));
 }
 
