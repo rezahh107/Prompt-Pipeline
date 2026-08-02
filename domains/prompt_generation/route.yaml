@@ -2,6 +2,12 @@ domain: prompt_generation
 version: "2026.3"
 
 subtypes:
+  - id: delegated_domain_prompt
+    description: "Generate a prompt using a canonically resolved specialized target Domain plan."
+    triggers:
+      - "delegated_target_available == true"
+    templates:
+      primary: master-prompt.j2
   - id: master_prompt
     description: "Generate a production-grade reusable prompt from a user request."
     is_default: true
