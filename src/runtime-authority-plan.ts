@@ -21,6 +21,28 @@ import {
   walkFiles,
 } from './runtime-authority-foundation.js';
 import { buildRoutingDecision, deriveRisk, seedDomainInputs } from './runtime-authority-risk.js';
+import { resolveCanonicalSubtype, templatePathForResolvedSubtype } from './runtime-authority-subtype.js';
+
+const RESERVED_DOMAIN_INPUT_FIELDS = new Set([
+  'authority_state',
+  'contract',
+  'contract_id',
+  'contract_identity',
+  'domain',
+  'governing_sources',
+  'publication',
+  'requires_human_review',
+  'review_required',
+  'review_state',
+  'risk',
+  'risk_level',
+  'rules',
+  'subtype',
+  'template',
+  'template_identity',
+  'template_path',
+  'validators',
+]);
 
 function typeMatches(value: unknown, expected: string): boolean {
   if (expected === 'array') return Array.isArray(value);
@@ -53,21 +75,43 @@ export function active(value: unknown): boolean {
   return Boolean(value);
 }
 
-export function resolveAndValidateContract(contract: DomainContract, provided: Dict): { resolved: Dict; defaulted: string[]; errors: string[] } {
+interface ContractValidationOptions {
+  evaluate_conditional_requirements?: boolean;
+}
+
+export function resolveAndValidateContract(
+  contract: DomainContract,
+  provided: Dict,
+  options: ContractValidationOptions = {},
+): { resolved: Dict; defaulted: string[]; errors: string[] } {
   const resolved: Dict = { ...provided };
   const defaulted: string[] = [];
   const errors: string[] = [];
   const required = contract.fields?.required ?? [];
   const optional = contract.fields?.optional ?? [];
   const inferred = contract.fields?.inferred ?? [];
-  for (const field of [...optional, ...inferred]) {
+  for (const field of optional) {
     if (resolved[field.name] === undefined && Object.prototype.hasOwnProperty.call(field, 'default')) {
       resolved[field.name] = structuredClone(field.default);
       defaulted.push(field.name);
     }
   }
+  for (const field of inferred) {
+    if (resolved[field.name] !== undefined) continue;
+    const logic = (field as ContractField & { logic?: string }).logic;
+    if (logic) {
+      try {
+        resolved[field.name] = evaluateConditionForTest(logic, resolved);
+      } catch (error) {
+        errors.push(`${field.name}: inference evaluation failed: ${(error as Error).message}`);
+      }
+    } else if (Object.prototype.hasOwnProperty.call(field, 'default')) {
+      resolved[field.name] = structuredClone(field.default);
+      defaulted.push(field.name);
+    }
+  }
   for (const field of required) if (resolved[field.name] === undefined || resolved[field.name] === null || resolved[field.name] === '') errors.push(`${field.name}: required`);
-  for (const field of optional) {
+  if (options.evaluate_conditional_requirements !== false) for (const field of optional) {
     if (!field.required_if) continue;
     try {
       if (evaluateConditionForTest(field.required_if, resolved) && (resolved[field.name] === undefined || resolved[field.name] === null || resolved[field.name] === '')) errors.push(`${field.name}: required by condition ${field.required_if}`);
@@ -166,14 +210,10 @@ function expectedCheckDefinitions(plan: Omit<GenerationPlan, 'required_checks'>,
   return ids.map((check_id) => ({ check_id }));
 }
 
-function templatePathForPlan(plan: Pick<GenerationPlan, 'routing'>, config: PEaCConfig): string | null {
-  const routePath = join(config.domains_path, plan.routing.domain, 'route.yaml');
-  if (!existsSync(routePath)) return null;
-  const route = readYamlFile<{ subtypes?: Array<{ id?: string; templates?: { primary?: string } }> }>(routePath) ?? {};
-  const subtype = plan.routing.subtype ?? route.subtypes?.[0]?.id ?? 'default';
-  const template = route.subtypes?.find((item) => item.id === subtype)?.templates?.primary ?? route.subtypes?.[0]?.templates?.primary;
-  if (!template) return null;
-  return join(config.domains_path, plan.routing.domain, 'templates', template);
+function templatePathForPlan(plan: Pick<GenerationPlan, 'routing'>, config: PEaCConfig): string {
+  const subtype = plan.routing.subtype;
+  if (!subtype) throw new Error(`Canonical plan has no resolved Subtype for ${plan.routing.domain}.`);
+  return templatePathForResolvedSubtype(config, plan.routing.domain, subtype);
 }
 
 function sourceRecord(path: string): GoverningSource {
@@ -194,11 +234,29 @@ export function governingSources(plan: Pick<GenerationPlan, 'routing' | 'contrac
     join(config.domains_path, plan.routing.domain, 'route.yaml'),
     join(config.domains_path, plan.routing.domain, 'rules.yaml'),
     join(config.domains_path, plan.routing.domain, 'validators.yaml'),
-    templatePath ?? '',
+    templatePath,
     ...plan.policies.applied.map((record) => record.source_path),
     ...walkFiles('evals').filter((path) => /\.ya?ml$/.test(path)),
   ].filter((path) => path && existsSync(path)));
   return [...paths].sort().map(sourceRecord);
+}
+
+function callerDomainInputs(envelope: ValidatedIntakeEnvelope, contract: DomainContract): Dict {
+  if (envelope.source_mode === 'fixture_validation') return {};
+  const raw = envelope.normalized_inputs.domain_inputs;
+  if (raw === undefined) return {};
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('domain_inputs must be an object.');
+  const inputs = raw as Dict;
+  const known = new Set([
+    ...(contract.fields?.required ?? []),
+    ...(contract.fields?.optional ?? []),
+    ...(contract.fields?.inferred ?? []),
+  ].map((field) => field.name));
+  for (const key of Object.keys(inputs)) {
+    if (RESERVED_DOMAIN_INPUT_FIELDS.has(key)) throw new Error(`domain_inputs cannot override reserved authority field: ${key}`);
+    if (!known.has(key)) throw new Error(`Unknown domain_inputs field for selected Domain contract: ${key}`);
+  }
+  return structuredClone(inputs);
 }
 
 function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): Omit<GenerationPlan, 'required_checks'> {
@@ -207,11 +265,22 @@ function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): O
   const contractPath = join(config.domains_path, routing.domain, 'input.contract.yaml');
   if (!existsSync(contractPath)) throw new Error(`Missing domain contract: ${contractPath}`);
   const contractDefinition = readYamlFile<DomainContract>(contractPath) ?? {};
-  const provided = seedDomainInputs(envelope, routing.domain);
-  provided.domain = routing.domain;
-  const validation = resolveAndValidateContract(contractDefinition, provided);
-  if (validation.errors.length > 0) throw new Error(`Domain contract validation failed: ${validation.errors.join('; ')}`);
+  const provided = {
+    ...seedDomainInputs(envelope, routing.domain),
+    ...callerDomainInputs(envelope, contractDefinition),
+    domain: routing.domain,
+  };
+  const preliminary = resolveAndValidateContract(contractDefinition, provided, { evaluate_conditional_requirements: false });
+  if (preliminary.errors.length > 0) throw new Error(`Domain contract validation failed before Subtype resolution: ${preliminary.errors.join('; ')}`);
+  const subtype = resolveCanonicalSubtype(config, routing.domain, preliminary.resolved, routing.subtype);
+  routing.subtype = subtype.subtype;
+  preliminary.resolved.domain = routing.domain;
+  preliminary.resolved.subtype = subtype.subtype;
+  const validation = resolveAndValidateContract(contractDefinition, preliminary.resolved);
+  if (validation.errors.length > 0) throw new Error(`Domain contract validation failed after Subtype resolution: ${validation.errors.join('; ')}`);
   validation.resolved.domain = routing.domain;
+  validation.resolved.subtype = subtype.subtype;
+  const defaultedInputs = [...new Set([...preliminary.defaulted, ...validation.defaulted])].sort();
   const risk = deriveRisk(envelope, routing, config, validation.resolved);
   const policies = compilePolicyConstraints(config, validation.resolved);
   const rules = compileDomainRules(config, routing.domain);
@@ -234,7 +303,7 @@ function buildPlanCore(envelope: ValidatedIntakeEnvelope, config: PEaCConfig): O
       source_path: contractPath,
       source_sha256: sha256File(contractPath),
       resolved_inputs: validation.resolved,
-      defaulted_inputs: validation.defaulted,
+      defaulted_inputs: defaultedInputs,
     },
     policies: { applicable: policies.filter((record) => record.applicable), applied: policies.filter((record) => record.execution_result === 'applied') },
     rules: { applicable: rules.filter((record) => record.applicable), applied: rules.filter((record) => record.execution_result === 'applied') },

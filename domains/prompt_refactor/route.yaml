@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: default
     description: Improve and standardize an existing prompt.
+    is_default: true
     templates:
       primary: refactor.j2
 

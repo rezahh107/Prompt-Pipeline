@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: image_prompt_design
     description: "Design a safe, preservation-aware multimodal/image prompt."
+    is_default: true
     templates:
       primary: image-prompt-design.j2
 

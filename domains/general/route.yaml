@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: default
     description: General-purpose prompt generation.
+    is_default: true
     templates:
       primary: general.j2
 

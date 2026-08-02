@@ -5,20 +5,22 @@ subtypes:
   - id: identity_preserving_edit
     description: Edit a source photo while preserving people.
     triggers:
-      - "subject_count > 0 && has_source_photo == true"
+      - "image_qa_requested != true && subject_count > 0 && has_source_photo == true"
     templates:
       primary: stage1-image-model.j2
       overlay: overlay-stage.j2
 
   - id: image_qa
     description: Review a generated or edited image against identity, document, safe-area, overlay, and publication-readiness criteria.
+    triggers:
+      - "image_qa_requested == true"
     templates:
       primary: image-qa.j2
 
   - id: image_generation
     description: Create an image from scratch.
     triggers:
-      - "has_source_photo == false"
+      - "image_qa_requested != true && has_source_photo == false"
     templates:
       primary: stage1-image-model.j2
 

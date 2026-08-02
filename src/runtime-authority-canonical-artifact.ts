@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { basename, dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import yaml from 'js-yaml';
 import type { Dict, ExecutionMode, PEaCConfig } from './peac.js';
 import { loadConfig } from './peac.js';
@@ -265,6 +265,25 @@ function rawIntakeFromRequestArgument(value: string): unknown {
   return { request: value, desired_output: 'copy-ready prompt', target_environment: 'unspecified', strictness: 'precise' };
 }
 
+function assertLegacyRenderIdentity(
+  identity: CanonicalPromptIdentity,
+  legacyArtifact: Dict,
+): void {
+  const observedDomain = String(legacyArtifact.domain ?? '');
+  const observedSubtype = legacyArtifact.subtype === null ? null : String(legacyArtifact.subtype ?? '');
+  const provenance = isRecord(legacyArtifact.provenance) ? legacyArtifact.provenance : {};
+  const observedTemplate = typeof provenance.template_used === 'string' ? provenance.template_used : null;
+  if (observedDomain !== identity.domain) {
+    throw new Error(`Legacy renderer changed canonical Domain: expected ${identity.domain}, got ${observedDomain || '<missing>'}.`);
+  }
+  if (observedSubtype !== identity.subtype) {
+    throw new Error(`Legacy renderer changed canonical Subtype: expected ${String(identity.subtype)}, got ${String(observedSubtype)}.`);
+  }
+  if (!identity.templatePath || !observedTemplate || resolve(identity.templatePath) !== resolve(observedTemplate)) {
+    throw new Error(`Legacy renderer changed canonical template identity: expected ${String(identity.templatePath)}, got ${String(observedTemplate)}.`);
+  }
+}
+
 export function generateArtifact(
   envelope: ValidatedIntakeEnvelope,
   mode: ExecutionMode = 'batch',
@@ -273,7 +292,9 @@ export function generateArtifact(
   assertValidatedEnvelope(envelope);
   const config = configOverride ?? loadConfig();
   const plan = compileRuntimePlan(envelope, config);
+  const canonicalIdentity = deriveCanonicalPromptIdentity(plan);
   const legacyArtifact = renderThroughStagedLegacy(plan, mode, config);
+  assertLegacyRenderIdentity(canonicalIdentity, legacyArtifact);
   const renderedPrompt = enforceConstraints(String(legacyArtifact.rendered_prompt ?? ''), plan);
   const checkout = currentCheckoutIdentity();
   const completed = completeRuntimeAssessmentInternal({
@@ -288,7 +309,6 @@ export function generateArtifact(
   const derived = buildCanonicalDerivedProjection(completed);
   const compatibility = projectLegacyArtifactFields(derived);
   const canonicalBase = buildCanonicalArtifactBase(envelope, mode);
-  const canonicalIdentity = deriveCanonicalPromptIdentity(plan);
   const identityProjection = identityCompatibilityProjection(canonicalBase, canonicalIdentity);
   const observedRuntime = isRecord(legacyArtifact.runtime) ? legacyArtifact.runtime : {};
   const artifactPayload: Dict = {

@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: master_prompt
     description: "Generate a production-grade reusable prompt from a user request."
+    is_default: true
     templates:
       primary: master-prompt.j2
 
