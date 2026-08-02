@@ -1,0 +1,251 @@
+schema_version: historical-demand-regression.v1
+cases:
+  - id: D-01-DELEGATED-REPOSITORY-AUDIT
+    category: positive
+    operation: artifact
+    request: "Create a prompt for repository audit."
+    inputs:
+      target_inputs:
+        review_subject: rezahh107/Prompt-Pipeline
+        review_scope: repository
+        objective: Produce an evidence-based repository audit prompt.
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: repo_review
+      target_subtype: repository_audit
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: repo_review/templates/repository-audit.j2
+      verification_status: verified
+
+  - id: D-02-DIRECT-REPOSITORY-AUDIT
+    category: boundary
+    operation: artifact
+    request: "Audit this repository."
+    inputs:
+      domain_inputs:
+        review_subject: rezahh107/Prompt-Pipeline
+        review_scope: repository
+        objective: Audit the repository directly.
+    expected:
+      outer_domain: repo_review
+      outer_subtype: repository_audit
+      no_target: true
+      plan_version: generation-plan.v2
+      artifact_schema: runtime-artifact-envelope.v1
+      template_suffix: repo_review/templates/repository-audit.j2
+      verification_status: verified
+
+  - id: D-03-DELEGATED-PR-CRITIQUE
+    category: positive
+    operation: artifact
+    request: "Create a prompt for repository critique of a pull request."
+    inputs:
+      target_inputs:
+        review_subject: https://github.com/rezahh107/Prompt-Pipeline/pull/36
+        review_scope: pull_request
+        objective: Critique the pull request with evidence and staged findings.
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: repo_review
+      target_subtype: pr_critique
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: repo_review/templates/pr-critique.j2
+      verification_status: verified
+
+  - id: D-04-DELEGATED-CODE-REVIEW
+    category: positive
+    operation: artifact
+    request: "Create a prompt to review code."
+    inputs:
+      target_inputs:
+        task_kind: code_review
+        objective: Review a TypeScript patch for correctness, safety, maintainability, and tests.
+        stack: TypeScript and Node.js
+        review_artifact: src/runtime-authority-plan.ts
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: coding_debugging
+      target_subtype: code_review
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: coding_debugging/templates/code-review.j2
+      verification_status: verified
+
+  - id: D-05-DIRECT-CODE-REVIEW
+    category: boundary
+    operation: artifact
+    request: "Review code directly."
+    inputs:
+      domain_inputs:
+        task_kind: code_review
+        objective: Review a TypeScript patch directly.
+        stack: TypeScript and Node.js
+        review_artifact: src/runtime-authority-plan.ts
+    expected:
+      outer_domain: coding_debugging
+      outer_subtype: code_review
+      no_target: true
+      plan_version: generation-plan.v2
+      artifact_schema: runtime-artifact-envelope.v1
+      template_suffix: coding_debugging/templates/code-review.j2
+      verification_status: verified
+
+  - id: D-06-DELEGATED-DEBUGGING
+    category: positive
+    operation: artifact
+    request: "Create a prompt for debugging code."
+    inputs:
+      target_inputs:
+        task_kind: debugging
+        objective: Diagnose a failing TypeScript runtime test without guessing.
+        stack: TypeScript, Node.js, and GitHub Actions
+        error_message: AssertionError in the canonical Runtime test.
+        expected_behavior: The canonical test suite completes successfully.
+        actual_behavior: One Runtime assertion fails during CI.
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: coding_debugging
+      target_subtype: debugging
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: coding_debugging/templates/debugging.j2
+      verification_status: verified
+
+  - id: D-07-DELEGATED-DOCUMENT-REVIEW
+    category: positive
+    operation: artifact
+    request: "Create a prompt for document review."
+    inputs:
+      target_inputs:
+        documents_description: Architecture report and implementation handoff.
+        review_objective: Determine consistency, evidence gaps, and required corrections.
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: document_review
+      target_subtype: research_grounded_review
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: document_review/templates/research-grounded-review.j2
+      verification_status: verified
+
+  - id: D-08-DELEGATED-IMAGE-PROMPT
+    category: positive
+    operation: artifact
+    request: "Create a prompt for an image."
+    inputs:
+      target_inputs:
+        image_type: landscape
+        subject_count: 0
+        has_source_photo: false
+        style_description: Minimal editorial landscape illustration.
+        aspect_ratio: "16:9"
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: image
+      target_subtype: image_generation
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      template_suffix: image/templates/stage1-image-model.j2
+      verification_status: verified
+
+  - id: D-09-GENERIC-LOW-RISK-PROMPT
+    category: boundary
+    operation: artifact
+    request: "Create a prompt for a friendly greeting."
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: master_prompt
+      no_target: true
+      plan_version: generation-plan.v2
+      artifact_schema: runtime-artifact-envelope.v1
+      risk: low
+      template_suffix: prompt_generation/templates/master-prompt.j2
+      verification_status: verified
+
+  - id: D-10-REFACTOR-EXISTING-REPOSITORY-AUDIT-PROMPT
+    category: boundary
+    operation: artifact
+    request: "Improve this existing prompt."
+    inputs:
+      domain_inputs:
+        original_prompt: "Audit this repository and report evidence-backed findings without fabricating results."
+        desired_style: precise, structured, reusable repository-audit prompt
+    expected:
+      outer_domain: prompt_refactor
+      outer_subtype: default
+      no_target: true
+      plan_version: generation-plan.v2
+      artifact_schema: runtime-artifact-envelope.v1
+      template_suffix: prompt_refactor/templates/refactor.j2
+      verification_status: verified
+
+  - id: D-11-UNRESOLVED-TARGET
+    category: negative
+    operation: compile_error
+    request: "Create a prompt for something entirely unspecified."
+    expected:
+      error_contains: did not resolve to a specialized target Domain
+
+  - id: D-12-MISSING-TARGET-CONTRACT-INPUTS
+    category: negative
+    operation: compile_error
+    request: "Create a prompt for repository audit."
+    expected:
+      error_contains: Delegated target contract validation failed
+
+  - id: D-13-RECURSIVE-TARGET-ROUTE
+    category: negative
+    operation: compile_error
+    request: "Create a prompt for create a prompt for repository audit."
+    inputs:
+      target_inputs:
+        review_subject: rezahh107/Prompt-Pipeline
+        review_scope: repository
+        objective: This recursive request must fail before target planning.
+    expected:
+      error_contains: cannot recursively request another prompt-generation route
+
+  - id: D-14-HIGH-RISK-DELEGATED-TARGET
+    category: boundary
+    operation: artifact
+    request: "Create a prompt for repository audit."
+    inputs:
+      target_inputs:
+        review_subject: rezahh107/Prompt-Pipeline
+        review_scope: repository
+        objective: Audit the repository and identify remote-state risks.
+        irreversible_actions: true
+        include_patch_guidance: false
+        external_files: true
+    expected:
+      outer_domain: prompt_generation
+      outer_subtype: delegated_domain_prompt
+      target_domain: repo_review
+      target_subtype: repository_audit
+      plan_version: generation-plan.v3
+      artifact_schema: runtime-artifact-envelope.v2
+      risk: high
+      review_required: true
+      authority_state: review_pending
+      template_suffix: repo_review/templates/repository-audit.j2
+      verification_status: verified
+
+  - id: D-15-TARGET-TEMPLATE-PROVENANCE-MUTATION
+    category: negative
+    operation: template_mutation
+    request: "Create a prompt for repository audit."
+    inputs:
+      target_inputs:
+        review_subject: rezahh107/Prompt-Pipeline
+        review_scope: repository
+        objective: Produce a mutation-resistant repository audit prompt.
+    expected:
+      verification_status: rejected
