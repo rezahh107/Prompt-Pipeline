@@ -299,6 +299,7 @@ export function generateArtifact(
   const canonicalBase = buildCanonicalArtifactBase(envelope, mode);
   const identityProjection = identityCompatibilityProjection(canonicalBase, canonicalIdentity);
   const observedRuntime = isRecord(legacyArtifact.runtime) ? legacyArtifact.runtime : {};
+  const delegation = delegationProvenance(plan);
   const artifactPayload: Dict = {
     ...identityProjection,
     generated_at: new Date().toISOString(),
@@ -307,7 +308,7 @@ export function generateArtifact(
     canonical_prompt_identity: canonicalIdentity,
     canonical_intake: canonicalBase.canonicalIntake,
     derived_projection: derived,
-    delegation_provenance: delegationProvenance(plan),
+    ...(delegation ? { delegation_provenance: delegation } : {}),
     ...compatibility,
     runtime: {
       node_version: String(observedRuntime.node_version ?? process.version),
