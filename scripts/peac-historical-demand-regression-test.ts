@@ -53,6 +53,15 @@ function normalizePath(value: unknown): string {
   return String(value ?? '').replaceAll('\\', '/');
 }
 
+function riskRank(value: unknown): number {
+  const risk = String(value);
+  if (risk === 'clarification_required' || risk === 'unknown') return 5;
+  if (risk === 'high') return 4;
+  if (risk === 'medium') return 3;
+  if (risk === 'low') return 1;
+  return 0;
+}
+
 function test(id: string, operation: () => void): void {
   try {
     operation();
@@ -148,11 +157,21 @@ function assertPlan(fixture: Dict, plan: ReturnType<typeof compileFixture>): voi
   if (expected.target_domain === undefined && expected.target_subtype === undefined) return;
   expect(target, 'delegated fixture did not create a DelegatedTargetPlan');
   const targetRouting = record(target.routing);
+  const targetRisk = record(target.risk);
   if (expected.target_domain !== undefined) {
     expect(targetRouting.domain === expected.target_domain, `expected target Domain ${String(expected.target_domain)}, got ${String(targetRouting.domain)}`);
   }
   if (expected.target_subtype !== undefined) {
     expect(target.subtype === expected.target_subtype, `expected target Subtype ${String(expected.target_subtype)}, got ${String(target.subtype)}`);
+  }
+  if (expected.target_risk !== undefined) {
+    expect(targetRisk.classification === expected.target_risk, `expected target risk ${String(expected.target_risk)}, got ${String(targetRisk.classification)}`);
+  }
+  if (expected.risk_at_least_target === true) {
+    expect(
+      riskRank(plan.risk.classification) >= riskRank(targetRisk.classification),
+      `final risk ${plan.risk.classification} is lower than target risk ${String(targetRisk.classification)}`,
+    );
   }
   for (const forbidden of ['artifact', 'authority_state', 'publication', 'review_receipt', 'review_state']) {
     expect(!Object.prototype.hasOwnProperty.call(target, forbidden), `DelegatedTargetPlan contains forbidden field ${forbidden}`);
