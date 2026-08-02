@@ -8,7 +8,7 @@ import {
   compileRuntimePlan,
   createValidatedIntakeEnvelope,
   generateArtifact,
-  verifyArtifact,
+  verifyRuntimeArtifact,
   sha256Json,
 } from '../src/runtime-authority-api.js';
 import { delegatedTargetFromPlan } from '../src/runtime-authority-delegation.js';
@@ -83,7 +83,7 @@ test('C-DIRECT-REPOSITORY-AUDIT-REMAINS-DIRECT', () => {
   expect((generated.artifact as unknown as Dict).schema_version === 'runtime-artifact-envelope.v1', 'direct request did not retain Runtime Artifact v1');
   const payload = generated.artifact.artifact as unknown as Dict;
   expect(!Object.prototype.hasOwnProperty.call(payload, 'delegation_provenance'), 'direct v1 artifact gained delegation provenance');
-  expect(verifyArtifact(generated.outputPath, config).verification_status === 'verified', 'direct v1 artifact is no longer verifiable');
+  expect(verifyRuntimeArtifact(generated.outputPath, config).verification_status === 'verified', 'direct v1 artifact is no longer verifiable');
 });
 
 test('C-DELEGATED-REPOSITORY-AUDIT-PLAN', () => {
@@ -141,7 +141,7 @@ test('C-DELEGATED-ARTIFACT-AND-VALIDATORS', () => {
   }
   const riskCheck = ledger.find((item) => item.check_id === 'target:repo_review:risk_known');
   expect(riskCheck?.passed === true && riskCheck.blocking === true, 'target risk-known gate did not pass');
-  expect(verifyArtifact(generated.outputPath, config).verification_status === 'verified', 'delegated Runtime Artifact v2 did not verify');
+  expect(verifyRuntimeArtifact(generated.outputPath, config).verification_status === 'verified', 'delegated Runtime Artifact v2 did not verify');
 });
 
 test('C-EXPLICIT-TARGET-REQUEST-WHEN-WRAPPER-UNAVAILABLE', () => {
@@ -213,7 +213,7 @@ test('C-TEMPLATE-PROVENANCE-MUTATION-REJECTED', () => {
   const { envelope_sha256: _old, ...withoutEnvelopeDigest } = tampered;
   tampered.envelope_sha256 = sha256Json(withoutEnvelopeDigest);
   writeFileSync(tamperedPath, yaml.dump(tampered, { lineWidth: 120, noRefs: true }));
-  const verified = verifyArtifact(tamperedPath, config);
+  const verified = verifyRuntimeArtifact(tamperedPath, config);
   expect(verified.verification_status === 'rejected', 'target template provenance mutation was not rejected');
   rmSync(tamperedPath, { force: true });
 });
