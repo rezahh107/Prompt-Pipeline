@@ -6,6 +6,7 @@ for (const source of [
   './peac-route-schema-test.ts',
   './peac-canonical-test-eval-parity-test.ts',
   './peac-delegated-domain-prompt-test.ts',
+  './peac-historical-demand-regression-test.ts',
   './peac-runtime-authority-self-test.ts',
   './peac-runtime-authority-evidence-lock-test.ts',
   './peac-runtime-authority-v25-test.ts',
