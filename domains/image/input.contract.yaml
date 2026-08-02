@@ -17,6 +17,9 @@ fields:
       ask_if_missing: "Is there a source photo to edit?"
 
   optional:
+    - name: image_qa_requested
+      type: boolean
+      default: false
     - name: style_description
       type: string
       default: "Persian academic award portrait"

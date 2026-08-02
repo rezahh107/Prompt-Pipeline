@@ -9,6 +9,7 @@ rules:
     source_ref: kb/10-multimodal-image-prompting.md#multimodal.text_logo_caveat
     source_hash: 579eff8a5653f481
     last_synced: "2026-07-03"
+    rule: "Exact text, logos, typography, identity preservation, and layout parity in image generation or editing are model-dependent and must be treated as reliability risks, not guaranteed outcomes."
   - id: MM-002
     peac_rule_id: image.identity.preservation
     title: "Identity preservation source must be explicit"
@@ -16,6 +17,7 @@ rules:
     source_ref: kb/04-templates/image.md#image.identity.preservation
     source_hash: 3bdc1b77ee1d5bb3
     last_synced: "2026-07-03"
+    rule: "For identity-preserving image edits, preserve all visible people from the source photo: count, faces, identity, apparent age, skin tone, hairstyle, clothing, posture, body proportions, hands, and natural relative positions."
   - id: MM-003
     peac_rule_id: image.overlay.exact_text
     title: "Overlay-safe workflow required when exact typography or marks matter"
@@ -23,3 +25,4 @@ rules:
     source_ref: kb/04-templates/image.md#image.overlay.exact_text
     source_hash: 943b0ec351cdd164
     last_synced: "2026-07-03"
+    rule: "Exact Persian text, specific fonts, official logos, QR codes, rankings, grades, and formal identifiers should be handled with deterministic overlay when fidelity matters. The image model should create the visual base, not exact text or official brand marks."

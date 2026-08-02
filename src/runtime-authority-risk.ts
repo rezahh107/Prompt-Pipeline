@@ -116,7 +116,7 @@ export function buildRoutingDecision(envelope: ValidatedIntakeEnvelope, config: 
   const request = String(intake.request ?? '');
   const hint = typeof intake.domain_hint === 'string' ? intake.domain_hint : null;
   const routed = routeRequestForTest(request, config);
-  const strongDerived = routed.domain !== 'general' && routed.confidence >= 0.8;
+  const strongDerived = routed.domain !== 'general' && !routed.method.includes('fallback');
   const hintConflict = Boolean(hint && strongDerived && hint !== routed.domain);
   let domain = routed.domain;
   let method = routed.method;
@@ -299,7 +299,6 @@ function baseInputs(intake: Dict): Dict {
     target_output_language: intake.target_output_language,
     target_model: intake.target_environment,
     available_sources: intake.available_sources,
-    constraints: intake.constraints,
     success_criteria: intake.success_criteria,
     failure_modes: intake.failure_modes,
     eval_suite: intake.eval_suite,
@@ -354,6 +353,10 @@ export function seedDomainInputs(envelope: ValidatedIntakeEnvelope, domain: stri
     multimodal_task: intake.request,
     asset_types: Array.isArray(intake.available_sources) && intake.available_sources.length > 0 ? intake.available_sources.join(', ') : 'unspecified',
     desired_output: intake.desired_output,
+  };
+  if (domain === 'coding_debugging') return {
+    ...common,
+    constraints: Array.isArray(intake.constraints) && intake.constraints.length > 0 ? intake.constraints.join('\n') : undefined,
   };
   return { ...common, task: intake.request, output_format: intake.desired_output };
 }

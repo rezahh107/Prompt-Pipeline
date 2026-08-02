@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: research_grounded_review
     description: "Review one or more documents against evidence, best practices, and conceptual coherence."
+    is_default: true
     templates:
       primary: research-grounded-review.j2
 

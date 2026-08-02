@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: workflow_architecture
     description: "Design an AI-assisted workflow with intake, state, guards, and evaluation."
+    is_default: true
     templates:
       primary: workflow-architecture.j2
 

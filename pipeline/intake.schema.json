@@ -76,6 +76,11 @@
     "model_interaction_mode": { "type": "string" },
     "potential_downstream_execution": { "type": "boolean" },
     "domain_hint": { "type": ["string", "null"], "enum": ["prompt_generation", "prompt_audit", "prompt_refactor", "document_review", "repo_review", "coding_debugging", "image", "multimodal", "ai_workflow_design", "general", null] },
+    "domain_inputs": {
+      "type": "object",
+      "default": {},
+      "description": "Caller-supplied data for the selected Domain contract. Canonical Runtime rejects unknown fields and reserved authority fields."
+    },
     "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
     "success_criteria": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
     "failure_modes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },

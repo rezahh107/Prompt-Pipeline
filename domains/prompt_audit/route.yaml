@@ -4,6 +4,7 @@ version: "2026.3"
 subtypes:
   - id: default
     description: Audit an existing prompt.
+    is_default: true
     templates:
       primary: audit.j2
 
