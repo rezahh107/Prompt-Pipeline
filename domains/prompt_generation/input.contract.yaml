@@ -1,4 +1,4 @@
-contract_version: "1.0"
+contract_version: "1.1"
 domain: prompt_generation
 version: "2026.3"
 
@@ -63,6 +63,9 @@ fields:
     - name: user_constraints
       type: string
       default: "No extra constraints provided."
+    - name: delegated_target_available
+      type: boolean
+      default: false
 
   inferred:
     - name: risk_level

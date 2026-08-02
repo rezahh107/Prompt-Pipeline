@@ -1,3 +1,4 @@
+import type { Dict } from './peac.js';
 import {
   type AssuranceProjection,
   type CanonicalDerivedProjection,
@@ -6,6 +7,7 @@ import {
   type GoverningSource,
 } from './runtime-authority-foundation.js';
 import { deriveRiskReviewCompatibility } from './runtime-authority-risk-review-projection.js';
+import { delegationProvenance } from './runtime-authority-delegation.js';
 
 function assuranceProjection(completed: CompletedRuntimeAssessment): AssuranceProjection {
   return {
@@ -30,6 +32,13 @@ function templateSource(sources: readonly GoverningSource[]): string | null {
   return sources.find((item) => /[\\/]templates[\\/]/.test(item.path))?.path ?? null;
 }
 
+function projectedGenerationPlan(completed: CompletedRuntimeAssessment): CompletedRuntimeAssessment['plan']['generationPlan'] {
+  const generationPlan = structuredClone(completed.plan.generationPlan) as CompletedRuntimeAssessment['plan']['generationPlan'];
+  const record = generationPlan as unknown as Dict;
+  if (record.plan_version === 'generation-plan.v2' && record.delegated_target === null) delete record.delegated_target;
+  return generationPlan;
+}
+
 /**
  * Pure compatibility projection only.
  *
@@ -40,11 +49,11 @@ export function buildCanonicalDerivedProjection(
   completed: CompletedRuntimeAssessment,
 ): CanonicalDerivedProjection {
   const plan = completed.plan;
-  const generationPlan = plan.generationPlan;
+  const generationPlan = projectedGenerationPlan(completed);
   const normalized = generationPlan.intake.normalized_inputs;
   const sources = [...plan.governingSources].sort((a, b) => a.path.localeCompare(b.path));
   const riskReview = deriveRiskReviewCompatibility(plan.risk);
-  return {
+  const base = {
     generationPlan,
     validationLedger: completed.validationLedger,
     compatibilityValidation: completed.compatibilityValidation,
@@ -73,4 +82,6 @@ export function buildCanonicalDerivedProjection(
     governingSources: sources,
     sourceHashes: { sources },
   };
+  const delegation = delegationProvenance(plan);
+  return (delegation ? { ...base, delegation } : base) as CanonicalDerivedProjection;
 }

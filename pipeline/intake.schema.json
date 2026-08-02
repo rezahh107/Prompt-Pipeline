@@ -81,6 +81,16 @@
       "default": {},
       "description": "Caller-supplied data for the selected Domain contract. Canonical Runtime rejects unknown fields and reserved authority fields."
     },
+    "target_request": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional delegated target task. It is consumed only when canonical routing selects prompt_generation; target Domain and Subtype remain Runtime-derived."
+    },
+    "target_inputs": {
+      "type": "object",
+      "default": {},
+      "description": "Caller-supplied target Domain data for delegated prompt generation. Reserved authority, risk, review, template, contract, rule, and validator identities are rejected by the Runtime."
+    },
     "constraints": { "type": "array", "items": { "type": "string" }, "default": [] },
     "success_criteria": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
     "failure_modes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },

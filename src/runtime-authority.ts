@@ -69,8 +69,20 @@ export {
   type IdentityCompatibilityProjection,
 } from './runtime-authority-canonical-artifact.js';
 export {
+  deriveDelegatedTargetRequest,
+  delegatedRenderProjection,
+  delegatedTargetFromPlan,
+  delegationProvenance,
+  type DerivedDelegatedTargetRequest,
+  type DelegatedRenderProjection,
+} from './runtime-authority-delegation.js';
+export {
   safeParseEnvelope,
   verifyArtifact,
   type SafeEnvelopeParseResult,
-  type VerificationFacts,
+  type VerifiedRuntimeCompletionInternal,
 } from './runtime-authority-verification-facts.js';
+export {
+  safeParseRuntimeEnvelope,
+  verifyRuntimeArtifact,
+} from './runtime-authority-verification.js';
